@@ -1,30 +1,30 @@
-import type { Movement, UUID } from '../../shared/types.ts';
-import type { CacotasDB } from './index.ts';
+import type { Movement, UUID } from '../../shared/types.ts'
+import type { CacotasDB } from './index.ts'
 
 /** Stock per size = sum of deltas. */
 export const stockBySize = async (
   database: CacotasDB,
-  babyId: UUID,
+  babyId: UUID
 ): Promise<Map<number, number>> => {
-  const movs = await database.movements.where('babyId').equals(babyId).toArray();
-  const out = new Map<number, number>();
+  const movs = await database.movements.where('babyId').equals(babyId).toArray()
+  const out = new Map<number, number>()
   for (const m of movs) {
-    out.set(m.sizeId, (out.get(m.sizeId) ?? 0) + m.delta);
+    out.set(m.sizeId, (out.get(m.sizeId) ?? 0) + m.delta)
   }
-  return out;
-};
+  return out
+}
 
 /** Current size = sizeId of the last SIZE_CHANGE by occurredAt. null if none. */
 export const currentSize = async (
   database: CacotasDB,
-  babyId: UUID,
+  babyId: UUID
 ): Promise<number | null> => {
   const changes = await database.movements
     .where('[babyId+type]')
     .equals([babyId, 'SIZE_CHANGE'])
-    .sortBy('occurredAt');
-  return changes.at(-1)?.sizeId ?? null;
-};
+    .sortBy('occurredAt')
+  return changes.at(-1)?.sizeId ?? null
+}
 
 /**
  * Live (non-undone) usage movements since a given instant.
@@ -34,14 +34,14 @@ export const currentSize = async (
 export const liveUsage = async (
   database: CacotasDB,
   babyId: UUID,
-  from: number,
+  from: number
 ): Promise<Movement[]> => {
-  const all = await database.movements.where('babyId').equals(babyId).toArray();
+  const all = await database.movements.where('babyId').equals(babyId).toArray()
   const undone = new Set(
-    all.filter((m) => m.type === 'UNDO').map((m) => m.undoesMovementId ?? ''),
-  );
+    all.filter((m) => m.type === 'UNDO').map((m) => m.undoesMovementId ?? '')
+  )
   return all.filter(
     (m) =>
-      m.type === 'USAGE' && m.occurredAt >= from && !undone.has(m.id),
-  );
+      m.type === 'USAGE' && m.occurredAt >= from && !undone.has(m.id)
+  )
 }

@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import { createMovement } from '../../shared/factory.ts';
-import type { Movement, UUID } from '../../shared/types.ts';
-import { db } from '../db/index.ts';
-import { uuid } from '../lib/uuid.ts';
-import { getDeviceId } from '../sync/device-id.ts';
+import { useEffect, useRef, useState } from 'react'
+import { createMovement } from '../../shared/factory.ts'
+import type { Movement, UUID } from '../../shared/types.ts'
+import { db } from '../db/index.ts'
+import { uuid } from '../lib/uuid.ts'
+import { getDeviceId } from '../sync/device-id.ts'
 
-const UNDO_WINDOW_MS = 5_000;
+const UNDO_WINDOW_MS = 5_000
 
 interface UseRecordMovementResult {
   /** Registers one OWN_STOCK diaper of the given size. */
@@ -17,20 +17,20 @@ interface UseRecordMovementResult {
 }
 
 export const useRecordMovement = (
-  babyId: UUID,
+  babyId: UUID
 ): UseRecordMovementResult => {
-  const [lastUsage, setLastUsage] = useState<Movement | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [lastUsage, setLastUsage] = useState<Movement | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(
     () => () => {
-      if (timer.current) clearTimeout(timer.current);
+      if (timer.current) clearTimeout(timer.current)
     },
-    [],
-  );
+    []
+  )
 
   const recordDiaper = async (sizeId: number): Promise<void> => {
-    const now = Date.now();
+    const now = Date.now()
     const movement = createMovement(
       {
         id: uuid(),
@@ -40,21 +40,21 @@ export const useRecordMovement = (
         occurredAt: now,
         recordedAt: now,
       },
-      { type: 'USAGE', usageSource: 'OWN_STOCK', quantity: 1 },
-    );
-    await db.movements.add(movement);
+      { type: 'USAGE', usageSource: 'OWN_STOCK', quantity: 1 }
+    )
+    await db.movements.add(movement)
 
-    setLastUsage(movement);
-    if (timer.current) clearTimeout(timer.current);
+    setLastUsage(movement)
+    if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
-      setLastUsage(null);
-    }, UNDO_WINDOW_MS);
-  };
+      setLastUsage(null)
+    }, UNDO_WINDOW_MS)
+  }
 
   const undoLast = async (): Promise<void> => {
-    if (!lastUsage) return;
-    if (timer.current) clearTimeout(timer.current);
-    const now = Date.now();
+    if (!lastUsage) return
+    if (timer.current) clearTimeout(timer.current)
+    const now = Date.now()
     const undo = createMovement(
       {
         id: uuid(),
@@ -64,11 +64,11 @@ export const useRecordMovement = (
         occurredAt: now,
         recordedAt: now,
       },
-      { type: 'UNDO', original: lastUsage },
-    );
-    await db.movements.add(undo);
-    setLastUsage(null);
-  };
+      { type: 'UNDO', original: lastUsage }
+    )
+    await db.movements.add(undo)
+    setLastUsage(null)
+  }
 
-  return { recordDiaper, undoLast, lastUsage };
-};
+  return { recordDiaper, undoLast, lastUsage }
+}

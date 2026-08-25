@@ -3,7 +3,7 @@ import type {
   Movement,
   UUID,
   WeightRecord,
-} from '../../shared/types.ts';
+} from '../../shared/types.ts'
 
 /** Contract of SPEC.md §9.1. Implemented by HttpSyncBackend (phase 3)
  *  and FakeSyncBackend (tests). */

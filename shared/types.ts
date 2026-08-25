@@ -1,4 +1,4 @@
-export type UUID = string;
+export type UUID = string
 
 export type MovementType =
   | 'INITIAL'
@@ -6,9 +6,9 @@ export type MovementType =
   | 'USAGE'
   | 'ADJUSTMENT'
   | 'UNDO'
-  | 'SIZE_CHANGE';
+  | 'SIZE_CHANGE'
 
-export type UsageSource = 'OWN_STOCK' | 'EXTERNAL';
+export type UsageSource = 'OWN_STOCK' | 'EXTERNAL'
 
 export interface Movement {
   id: UUID;

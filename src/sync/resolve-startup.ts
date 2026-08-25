@@ -1,7 +1,7 @@
-import type { Baby, Movement } from '../../shared/types.ts';
-import type { SyncBackend } from './backend.ts';
+import type { Baby, Movement } from '../../shared/types.ts'
+import type { SyncBackend } from './backend.ts'
 
-export type StartupRoute = 'HOME' | 'ONBOARDING' | 'JOIN_RETRY';
+export type StartupRoute = 'HOME' | 'ONBOARDING' | 'JOIN_RETRY'
 
 export interface StartupDecision {
   route: StartupRoute;
@@ -23,10 +23,10 @@ export interface StartupDecision {
  */
 export const resolveStartup = async (
   localBaby: Baby | null,
-  backend: SyncBackend | null,
+  backend: SyncBackend | null
 ): Promise<StartupDecision> => {
-  if (localBaby) return { route: 'HOME' };
-  if (!backend) return { route: 'ONBOARDING' };
+  if (localBaby) return { route: 'HOME' }
+  if (!backend) return { route: 'ONBOARDING' }
 
   try {
     const res = await backend.sync({
@@ -34,16 +34,16 @@ export const resolveStartup = async (
       since: 0,
       movements: [],
       weights: [],
-    });
+    })
     if (res.baby) {
       return {
         route: 'HOME',
         remote: { baby: res.baby, movements: res.movements },
-      };
+      }
     }
-    return { route: 'ONBOARDING' };
+    return { route: 'ONBOARDING' }
   } catch {
     // Network failure on first device pairing: user chooses retry or start fresh.
-    return { route: 'JOIN_RETRY' };
+    return { route: 'JOIN_RETRY' }
   }
 }
