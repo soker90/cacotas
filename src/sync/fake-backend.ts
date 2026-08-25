@@ -14,7 +14,7 @@ export class FakeSyncBackend implements SyncBackend {
   private nextSeq = 1;
 
   /** Simulate another device having written directly into the server. */
-  pushRemote(movement: Omit<Movement, 'serverSeq'>): void {
+  pushRemote(movement: Movement): void {
     this.movements.set(movement.id, { ...movement, serverSeq: this.nextSeq++ });
   }
 

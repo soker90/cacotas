@@ -109,7 +109,8 @@ export function createMovement(
         fail('UNDO sizeId does not match original');
       undoesMovementId = input.original.id;
       quantity = input.original.quantity;
-      delta = -input.original.delta;
+      // Normalize -0 to 0 so storage and comparisons stay clean
+      delta = input.original.delta === 0 ? 0 : -input.original.delta;
       break;
     }
 
