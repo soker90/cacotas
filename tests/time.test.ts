@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { daysBetween, logicalDate } from '../shared/time.ts';
 
 /** Epoch ms for a wall-clock time in Europe/Madrid. */
-function madridTime(date: string, time: string): number {
+const madridTime = (date: string, time: string): number => {
   // Build the ISO string with offset by formatting trick: parse as if UTC then
   // correct. Simpler: use Intl-safe approach — construct via known offsets.
   const naive = Date.parse(`${date}T${time}:00Z`);
@@ -11,7 +11,7 @@ function madridTime(date: string, time: string): number {
 }
 
 /** Offset of Europe/Madrid at a given instant (+1h or +2h). */
-function tzOffsetMs(epochMs: number): number {
+const tzOffsetMs = (epochMs: number): number => {
   const dtf = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Europe/Madrid',
     hour12: false,

@@ -30,23 +30,23 @@ export type MovementInput =
   | { type: 'UNDO'; original: Movement }
   | { type: 'SIZE_CHANGE' };
 
-function fail(rule: string): never {
+const fail = (rule: string): never => {
   throw new Error(`Invalid movement (${rule})`);
-}
+};
 
-function assertCommon(common: CommonFields): void {
+const assertCommon = (common: CommonFields): void => {
   if (!common.id) fail('id required');
   if (!common.babyId) fail('babyId required');
   if (!SIZES.includes(common.sizeId)) fail('sizeId out of range [0,6]');
   if (!common.deviceId) fail('deviceId required');
   if (common.occurredAt > common.recordedAt + CLOCK_TOLERANCE_MS)
     fail('occurredAt in the future beyond tolerance');
-}
+};
 
-export function createMovement(
+export const createMovement = (
   common: CommonFields,
   input: MovementInput,
-): Movement {
+): Movement => {
   assertCommon(common);
 
   const { note, ...rest } = common;

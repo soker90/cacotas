@@ -17,7 +17,7 @@ void seedSizes(db);
  *  here and nothing else changes (§9.7). */
 const backend = null;
 
-export function App() {
+export const App = () => {
   // undefined = still loading; null = no baby yet
   const localBaby = useLiveQuery(
     async (): Promise<Baby | null> => (await db.babies.toArray()).at(0) ?? null,
@@ -33,7 +33,7 @@ export function App() {
 }
 
 /** Startup flow of §9.7 when there is no local Baby. */
-function FirstLaunch() {
+const FirstLaunch = () => {
   const [decision, setDecision] = useState<StartupDecision | null>(null);
 
   useEffect(() => {

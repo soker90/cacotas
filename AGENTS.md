@@ -64,6 +64,7 @@ nada peta, los datos simplemente quedan mal.
 ## Convenciones
 
 - **Código, identificadores y comentarios en inglés.** Textos de la interfaz en español.
+- **Arrow functions siempre que sea posible**: `const f = () => {}` en vez de `function` declarations. Las clases Dexie y los métodos de objeto son la única excepción natural.
 - Fechas: `Instant` como epoch ms en almacenamiento; `'YYYY-MM-DD'` para días lógicos.
 - Nada de `any`. Si un tipo se resiste, dilo.
 - Commits pequeños, uno por tarea del issue.

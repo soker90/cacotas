@@ -10,7 +10,7 @@ const uid = () => `id-${(n++).toString().padStart(4, '0')}`;
 
 const BABY = 'baby-1';
 
-function makeDb(): CacotasDB {
+const makeDb = (): CacotasDB => {
   return new CacotasDB(`test-${uid()}`);
 }
 
@@ -23,7 +23,7 @@ interface MovOptions {
   original?: Movement;
 }
 
-function mov(opts: MovOptions): Movement {
+const mov = (opts: MovOptions): Movement => {
   return createMovement(
     {
       id: uid(),

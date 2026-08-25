@@ -7,7 +7,7 @@ import { getDeviceId } from '../sync/device-id.ts';
 import { uuid } from '../lib/uuid.ts';
 
 /** Three steps, no more (§10): name → current size → initial stock. */
-export function Onboarding() {
+export const Onboarding = () => {
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [sizeId, setSizeId] = useState<number | null>(null);
@@ -19,7 +19,7 @@ export function Onboarding() {
     (step === 1 && sizeId !== null) ||
     step === 2;
 
-  async function finish(): Promise<void> {
+  const finish = async (): Promise<void> => {
     const stock = Number.parseInt(stockText, 10);
     if (!Number.isInteger(stock) || stock < 0) {
       setError('El stock inicial debe ser un número entero mayor o igual a 0');

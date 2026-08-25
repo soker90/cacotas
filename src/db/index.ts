@@ -27,7 +27,7 @@ export class CacotasDB extends Dexie {
 }
 
 /** Seed sizes 0-6 on first creation (weight ranges optional and editable). */
-export async function seedSizes(database: CacotasDB): Promise<void> {
+export const seedSizes = async (database: CacotasDB): Promise<void> => {
   const count = await database.sizes.count();
   if (count > 0) return;
   await database.sizes.bulkPut(
@@ -36,10 +36,8 @@ export async function seedSizes(database: CacotasDB): Promise<void> {
       name: `Talla ${id.toString()}`,
     })),
   );
-}
+};
 
-export function createTestDB(name: string): CacotasDB {
-  return new CacotasDB(name);
-}
+export const createTestDB = (name: string): CacotasDB => new CacotasDB(name);
 
 export const db = new CacotasDB();

@@ -21,10 +21,10 @@ export interface StartupDecision {
  * in phase 1 there is no secret configured, so `backend` is always null
  * and every launch lands on ONBOARDING.
  */
-export async function resolveStartup(
+export const resolveStartup = async (
   localBaby: Baby | null,
   backend: SyncBackend | null,
-): Promise<StartupDecision> {
+): Promise<StartupDecision> => {
   if (localBaby) return { route: 'HOME' };
   if (!backend) return { route: 'ONBOARDING' };
 

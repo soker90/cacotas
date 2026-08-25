@@ -13,7 +13,7 @@ const localBaby: Baby = {
   serverSeq: 0,
 };
 
-function remoteBaby(): Baby {
+const remoteBaby = (): Baby => {
   return { ...localBaby, id: 'baby-remote' };
 }
 

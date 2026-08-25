@@ -9,7 +9,7 @@ import type {
 import { db } from '../db/index.ts';
 
 /** Full JSON export of every table (D-19) — the only safety net. */
-export async function exportJSON(): Promise<void> {
+export const exportJSON = async (): Promise<void> => {
   const backup = {
     version: 1,
     exportedAt: Date.now(),
@@ -46,7 +46,9 @@ const TYPES: readonly MovementType[] = [
 ];
 const SOURCES: readonly UsageSource[] = ['OWN_STOCK', 'EXTERNAL'];
 
-function parseMovement(r: Record<string, unknown>): Movement | null {
+const parseMovement = (
+  r: Record<string, unknown>,
+): Movement | null => {
   if (!TYPES.includes(r.type as MovementType)) return null;
   if (
     r.usageSource !== undefined &&
@@ -73,7 +75,7 @@ function parseMovement(r: Record<string, unknown>): Movement | null {
   };
 }
 
-function parseBaby(r: Record<string, unknown>): Baby {
+const parseBaby = (r: Record<string, unknown>): Baby => {
   return {
     id: isStr(r.id) ? r.id : "",
     name: isStr(r.name) ? r.name : '',
@@ -85,7 +87,7 @@ function parseBaby(r: Record<string, unknown>): Baby {
   };
 }
 
-function parseWeight(r: Record<string, unknown>): WeightRecord {
+const parseWeight = (r: Record<string, unknown>): WeightRecord => {
   return {
     id: isStr(r.id) ? r.id : "",
     babyId: isStr(r.babyId) ? r.babyId : "",
@@ -96,7 +98,7 @@ function parseWeight(r: Record<string, unknown>): WeightRecord {
   };
 }
 
-function parseSize(r: Record<string, unknown>): DiaperSize {
+const parseSize = (r: Record<string, unknown>): DiaperSize => {
   return {
     id: isNum(r.id) ? r.id : -1,
     name: isStr(r.name) ? r.name : '',
@@ -105,10 +107,10 @@ function parseSize(r: Record<string, unknown>): DiaperSize {
   };
 }
 
-function parseRows<T>(
+const parseRows = <T>(
   rows: unknown,
   parse: (r: Record<string, unknown>) => T,
-): T[] | null {
+): T[] | null => {
   if (!Array.isArray(rows)) return null;
   const out: T[] = [];
   for (const row of rows) {
@@ -116,10 +118,10 @@ function parseRows<T>(
     out.push(parse(row));
   }
   return out;
-}
+};
 
 /** Import replaces the whole local database with the file contents. */
-export async function importJSON(file: File): Promise<void> {
+export const importJSON = async (file: File): Promise<void> => {
   const text = await file.text();
   let parsed: unknown;
   try {

@@ -12,7 +12,7 @@ import { getDeviceId } from '../sync/device-id.ts';
 
 const UNDO_WINDOW_MS = 5_000;
 
-export function Home({ baby }: { baby: Baby }) {
+export const Home = ({ baby }: { baby: Baby }) => {
   const sizeId = useLiveQuery(() => currentSize(db, baby.id));
   const stocks = useLiveQuery(() => stockBySize(db, baby.id));
   const [lastUsage, setLastUsage] = useState<Movement | null>(null);
@@ -25,7 +25,7 @@ export function Home({ baby }: { baby: Baby }) {
     [],
   );
 
-  async function recordDiaper(): Promise<void> {
+  const recordDiaper = async (): Promise<void> => {
     if (typeof sizeId !== 'number') return;
     const now = Date.now();
     const movement = createMovement(
@@ -46,7 +46,7 @@ export function Home({ baby }: { baby: Baby }) {
     timer.current = setTimeout(() => { setLastUsage(null); }, UNDO_WINDOW_MS);
   }
 
-  async function undoLast(): Promise<void> {
+  const undoLast = async (): Promise<void> => {
     if (!lastUsage) return;
     if (timer.current) clearTimeout(timer.current);
     const now = Date.now();
@@ -67,7 +67,7 @@ export function Home({ baby }: { baby: Baby }) {
 
   const stock = sizeId !== null && sizeId !== undefined ? (stocks?.get(sizeId) ?? 0) : null;
 
-  async function onImport(e: ChangeEvent<HTMLInputElement>): Promise<void> {
+  const onImport = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
