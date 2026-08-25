@@ -632,7 +632,7 @@ que basta con resetear cursores a 0 y se repuebla sola.
 
 ---
 
-## 9.6 Identidad del dispositivo
+### 9.6 Identidad del dispositivo
 
 `deviceId` es un UUID generado la primera vez que arranca la app y persistido en `localStorage`
 bajo la clave `cacotas.deviceId`. No se pide al usuario y no cambia nunca.
@@ -641,7 +641,7 @@ Si `localStorage` se borra, el dispositivo genera un `deviceId` nuevo. No pasa n
 para trazabilidad y para el debounce del botón físico. Los movimientos ya subidos siguen
 identificados por su propio UUID.
 
-## 9.7 Arranque y unión de dispositivos
+### 9.7 Arranque y unión de dispositivos
 
 **Crítico.** Sin esto, el segundo móvil crea un bebé distinto y acabáis con dos inventarios
 paralelos que nunca se juntan.
@@ -668,7 +668,7 @@ Al terminar el onboarding, sincronizar inmediatamente para publicar el `Baby` re
 mezclarlos**. Mostrar un aviso ("se ha detectado otro bebé en el servidor") y parar. Es señal de
 que alguien completó el onboarding dos veces, y mezclar los datos empeoraría el problema.
 
-## 9.8 Modelo de seguridad
+### 9.8 Modelo de seguridad
 
 **El secreto `X-Auth` viaja en el bundle público y es legible por cualquiera que abra el
 JavaScript.** Los estáticos están en un hosting público, así que no hay forma de ocultarlo.
@@ -682,7 +682,7 @@ Si se quiere más protección: pedir el secreto una sola vez al instalar y guard
 **Sí es obligatorio:** el secreto nunca en git, ni siquiera en un commit revertido. Se inyecta
 como variable de entorno en el build.
 
-## 9.9 Desfase de reloj
+### 9.9 Desfase de reloj
 
 `occurredAt` lo pone el dispositivo, así que un móvil con la hora mal colocará pañales en el día
 lógico equivocado y ensuciará las estadísticas.
@@ -855,7 +855,24 @@ hace la compra grande. Menos preciso, más útil.
 
 ---
 
-## 13. Fase 2 (post-parto, no bloqueante)
+## 13. Observabilidad
+
+| Herramienta | Para qué | Desde |
+|---|---|---|
+| Sentry | Errores del cliente en ambos móviles | Fase 5 |
+| healthchecks.io | Heartbeat del cron de notificaciones | Fase 5 |
+
+**Motivo:** con una PWA instalada en dos dispositivos que no controlas, un fallo en el móvil de
+la otra persona es invisible. No hay consola ni forma de pedir una traza.
+
+Reglas: el DSN de Sentry va por variable de entorno del build; cada evento se etiqueta con
+`deviceId`; **nunca se envían datos del bebé** (nombre, fechas, pesos) en el contexto del error.
+
+El cron hace ping al heartbeat al terminar correctamente. Sin ping en 26 h, aviso por email — un
+cron que deja de ejecutarse en silencio significa quedarse sin pañales sin haber recibido ningún
+aviso.
+
+## 14. Fase 2 (post-parto, no bloqueante)
 
 ### Botón físico
 
@@ -876,7 +893,7 @@ curva descendente del primer año, D-21), **duración real de cada talla** deriv
 
 ---
 
-## 14. Tests
+## 15. Tests
 
 ### Unitarios sobre `/shared` — sin mocks
 
@@ -927,7 +944,7 @@ curva descendente del primer año, D-21), **duración real de cada talla** deriv
 
 ---
 
-## 15. Orden de implementación
+## 16. Orden de implementación
 
 | Fase | Contenido | Salida |
 |---|---|---|
@@ -947,7 +964,7 @@ forecast bonito sobre datos que no cuadran, no.
 
 ---
 
-## 16. Limitaciones conocidas
+## 17. Limitaciones conocidas
 
 Decisiones conscientes, no defectos. Documentadas para que nadie las "arregle" por su cuenta ni
 las descubra por sorpresa.
@@ -961,7 +978,7 @@ las descubra por sorpresa.
 | Sin resolución de conflictos para `Baby` | Editar el nombre a la vez en ambos: gana el último | Last-write-wins sobre `updated_at`. Se edita casi nunca |
 | El forecast no dice nada las 2 primeras semanas | Sin predicción justo al llegar del hospital | Es lo honesto: no hay datos. Mostrar una cifra inventada sería peor (D-21) |
 
-## 17. Fuera de alcance
+## 18. Fuera de alcance
 
 Login · cuentas de usuario · sincronización multi-hogar · iOS · comparación de precios · compra
 integrada · escáner de códigos de barras · IA · reconocimiento de imágenes · integración con
