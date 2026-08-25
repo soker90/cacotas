@@ -1,0 +1,78 @@
+import { useEffect, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import type { Baby } from '../shared/types.ts';
+import { db } from './db/index.ts';
+import { seedSizes } from './db/index.ts';
+import {
+  resolveStartup,
+  type StartupDecision,
+} from './sync/resolve-startup.ts';
+import { Home } from './ui/Home.tsx';
+import { Onboarding } from './ui/Onboarding.tsx';
+
+void seedSizes(db);
+
+/** In phase 1 there is no sync secret configured → backend is always null
+ *  and every launch lands on ONBOARDING. Phase 3 injects HttpSyncBackend
+ *  here and nothing else changes (§9.7). */
+const backend = null;
+
+export function App() {
+  // undefined = still loading; null = no baby yet
+  const localBaby = useLiveQuery(
+    async (): Promise<Baby | null> => (await db.babies.toArray()).at(0) ?? null,
+  );
+
+  if (localBaby === undefined) {
+    return <main className="loading">…</main>;
+  }
+  if (localBaby) {
+    return <Home baby={localBaby} />;
+  }
+  return <FirstLaunch />;
+}
+
+/** Startup flow of §9.7 when there is no local Baby. */
+function FirstLaunch() {
+  const [decision, setDecision] = useState<StartupDecision | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void resolveStartup(null, backend).then((d) => {
+      if (!cancelled) setDecision(d);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Adoption path: a remote baby was found, persist it and go straight to
+  // Home, skipping the onboarding entirely. Unreachable while backend is
+  // null; exercised by unit tests and wired up in phase 3.
+  useEffect(() => {
+    if (decision?.route !== 'HOME' || !decision.remote) return;
+    const { baby, movements } = decision.remote;
+    void db.transaction('rw', db.babies, db.movements, async () => {
+      await db.babies.put(baby);
+      await db.movements.bulkPut(movements);
+    });
+  }, [decision]);
+
+  if (decision === null) {
+    return <main className="loading">…</main>;
+  }
+
+  // Unreachable in phase 1: there is no backend to fail.
+  if (decision.route === 'JOIN_RETRY') {
+    return (
+      <main className="onboarding">
+        <p>No se pudo comprobar si ya hay datos sincronizados.</p>
+        <button type="button" onClick={() => { setDecision(null); }}>
+          Reintentar
+        </button>
+      </main>
+    );
+  }
+
+  return <Onboarding />;
+}

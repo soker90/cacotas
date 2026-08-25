@@ -1,4 +1,3 @@
-import js from '@eslint/js';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
@@ -14,13 +13,14 @@ export default [
 
   {
     files: TS_FILES,
-    rules: js.configs.recommended.rules,
-  },
-
-  {
-    files: TS_FILES,
     plugins: reactHooks.configs.flat['recommended-latest'].plugins,
-    rules: reactHooks.configs.flat['recommended-latest'].rules,
+    rules: {
+      ...reactHooks.configs.flat['recommended-latest'].rules,
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+    },
   },
 
   {
@@ -40,7 +40,6 @@ export default [
       },
     },
     rules: {
-      '@typescript-eslint/no-unsafe-type-assertion': 'error',
       '@typescript-eslint/consistent-type-imports': 'error',
     },
   },

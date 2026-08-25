@@ -1,0 +1,187 @@
+:root {
+  --green: #5b8a72;
+  --green-dark: #47705b;
+  --warn: #c0392b;
+  --text: #1f2d27;
+  --muted: #6b7f75;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  color: var(--text);
+  background: #f4f7f5;
+}
+
+main {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 1rem;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.loading {
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+h1 {
+  color: var(--green-dark);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.error {
+  color: var(--warn);
+}
+
+button {
+  font: inherit;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--green);
+  background: white;
+  color: var(--green-dark);
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--green);
+  color: white;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Onboarding */
+.onboarding section {
+  margin: 1.5rem 0;
+}
+
+.onboarding label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.onboarding input {
+  font: inherit;
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid var(--muted);
+  border-radius: 0.5rem;
+}
+
+.size-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.size-grid .size {
+  padding: 0.9rem 0;
+}
+
+.size-grid .size.selected {
+  background: var(--green);
+  color: white;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+
+/* Home */
+.home-header {
+  display: flex;
+  justify-content: center;
+  font-size: 1.1rem;
+  padding: 0.5rem 0;
+}
+
+.big-button {
+  margin: auto 0;
+  padding: 3.5rem 1rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border-radius: 1rem;
+  background: var(--green);
+  border-color: var(--green-dark);
+  color: white;
+}
+
+.big-button:active {
+  background: var(--green-dark);
+}
+
+.toast {
+  text-align: center;
+  background: #e5efe9;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.toast button {
+  padding: 0.2rem 0.7rem;
+}
+
+.stock {
+  text-align: center;
+  font-size: 1.2rem;
+  margin: 1rem 0;
+}
+
+.stock p {
+  margin: 0.25rem;
+}
+
+.warn {
+  color: var(--warn);
+  margin-left: 0.25rem;
+}
+
+.home-footer {
+  margin-top: auto;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  padding-top: 1rem;
+}
+
+.home-footer button,
+.file-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  border-color: var(--muted);
+}
+
+.file-label {
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--muted);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.file-label input {
+  display: none;
+}
