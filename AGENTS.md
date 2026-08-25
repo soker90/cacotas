@@ -65,6 +65,8 @@ nada peta, los datos simplemente quedan mal.
 
 - **Código, identificadores y comentarios en inglés.** Textos de la interfaz en español.
 - **Arrow functions siempre que sea posible**: `const f = () => {}` en vez de `function` declarations. Las clases Dexie y los métodos de objeto son la única excepción natural.
+- **Versiones exactas**: nunca `^` ni `~` en `package.json`. Fija la versión exacta y commitea siempre el lockfile.
+- **Objeto como parámetro**: cuando una función necesite más de dos parámetros, pásalos como un único objeto con nombres.
 - Fechas: `Instant` como epoch ms en almacenamiento; `'YYYY-MM-DD'` para días lógicos.
 - Nada de `any`. Si un tipo se resiste, dilo.
 - Commits pequeños, uno por tarea del issue.

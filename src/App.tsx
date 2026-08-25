@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import type { Baby } from '../shared/types.ts';
-import { db } from './db/index.ts';
-import { seedSizes } from './db/index.ts';
+import { useBaby } from './hooks';
+import { db, seedSizes } from './db/index.ts';
 import {
   resolveStartup,
   type StartupDecision,
 } from './sync/resolve-startup.ts';
-import { Home } from './ui/Home.tsx';
-import { Onboarding } from './ui/Onboarding.tsx';
+import { Home } from './pages/Home/index.tsx';
+import { Onboarding } from './pages/Onboarding/index.tsx';
 
 void seedSizes(db);
 
@@ -18,10 +16,7 @@ void seedSizes(db);
 const backend = null;
 
 export const App = () => {
-  // undefined = still loading; null = no baby yet
-  const localBaby = useLiveQuery(
-    async (): Promise<Baby | null> => (await db.babies.toArray()).at(0) ?? null,
-  );
+  const localBaby = useBaby();
 
   if (localBaby === undefined) {
     return <main className="loading">…</main>;

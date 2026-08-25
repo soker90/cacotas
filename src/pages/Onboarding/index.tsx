@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { createMovement } from '../../shared/factory.ts';
-import { ZONE } from '../../shared/time.ts';
-import type { Baby } from '../../shared/types.ts';
-import { db } from '../db/index.ts';
-import { getDeviceId } from '../sync/device-id.ts';
-import { uuid } from '../lib/uuid.ts';
+import { createMovement } from '../../../shared/factory.ts';
+import { ZONE } from '../../../shared/time.ts';
+import type { Baby } from '../../../shared/types.ts';
+import { db } from '../../db/index.ts';
+import { getDeviceId } from '../../sync/device-id.ts';
+import { uuid } from '../../lib/uuid.ts';
 
 /** Three steps, no more (§10): name → current size → initial stock. */
 export const Onboarding = () => {
