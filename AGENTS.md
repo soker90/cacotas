@@ -66,6 +66,7 @@ nada peta, los datos simplemente quedan mal.
 - **Código, identificadores y comentarios en inglés.** Textos de la interfaz en español.
 - **Arrow functions siempre que sea posible**: `const f = () => {}` en vez de `function` declarations. Las clases Dexie y los métodos de objeto son la única excepción natural.
 - **Versiones exactas**: nunca `^` ni `~` en `package.json`. Fija la versión exacta y commitea siempre el lockfile.
+- **Node fijado por pnpm**: la serie de Node vive en `devEngines.runtime` del `package.json` (`24.x` = última LTS de la serie 24, que pnpm descarga y gestiona) y en `.nvmrc`. Ejecuta siempre los comandos con `pnpm` para que use la versión gestionada; no confíes en el Node global.
 - **Objeto como parámetro**: cuando una función necesite más de dos parámetros, pásalos como un único objeto con nombres.
 - Fechas: `Instant` como epoch ms en almacenamiento; `'YYYY-MM-DD'` para días lógicos.
 - Nada de `any`. Si un tipo se resiste, dilo.
