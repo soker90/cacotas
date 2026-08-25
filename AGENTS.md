@@ -76,6 +76,11 @@ nada peta, los datos simplemente quedan mal.
 
 ## Cómo reportar
 
+**Mantén los issues al día mientras trabajas**: cada vez que completes y subas una tarea,
+marca su casilla en el issue de la fase (`gh issue edit` con el body actualizado). No esperes
+al final de la fase. El issue es el seguimiento en vivo; `SPEC.md` sigue siendo la fuente de
+verdad.
+
 Al terminar una fase:
 
 1. Qué se ha implementado, contra las casillas del issue
