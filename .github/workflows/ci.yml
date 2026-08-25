@@ -40,7 +40,7 @@ jobs:
       - name: Deploy to Netlify (production, fixed site)
         if: github.ref == 'refs/heads/master' && github.event_name == 'push'
         run: |
-          pnpm dlx netlify-cli@latest deploy \
+          pnpm --package=netlify-cli@latest dlx netlify deploy \
             --dir=dist \
             --prod \
             --site "$NETLIFY_SITE_ID" \
