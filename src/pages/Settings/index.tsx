@@ -143,6 +143,7 @@ export const Settings = () => {
 
       <section className='card'>
         <h2>Notificaciones</h2>
+        {pushSupport === null && <p className='muted small'>Comprobando…</p>}
         {pushSupport === 'unsupported' && (
           <p className='muted small'>
             Este navegador no soporta notificaciones push.
