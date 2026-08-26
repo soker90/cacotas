@@ -35,6 +35,27 @@ export const pushState = async (): Promise<PushSupport> => {
   return existing !== null ? 'subscribed' : 'unsubscribed'
 }
 
+/** Idempotent upsert on the server (§4.5 push_subscriptions PK is device_id). */
+const saveSubscription = async (
+  babyId: UUID,
+  subscription: PushSubscription
+): Promise<void> => {
+  const json = subscription.toJSON()
+  const response = await fetch('/api/push-subscribe', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'X-Auth': import.meta.env.VITE_SYNC_SECRET ?? '',
+    },
+    body: JSON.stringify({
+      babyId,
+      endpoint: subscription.endpoint,
+      keys: json.keys,
+    }),
+  })
+  if (!response.ok) throw new Error('No se pudo guardar la suscripción')
+}
+
 export const subscribeToPush = async (
   babyId: UUID,
   vapidPublicKey: string
@@ -54,17 +75,17 @@ export const subscribeToPush = async (
       applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
     }))
 
-  const json = subscription.toJSON()
-
-  const response = await fetch('/api/push-subscribe', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'X-Auth': import.meta.env.VITE_SYNC_SECRET ?? '',
-    },
-    body: JSON.stringify({ babyId, endpoint: subscription.endpoint, keys: json.keys }),
-  })
-  if (!response.ok) throw new Error('No se pudo guardar la suscripción')
-
+  await saveSubscription(babyId, subscription)
   return 'subscribed'
+}
+
+/**
+ * Self-heals a subscription that exists in the browser but may never have
+ * reached the server (e.g. an earlier attempt failed silently). Cheap and
+ * idempotent — safe to call on every Settings mount.
+ */
+export const resyncSubscription = async (babyId: UUID): Promise<void> => {
+  const reg = await navigator.serviceWorker.getRegistration()
+  const subscription = await reg?.pushManager.getSubscription()
+  if (subscription) await saveSubscription(babyId, subscription)
 }

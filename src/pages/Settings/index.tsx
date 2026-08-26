@@ -12,6 +12,7 @@ import {
 } from '../../lib/settings.ts'
 import {
   pushState,
+  resyncSubscription,
   subscribeToPush,
   type PushSupport,
 } from '../../lib/push-subscription.ts'
@@ -30,8 +31,19 @@ export const Settings = () => {
   const [pushSupport, setPushSupport] = useState<PushSupport | null>(null)
 
   useEffect(() => {
-    void pushState().then(setPushSupport)
-  }, [])
+    void pushState().then(async (state) => {
+      setPushSupport(state)
+      // Self-heal: a subscription may exist in the browser but never have
+      // reached the server (e.g. a past attempt failed silently).
+      if (state === 'subscribed' && baby != null) {
+        try {
+          await resyncSubscription(baby.id)
+        } catch {
+          // Silent — the manual button remains the visible fallback
+        }
+      }
+    })
+  }, [baby])
 
   const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
   const [activatingPush, setActivatingPush] = useState(false)
