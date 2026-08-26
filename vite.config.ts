@@ -4,8 +4,6 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-import { cloudflare } from '@cloudflare/vite-plugin'
-
 const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
   version: string
 }
@@ -55,7 +53,7 @@ export default defineConfig({
       // instead of relying only on the post-reload race (§11 prompt flow).
       clientsClaim: true,
     },
-  }), cloudflare()],
+  })],
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
