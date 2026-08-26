@@ -53,7 +53,12 @@ const saveSubscription = async (
       keys: json.keys,
     }),
   })
-  if (!response.ok) throw new Error('No se pudo guardar la suscripción')
+  if (!response.ok) {
+    const body = await response.text().catch(() => '')
+    throw new Error(
+      `No se pudo guardar la suscripción (HTTP ${String(response.status)}${body ? `: ${body}` : ''})`
+    )
+  }
 }
 
 export const subscribeToPush = async (
