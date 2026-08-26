@@ -13,6 +13,7 @@ import {
   forecastCaveats,
   forecastHeadline,
 } from '../../lib/forecast-texts.ts'
+import { getCoverageDays } from '../../lib/settings.ts'
 import { isStayMode } from '../../lib/stay-mode.ts'
 import { lastSyncAt } from '../../sync/engine.ts'
 
@@ -131,7 +132,8 @@ const ForecastCard = ({
       {forecast.recommendedDiapers !== null && forecast.recommendedDiapers > 0 && (
         <p className='forecast-buy'>
           🛒 Te faltan ≈ {String(forecast.recommendedDiapers)} pañales para
-          {' '}{String(21)} días de colchón.
+          {' '}
+          {String(getCoverageDays())} días de colchón.
         </p>
       )}
       {forecastCaveats(forecast).map((caveat) => (

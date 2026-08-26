@@ -4,6 +4,7 @@ import { transitionDays } from '../../shared/transition.ts'
 import type { UUID } from '../../shared/types.ts'
 import { liveUsage, stockBySize } from '../db/derive.ts'
 import { db } from '../db/index.ts'
+import { getCoverageDays, getWarningDays } from '../lib/settings.ts'
 import { readSignals } from '../lib/transition-signals.ts'
 
 /**
@@ -26,7 +27,7 @@ export const useForecast = (
       usage,
       now: Date.now(),
       transitionDays: transitionDays(signals),
-      warningDays: 7,
-      coverageDays: 21,
+      warningDays: getWarningDays(),
+      coverageDays: getCoverageDays(),
     })
   }, [babyId, sizeId])

@@ -3,10 +3,22 @@ import type { ChangeEvent } from 'react'
 import { exportJSON, importJSON } from '../../lib/backup.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { isStayMode, setStayMode } from '../../lib/stay-mode.ts'
+import {
+  getCoverageDays,
+  getWarningDays,
+  setCoverageDays,
+  setWarningDays,
+} from '../../lib/settings.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
 
 export const Settings = () => {
   const [stayMode, setStayModeState] = useState(() => isStayMode())
+  const [warningText, setWarningText] = useState(() =>
+    String(getWarningDays())
+  )
+  const [coverageText, setCoverageText] = useState(() =>
+    String(getCoverageDays())
+  )
   const [error, setError] = useState<string | null>(null)
 
   const toggleStayMode = (checked: boolean): void => {
@@ -49,6 +61,56 @@ export const Settings = () => {
             }}
           />
         </label>
+      </section>
+
+      <section className='card'>
+        <h2>Predicciones</h2>
+        <div className='form-row'>
+          <label htmlFor='warning-days'>
+            Avisar cuando queden menos días de stock
+          </label>
+          <input
+            id='warning-days'
+            inputMode='numeric'
+            value={warningText}
+            onChange={(e) => {
+              setWarningText(e.target.value)
+            }}
+          />
+        </div>
+        <div className='form-row'>
+          <label htmlFor='coverage-days'>Días de colchón objetivo</label>
+          <input
+            id='coverage-days'
+            inputMode='numeric'
+            value={coverageText}
+            onChange={(e) => {
+              setCoverageText(e.target.value)
+            }}
+          />
+        </div>
+        <button
+          type='button'
+          className='primary'
+          onClick={() => {
+            const warning = Number.parseInt(warningText, 10)
+            const coverage = Number.parseInt(coverageText, 10)
+            if (
+              !Number.isInteger(warning) ||
+              warning < 1 ||
+              !Number.isInteger(coverage) ||
+              coverage < 1
+            ) {
+              setError('Ambos valores deben ser enteros ≥ 1')
+              return
+            }
+            setWarningDays(warning)
+            setCoverageDays(coverage)
+            setError(null)
+          }}
+        >
+          Guardar
+        </button>
       </section>
 
       <section className='card'>
