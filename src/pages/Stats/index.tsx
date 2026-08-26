@@ -4,6 +4,7 @@ import { usageByDay } from '../../../shared/forecast.ts'
 import { liveUsage } from '../../db/derive.ts'
 import { db } from '../../db/index.ts'
 import { useBaby } from '../../hooks'
+import { formatLogicalDateEs } from '../../lib/format-date.ts'
 
 interface StatsData {
   today: number
@@ -102,7 +103,7 @@ export const Stats = () => {
                   <span className='muted'>sin datos</span>
                   )
                 : (
-                    row.average.toFixed(1)
+                    `≈ ${row.average.toFixed(1)}`
                   )}
             </strong>
           </div>
@@ -132,7 +133,7 @@ export const Stats = () => {
           ))}
         </div>
         <p className='muted small'>
-          De {logicalDate(now - 29 * 86_400_000)} a hoy
+          De {formatLogicalDateEs(logicalDate(now - 29 * 86_400_000))} a hoy
         </p>
       </section>
     </main>

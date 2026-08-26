@@ -23,6 +23,7 @@ import {
   writeSignal,
 } from '../../lib/transition-signals.ts'
 import { confidenceLabel } from '../../lib/forecast-texts.ts'
+import { formatLogicalDateEs } from '../../lib/format-date.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
@@ -274,7 +275,9 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
                   quedan ≈ {Math.round(forecast.daysRemaining ?? 0)} días
                 </p>
                 <p className='muted small'>
-                  Agotamiento aprox.: {forecast.exhaustionDate} ·{' '}
+                  Agotamiento aprox.: {forecast.exhaustionDate !== null
+                  ? formatLogicalDateEs(forecast.exhaustionDate)
+                  : '—'} ·{' '}
                   {confidenceLabel(forecast) ?? 'sin datos suficientes'}
                   {forecast.variabilityHigh && ' · consumo irregular'}
                 </p>

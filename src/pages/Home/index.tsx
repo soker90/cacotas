@@ -13,6 +13,7 @@ import {
   forecastCaveats,
   forecastHeadline,
 } from '../../lib/forecast-texts.ts'
+import { formatLogicalDateEs } from '../../lib/format-date.ts'
 import { getCoverageDays } from '../../lib/settings.ts'
 import { isStayMode } from '../../lib/stay-mode.ts'
 import { lastSyncAt } from '../../sync/engine.ts'
@@ -74,23 +75,27 @@ export const Home = ({ baby }: { baby: Baby }) => {
       )}
 
       <section className='stock'>
-        {stock === null
+        {sizeId === undefined
           ? (
-            <p className='muted'>Sin talla actual</p>
+            <p className='muted'>Cargando…</p>
             )
-          : (
-            <p>
-              {stock} pañales
-              {typeof forecast?.dailyConsumption === 'number' &&
-                ` · ≈ ${forecast.dailyConsumption.toFixed(1)}/día`}
-              {typeof forecast?.daysRemaining === 'number' &&
-                ` · quedan ≈ ${String(Math.round(forecast.daysRemaining))} días`}
-              {forecast?.exhaustionDate != null && ` · se acaban el ${forecast.exhaustionDate}`}
-              {stock < 0 && (
-                <strong className='warn'> · revisa el inventario</strong>
+          : stock === null
+            ? (
+              <p className='muted'>Sin talla actual</p>
+              )
+            : (
+              <p>
+                {stock} pañales
+                {typeof forecast?.dailyConsumption === 'number' &&
+                  ` · ≈ ${forecast.dailyConsumption.toFixed(1)}/día`}
+                {typeof forecast?.daysRemaining === 'number' &&
+                  ` · quedan ≈ ${String(Math.round(forecast.daysRemaining))} días`}
+                {forecast?.exhaustionDate != null && ` · se acaban el ${formatLogicalDateEs(forecast.exhaustionDate)}`}
+                {stock < 0 && (
+                  <strong className='warn'> · revisa el inventario</strong>
+                )}
+              </p>
               )}
-            </p>
-            )}
       </section>
 
       {forecast !== null && forecast !== undefined && sizeId != null && (

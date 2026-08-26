@@ -16,9 +16,16 @@ export const initSentry = (): void => {
 
   void Sentry.init({
     dsn,
-    // Baby data never travels: no breadcrumbs, no request bodies
+    // Baby data never travels: no breadcrumbs, no request bodies, no user
+    // context. Defense-in-depth even though no code path interpolates baby
+    // fields (name/dates/weight) into error messages today.
     sendDefaultPii: false,
     beforeBreadcrumb: () => null,
+    beforeSend: (event) => {
+      delete event.user
+      delete event.request
+      return event
+    },
   })
   Sentry.setTag('deviceId', getDeviceId())
 }
