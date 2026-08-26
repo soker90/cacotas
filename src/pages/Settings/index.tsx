@@ -34,18 +34,22 @@ export const Settings = () => {
   }, [])
 
   const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+  const [activatingPush, setActivatingPush] = useState(false)
 
   const enablePush = async (): Promise<void> => {
     if (typeof vapidKey !== 'string' || vapidKey === '') {
       setError('Falta la clave VAPID en este build')
       return
     }
+    setActivatingPush(true)
     try {
       if (baby === null || baby === undefined) throw new Error('Sin bebé configurado')
       const result = await subscribeToPush(baby.id, vapidKey)
       setPushSupport(result)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo activar')
+    } finally {
+      setActivatingPush(false)
     }
   }
 
@@ -169,11 +173,12 @@ export const Settings = () => {
                 <button
                   type='button'
                   className='primary'
+                  disabled={activatingPush}
                   onClick={() => {
                     void enablePush()
                   }}
                 >
-                  Activar avisos en este móvil
+                  {activatingPush ? 'Activando…' : 'Activar avisos en este móvil'}
                 </button>
                 )}
           </>
