@@ -449,11 +449,35 @@ input[type='datetime-local'] {
 }
 
 .size-link {
+  position: relative;
   display: flex;
   flex-direction: column;
   text-decoration: none;
   color: inherit;
   gap: 0.1rem;
+  flex: 1;
+  padding: 0.3rem 0;
+}
+
+.size-link::after {
+  content: '';
+  position: absolute;
+  inset: -0.4rem -0.6rem;
+  border-radius: 0.6rem;
+}
+
+.size-link .chevron {
+  position: absolute;
+  right: -1.9rem;
+  top: 50%;
+  translate: 0 -50%;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.inventory-row:has(.size-link:active) {
+  background: var(--green-soft);
 }
 
 .stock-value {

@@ -58,11 +58,18 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
               key={size.id}
               className={stock < 0 ? 'inventory-row warn' : 'inventory-row'}
             >
-              <Link to={`/inventory/${size.id}`} className='size-link'>
+              <Link
+                to={`/inventory/${size.id}`}
+                className='size-link'
+                aria-label={`Ver detalle de ${size.name}`}
+              >
                 <strong>{size.name}</strong>
                 <span className='stock-value'>
                   {stock} pañales
                   {stock < 0 && ' · revisa el inventario'}
+                </span>
+                <span className='chevron' aria-hidden='true'>
+                  ›
                 </span>
               </Link>
               <div className='quick-adjust' aria-label={`Ajuste rápido ${size.name}`}>
