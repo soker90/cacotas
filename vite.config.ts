@@ -51,6 +51,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: 'index.html',
         runtimeCaching: [],
+        // The new SW claims any open client the instant it activates,
+        // instead of relying only on the post-reload race (§11 prompt flow).
+        clientsClaim: true,
       },
     }),
   ],
