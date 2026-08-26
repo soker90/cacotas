@@ -130,23 +130,25 @@ export const RecordMultiple = ({ baby }: { baby: Baby }) => {
       </section>
 
       <section className='card'>
-        <h2>Talla</h2>
-        <div className='size-grid' role='radiogroup' aria-label='Talla'>
-          {SIZES.map((size) => (
-            <button
-              key={size}
-              type='button'
-              role='radio'
-              aria-checked={effectiveSize === size}
-              className={effectiveSize === size ? 'size selected' : 'size'}
-              onClick={() => {
-                setSizeId(size)
-              }}
-            >
-              {String(size)}
-            </button>
-          ))}
-        </div>
+        <fieldset className='size-grid-fieldset'>
+          <legend>Talla</legend>
+          <div className='size-grid'>
+            {SIZES.map((size) => (
+              <span key={size} className='radio-chip'>
+                <input
+                  type='radio'
+                  id={`size-${String(size)}`}
+                  name='size'
+                  checked={effectiveSize === size}
+                  onChange={() => {
+                    setSizeId(size)
+                  }}
+                />
+                <label htmlFor={`size-${String(size)}`}>{String(size)}</label>
+              </span>
+            ))}
+          </div>
+        </fieldset>
       </section>
 
       <section className='card'>

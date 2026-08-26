@@ -31,7 +31,7 @@
   --bg: #f6f1e7;
   --surface: #fffdf8;
   --ink: #2c3a31;
-  --muted: #77857a;
+  --muted: #5d6b61;
   --line: #e7ddcc;
 
   --green: #3e7057;
@@ -44,7 +44,7 @@
   --blue: #4a6fa5; /* size changes */
   --blue-soft: #e5ecf5;
 
-  --warn: #b3563e;
+  --warn: #9c4530;
   --stay-bg: #fdf1dc;
   --stay-border: #ecd3a8;
   --stay-ink: #8a6420;
@@ -619,7 +619,7 @@ input[type='datetime-local'] {
 
 .badge-SIZE_CHANGE {
   background: var(--blue-soft);
-  color: var(--blue);
+  color: #3a5a86;
 }
 
 /* ── SW update prompt ───────────────────────────────── */
@@ -644,4 +644,73 @@ input[type='datetime-local'] {
 .update-banner button {
   padding: 0.35rem 0.8rem;
   font-weight: 700;
+}
+
+/* ── Accessibility: focus, motion, touch targets ────── */
+:focus-visible {
+  outline: 3px solid #2f6fed;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.history-actions button {
+  min-height: 1.75rem;
+}
+
+/* Native radio inputs styled as chips (RecordMultiple size picker) */
+.radio-chip {
+  position: relative;
+}
+
+.radio-chip input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.radio-chip label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.9rem 0;
+  border: 1px solid var(--green);
+  border-radius: 0.7rem;
+  font-weight: 700;
+  color: var(--green-dark);
+  background: var(--surface);
+}
+
+.radio-chip input:checked + label {
+  background: var(--green);
+  border-color: var(--green-dark);
+  color: white;
+}
+
+.radio-chip input:focus-visible + label {
+  outline: 3px solid #2f6fed;
+  outline-offset: 2px;
+}
+
+.size-grid-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.size-grid-fieldset legend {
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 1.02rem;
+  padding: 0;
+  margin-bottom: 0.6rem;
 }
