@@ -144,7 +144,7 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
       </section>
 
       <section className='card'>
-        <h2>Compra</h2>
+        <h2>🛒 Compra</h2>
         <div className='form-row'>
           <label htmlFor='packages'>Paquetes</label>
           <input
@@ -179,7 +179,7 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
       </section>
 
       <section className='card'>
-        <h2>Ajustar inventario</h2>
+        <h2>🧮 Ajustar inventario</h2>
         <p className='muted'>
           Guarda la diferencia con el stock real de ahora mismo, no el número
           que vieras al abrir el formulario.
@@ -208,7 +208,7 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
         </div>
         <button
           type='button'
-          className='primary'
+          className='btn-accent'
           onClick={() => {
             void addAdjustment()
           }}
@@ -218,7 +218,7 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
       </section>
 
       <section className='card'>
-        <h2>Cambio de talla</h2>
+        <h2>📏 Cambio a esta talla</h2>
         {isCurrent
           ? (
             <p className='muted'>Esta es la talla actual.</p>
@@ -226,7 +226,7 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
           : (
             <button
               type='button'
-              className='primary'
+              className='btn-neutral'
               onClick={() => {
                 void changeToThisSize()
               }}

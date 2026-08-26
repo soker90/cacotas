@@ -15,7 +15,24 @@ const TYPE_LABELS: Record<Movement['type'], string> = {
   USAGE: 'Pañal',
   ADJUSTMENT: 'Ajuste',
   UNDO: 'Deshacer',
-  SIZE_CHANGE: 'Cambio de talla',
+  SIZE_CHANGE: 'Cambio talla',
+}
+
+const detailFor = (m: Movement): string => {
+  switch (m.type) {
+    case 'USAGE':
+      return `Talla ${String(m.sizeId)} · ${String(m.quantity)}`
+    case 'ADJUSTMENT':
+      return m.delta > 0
+        ? `Talla ${String(m.sizeId)} · +${String(m.delta)}`
+        : `Talla ${String(m.sizeId)} · ${String(m.delta)}`
+    case 'PURCHASE':
+      return `Talla ${String(m.sizeId)} · +${String(m.quantity)}`
+    case 'INITIAL':
+      return `Talla ${String(m.sizeId)} · ${String(m.quantity)}`
+    default:
+      return `→ Talla ${String(m.sizeId)}`
+  }
 }
 
 const formatTime = (epochMs: number): string =>
@@ -24,23 +41,6 @@ const formatTime = (epochMs: number): string =>
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(epochMs))
-
-const describe = (m: Movement): string => {
-  switch (m.type) {
-    case 'USAGE':
-      return `${TYPE_LABELS.USAGE}${m.usageSource === 'EXTERNAL' ? ' (externo)' : ''}`
-    case 'ADJUSTMENT':
-      return m.delta > 0 ? `Ajuste +${String(m.delta)}` : `Ajuste ${String(m.delta)}`
-    case 'PURCHASE':
-      return `Compra +${String(m.delta)}`
-    case 'INITIAL':
-      return `Stock inicial ${String(m.quantity)}`
-    case 'SIZE_CHANGE':
-      return `Cambio a talla ${String(m.sizeId)}`
-    default:
-      return TYPE_LABELS.UNDO
-  }
-}
 
 const undoMovement = async (original: Movement): Promise<void> => {
   const now = Date.now()
@@ -96,14 +96,14 @@ export const History = ({ baby }: { baby: Baby }) => {
             {items.map((m) => (
               <li key={m.id} className='history-row'>
                 <div>
-                  <strong>{describe(m)}</strong>
-                  <span className='muted'>
-                    {' '}
-                    · Talla {String(m.sizeId)}
-                    {m.type !== 'SIZE_CHANGE' &&
-                      ` · ${String(Math.abs(m.quantity))}`}
-                    {m.usageSource === 'EXTERNAL' && ' 🏥'}
-                  </span>
+                  <span
+                    className={`badge badge-${m.type}${m.usageSource === 'EXTERNAL' ? ' is-external' : ''}`}
+                  >
+                    {m.usageSource === 'EXTERNAL'
+                      ? `${TYPE_LABELS[m.type]} 🏥`
+                      : TYPE_LABELS[m.type]}
+                  </span>{' '}
+                  <span>{detailFor(m)}</span>
                   {m.note && <em className='muted'> — {m.note}</em>}
                 </div>
                 <div className='history-actions'>
