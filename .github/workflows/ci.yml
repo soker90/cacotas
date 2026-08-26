@@ -33,8 +33,15 @@ jobs:
         run: pnpm test
 
       # Deploy only happens if every step above passed.
+      # VITE_* vars are baked into the bundle at build time (SPEC §9.8) —
+      # without them production ships with no sync backend and no VAPID key.
       - name: Build
         run: pnpm build
+        env:
+          VITE_SYNC_URL: ${{ secrets.VITE_SYNC_URL }}
+          VITE_SYNC_SECRET: ${{ secrets.VITE_SYNC_SECRET }}
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
 
       - name: Deploy to Netlify (production, fixed site)
         if: github.ref == 'refs/heads/master' && github.event_name == 'push'
