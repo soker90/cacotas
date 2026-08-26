@@ -67,6 +67,7 @@ nada peta, los datos simplemente quedan mal.
 - **Estilo Standard JS** vía `neostandard` (`pnpm lint`): sin punto y coma, comillas simples, 2 espacios. Corrige con `pnpm exec eslint . --fix`.
 - **Arrow functions siempre que sea posible**: `const f = () => {}` en vez de `function` declarations. Las clases Dexie y los métodos de objeto son la única excepción natural.
 - **Versiones exactas**: nunca `^` ni `~` en `package.json`. Fija la versión exacta y commitea siempre el lockfile.
+- **Versionado por subida**: formato `0.fase.subida` (`0.2.0` = primera subida de la fase 2, `0.2.1` la siguiente; la fase 3 empieza en `0.3.0`). Cada despliegue incrementa la subida y la versión se muestra en Ajustes para verificar actualizaciones.
 - **Node fijado por pnpm**: la serie de Node vive en `devEngines.runtime` del `package.json` (`24.x` = última LTS de la serie 24, que pnpm descarga y gestiona) y en `.nvmrc`. Ejecuta siempre los comandos con `pnpm` para que use la versión gestionada; no confíes en el Node global.
 - **Objeto como parámetro**: cuando una función necesite más de dos parámetros, pásalos como un único objeto con nombres.
 - Fechas: `Instant` como epoch ms en almacenamiento; `'YYYY-MM-DD'` para días lógicos.
