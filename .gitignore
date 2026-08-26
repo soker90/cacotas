@@ -148,3 +148,6 @@ vite.config.ts.timestamp-*
 # Wrangler local secrets
 .dev.vars
 .wrangler/
+
+.dev.vars*
+!.dev.vars.example

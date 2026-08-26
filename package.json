@@ -17,12 +17,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview",
+    "preview": "pnpm run build && wrangler dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit",
-    "typecheck:worker": "tsc -p worker/tsconfig.json --noEmit"
+    "typecheck:worker": "tsc -p worker/tsconfig.json --noEmit",
+    "deploy": "pnpm run build && wrangler deploy"
   },
   "dependencies": {
     "dexie": "4.4.5",
@@ -32,6 +33,7 @@
     "react-router-dom": "7.18.2"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.53.1",
     "@cloudflare/workers-types": "5.20260825.1",
     "@types/node": "26.2.0",
     "@types/react": "19.2.18",
