@@ -107,6 +107,7 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
 
   const vapid = {
     privateKeyB64url: env.VAPID_PRIVATE_KEY,
+    publicKeyB64url: env.VAPID_PUBLIC_KEY,
     subject: env.VAPID_SUBJECT,
   }
 

@@ -19,6 +19,7 @@ interface PushSubscriptionLike {
 
 interface VapidConfig {
   privateKeyB64url: string
+  publicKeyB64url: string
   subject: string
 }
 
@@ -40,30 +41,21 @@ const vapidAuthorizationHeader = async (
   audience: string,
   config: VapidConfig
 ): Promise<string> => {
+  const pubBytes = b64urlToBytes(config.publicKeyB64url)
   const jwk = {
     kty: 'EC',
     crv: 'P-256',
-    x: '',
-    y: '',
+    x: bytesToB64url(pubBytes.slice(1, 33)),
+    y: bytesToB64url(pubBytes.slice(33, 65)),
     d: bytesToB64url(b64urlToBytes(config.privateKeyB64url)),
   }
-  // Derive public point from the private scalar
-  const priv = b64urlToBytes(config.privateKeyB64url)
   const key = await crypto.subtle.importKey(
     'jwk',
-    { ...jwk, d: bytesToB64url(priv) },
+    jwk,
     { name: 'ECDSA', namedCurve: 'P-256' },
-    true,
+    false,
     ['sign']
   )
-  const rawPub = (await crypto.subtle.exportKey(
-    'raw',
-    key
-  ))
-  const pubBytes = new Uint8Array(rawPub)
-  jwk.x = bytesToB64url(pubBytes.slice(1, 33))
-  jwk.y = bytesToB64url(pubBytes.slice(33, 65))
-
   const header = bytesToB64url(
     new TextEncoder().encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' }))
   )
@@ -96,7 +88,7 @@ const hkdf = async (
   ikm: Uint8Array,
   salt: Uint8Array,
   info: Uint8Array,
-  length: number
+  lengthBytes: number
 ): Promise<Uint8Array> => {
   const key = await crypto.subtle.importKey(
     'raw',
@@ -113,9 +105,20 @@ const hkdf = async (
       info: info as unknown as BufferSource,
     },
     key,
-    length
+    lengthBytes * 8
   ))
   return new Uint8Array(bits)
+}
+
+const concatBytes = (...arrays: Uint8Array[]): Uint8Array => {
+  const total = arrays.reduce((sum, a) => sum + a.length, 0)
+  const out = new Uint8Array(total)
+  let offset = 0
+  for (const a of arrays) {
+    out.set(a, offset)
+    offset += a.length
+  }
+  return out
 }
 
 const encryptPayload = async (
@@ -133,30 +136,54 @@ const encryptPayload = async (
   const asPublicRaw = new Uint8Array(
     await crypto.subtle.exportKey('raw', asKeys.publicKey)
   )
+  const uaPublicKey = await crypto.subtle.importKey(
+    'raw',
+    uaPublic as BufferSource,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false,
+    []
+  )
   const ecdhSecret = new Uint8Array(
     await crypto.subtle.deriveBits(
-      { name: 'ECDH', public: uaPublic } as unknown as Parameters<typeof crypto.subtle.deriveBits>[0],
+      { name: 'ECDH', public: uaPublicKey },
       asKeys.privateKey,
       256
     )
   )
 
-  // RFC 8291 §3.3: PRK_key = HKDF(auth_salt, ecdh, info, 16) → CEK
-  const keyInfo = new TextEncoder().encode(
-    'WebPush: info\0' + String.fromCharCode(...uaPublic, ...asPublicRaw)
-  )
-  const cek = new Uint8Array(
-    await hkdf(ecdhSecret, authSecret, keyInfo, 16)
-  )
+  const nul = new Uint8Array([0])
 
-  // §3.4: NONCE = HKDF(PRK_key, as_public, nonce_info, 12)
-  const nonceInfo = new TextEncoder().encode(
-    'WebPush: nonce\0' + String.fromCharCode(...uaPublic, ...asPublicRaw)
+  // RFC 8291 §3.3: PRK = HMAC-SHA256(auth_secret, ecdh_secret);
+  //   IKM = HKDF-Expand(PRK, "WebPush: info\0" || ua_pub || as_pub, 32)
+  const keyInfo = concatBytes(
+    new TextEncoder().encode('WebPush: info'),
+    nul,
+    uaPublic,
+    asPublicRaw
   )
-  const nonce = await hkdf(cek, asPublicRaw, nonceInfo, 12)
+  const ikm = await hkdf(ecdhSecret, authSecret, keyInfo, 32)
 
+  // RFC 8188 §2.1: random salt, then
+  //   PRK' = HMAC-SHA256(salt, IKM)
+  //   CEK = HKDF-Expand(PRK', "Content-Encoding: aes128gcm\0", 16)
+  //   NONCE = HKDF-Expand(PRK', "Content-Encoding: nonce\0", 12)
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const cekInfo = concatBytes(
+    new TextEncoder().encode('Content-Encoding: aes128gcm'),
+    nul
+  )
+  const cek = await hkdf(ikm, salt, cekInfo, 16)
+  const nonceInfo = concatBytes(
+    new TextEncoder().encode('Content-Encoding: nonce'),
+    nul
+  )
+  const nonce = await hkdf(ikm, salt, nonceInfo, 12)
+
+  // RFC 8188 §2: append the "last record" delimiter (0x02) to the
+  // plaintext *before* encrypting — it must be inside the AEAD boundary.
   const plaintext = new TextEncoder().encode(payload)
-  const ciphertext = new Uint8Array(
+  const paddedPlaintext = concatBytes(plaintext, new Uint8Array([2]))
+  const record = new Uint8Array(
     await crypto.subtle.encrypt(
       { name: 'AES-GCM', iv: nonce as BufferSource },
       await crypto.subtle.importKey(
@@ -166,24 +193,19 @@ const encryptPayload = async (
         false,
         ['encrypt']
       ),
-      plaintext
+      paddedPlaintext as BufferSource
     )
   )
 
   // aes128gcm header: salt(16) | rs(4 BE) | idlen(1) | as_public(65)
   const rs = 4096
   const header = new Uint8Array(21 + asPublicRaw.length)
-  header.set(crypto.getRandomValues(new Uint8Array(16)), 0)
+  header.set(salt, 0)
   new DataView(header.buffer).setUint32(16, rs)
   header[20] = asPublicRaw.length
   header.set(asPublicRaw, 21)
 
-  // body: ciphertext + auth tag delimiter byte 0x02
-  const record = new Uint8Array(ciphertext.length + 1)
-  record.set(ciphertext, 0)
-  record[ciphertext.length] = 2
-
-  return new Uint8Array([...header, ...record])
+  return concatBytes(header, record)
 }
 
 /** Send one push. Returns HTTP status from the push service. */
@@ -203,6 +225,7 @@ export const sendPush = async (
       'Content-Type': 'application/octet-stream',
       'Content-Encoding': 'aes128gcm',
       TTL: String(PAYLOAD_TTL_S),
+      Urgency: 'high',
     },
     body: encrypted as unknown as BodyInit,
   })

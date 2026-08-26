@@ -12,6 +12,7 @@ export interface Env {
   DB: D1Database
   AUTH_SECRET: string
   VAPID_PRIVATE_KEY: string
+  VAPID_PUBLIC_KEY: string
   VAPID_SUBJECT: string
   HEARTBEAT_URL?: string
 }
