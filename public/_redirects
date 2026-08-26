@@ -1,1 +1,6 @@
-/*    /index.html   200
+# Proxy to the sync Worker: keeps the client on the same origin so mobile
+# carriers that filter *.workers.dev cannot break syncing (SPEC §11 spirit).
+# Must come before the SPA fallback.
+/api/* https://cacotas-sync.soker.workers.dev/:splat 200
+
+#    /index.html   200
