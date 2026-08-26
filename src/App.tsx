@@ -121,6 +121,9 @@ const FirstLaunch = () => {
     return (
       <main className='onboarding'>
         <p>No se pudo comprobar si ya hay datos sincronizados.</p>
+        {decision.reason && (
+          <p className='muted small'>{decision.reason}</p>
+        )}
         <button
           type='button'
           onClick={() => {

@@ -4,16 +4,18 @@ import type { SyncBackend } from './backend.ts'
 export type StartupRoute = 'HOME' | 'ONBOARDING' | 'JOIN_RETRY'
 
 export interface StartupDecision {
-  route: StartupRoute;
+  route: StartupRoute
   /**
    * Remote baby + movements to adopt. Present only when a baby was found on
    * the server; the caller persists it and goes straight to Home, skipping
    * the onboarding (§9.7).
    */
   remote?: {
-    baby: Baby;
-    movements: Movement[];
-  };
+    baby: Baby
+    movements: Movement[]
+  }
+  /** Failure detail for JOIN_RETRY — shown discreetly to aid diagnosis. */
+  reason?: string
 }
 
 /**
@@ -42,8 +44,12 @@ export const resolveStartup = async (
       }
     }
     return { route: 'ONBOARDING' }
-  } catch {
-    // Network failure on first device pairing: user chooses retry or start fresh.
-    return { route: 'JOIN_RETRY' }
+  } catch (err) {
+    // Network failure on first device pairing: user chooses retry or start
+    // fresh. The reason travels along for discreet display.
+    return {
+      route: 'JOIN_RETRY',
+      reason: err instanceof Error ? err.message : String(err),
+    }
   }
 }
