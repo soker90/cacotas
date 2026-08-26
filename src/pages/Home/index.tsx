@@ -125,6 +125,12 @@ const ForecastCard = ({
   return (
     <section className='forecast-card'>
       <p className='forecast-headline'>{forecastHeadline(forecast, sizeId)}</p>
+      {forecast.recommendedDiapers !== null && forecast.recommendedDiapers > 0 && (
+        <p className='forecast-buy'>
+          🛒 Te faltan ≈ {String(forecast.recommendedDiapers)} pañales para
+          {' '}{String(21)} días de colchón.
+        </p>
+      )}
       {forecastCaveats(forecast).map((caveat) => (
         <p key={caveat} className='muted small'>
           {caveat}
