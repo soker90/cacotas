@@ -29,6 +29,7 @@ export const Settings = () => {
   )
   const [error, setError] = useState<string | null>(null)
   const [pushSupport, setPushSupport] = useState<PushSupport | null>(null)
+  const [resyncStatus, setResyncStatus] = useState<string>('idle')
 
   useEffect(() => {
     void pushState().then(async (state) => {
@@ -36,10 +37,14 @@ export const Settings = () => {
       // Self-heal: a subscription may exist in the browser but never have
       // reached the server (e.g. a past attempt failed silently).
       if (state === 'subscribed' && baby != null) {
+        setResyncStatus('checking')
         try {
           await resyncSubscription(baby.id)
-        } catch {
-          // Silent — the manual button remains the visible fallback
+          setResyncStatus('ok')
+        } catch (err) {
+          setResyncStatus(
+            err instanceof Error ? err.message : 'error desconocido'
+          )
         }
       }
     })
@@ -179,7 +184,22 @@ export const Settings = () => {
             </p>
             {pushSupport === 'subscribed'
               ? (
-                <p className='forecast-buy'>✓ Suscrito a este dispositivo</p>
+                <>
+                  <p className='forecast-buy'>✓ Suscrito a este dispositivo</p>
+                  {resyncStatus === 'checking' && (
+                    <p className='muted small'>Comprobando guardado en el servidor…</p>
+                  )}
+                  {resyncStatus === 'ok' && (
+                    <p className='muted small'>✓ Confirmado en el servidor</p>
+                  )}
+                  {resyncStatus !== 'idle' &&
+                    resyncStatus !== 'checking' &&
+                    resyncStatus !== 'ok' && (
+                      <p role='alert' className='error small'>
+                        No se pudo confirmar en el servidor: {resyncStatus}
+                      </p>
+                  )}
+                </>
                 )
               : (
                 <button
