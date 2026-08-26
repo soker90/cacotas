@@ -46,6 +46,11 @@ jobs:
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
 
+      # VITE_* must be present HERE TOO: netlify-cli runs a framework-
+      # detected internal rebuild of the project before uploading, using
+      # panel-only env otherwise — that silently discarded our CI-built
+      # bundle with all four vars missing except whatever lived in the
+      # Netlify panel.
       - name: Deploy to Netlify (production, fixed site)
         if: github.ref == 'refs/heads/master' && github.event_name == 'push'
         run: |
@@ -55,5 +60,9 @@ jobs:
             --site "$NETLIFY_SITE_ID" \
             --auth "$NETLIFY_AUTH_TOKEN"
         env:
+          VITE_SYNC_URL: ${{ secrets.VITE_SYNC_URL }}
+          VITE_SYNC_SECRET: ${{ secrets.VITE_SYNC_SECRET }}
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}

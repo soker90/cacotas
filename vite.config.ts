@@ -8,12 +8,6 @@ const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
   version: string
 }
 
-// Temporary diagnostics: report what Vite actually sees at config time
-// (lengths only, never values).
-const dbg = ['VITE_SYNC_URL', 'VITE_SYNC_SECRET', 'VITE_VAPID_PUBLIC_KEY', 'VITE_SENTRY_DSN']
-  .map((k) => `${k}=${process.env[k] === undefined ? 'undefined' : String(process.env[k].length)}`)
-console.log('[vite-config]', dbg.join(' '), 'NODE_ENV=' + String(process.env.NODE_ENV))
-
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
