@@ -37,12 +37,8 @@ jobs:
       # without them production ships with no sync backend and no VAPID key.
       - name: Build
         run: |
-          echo "sync_url_len=${#VITE_SYNC_URL} sync_secret_len=${#VITE_SYNC_SECRET} vapid_len=${#VITE_VAPID_PUBLIC_KEY} sentry_len=${#VITE_SENTRY_DSN}"
           pnpm build
-          echo "--- post-build marker counts (presence, not values):"
-          grep -c "users.noreply" dist/assets/*.js || true
-          grep -o "VITE_SYNC_URL_PLACEHOLDER\|undefined as SYNCURL" dist/assets/*.js || true
-          echo "--- assets:"
+          echo "--- bundle fingerprints:"
           ls dist/assets/
         env:
           VITE_SYNC_URL: ${{ secrets.VITE_SYNC_URL }}
