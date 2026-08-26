@@ -25,14 +25,15 @@ export interface StartupDecision {
  */
 export const resolveStartup = async (
   localBaby: Baby | null,
-  backend: SyncBackend | null
+  backend: SyncBackend | null,
+  deviceId: string
 ): Promise<StartupDecision> => {
   if (localBaby) return { route: 'HOME' }
   if (!backend) return { route: 'ONBOARDING' }
 
   try {
     const res = await backend.sync({
-      deviceId: '',
+      deviceId,
       since: 0,
       movements: [],
       weights: [],

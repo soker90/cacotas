@@ -1,0 +1,5 @@
+- generic [ref=f3e2]:
+  - alert [ref=f3e3]:
+    - generic [ref=f3e4]: Hay una versión nueva disponible
+    - button "Actualizar" [ref=f3e5] [cursor=pointer]
+  - main [ref=f3e6]: …

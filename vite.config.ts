@@ -14,7 +14,11 @@ export default defineConfig({
   },
   plugins: [react(), VitePWA({
     registerType: 'prompt',
-    injectRegister: 'script-defer',
+    // Registration is owned exclusively by <UpdatePrompt /> via
+    // useRegisterSW(). A parallel registration (injectRegister) makes
+    // workbox-window flag the real worker as "external" and fire the
+    // update prompt on every single load.
+    injectRegister: null,
     includeAssets: ['favicon.svg'],
     manifest: {
       name: 'Cacotas',
@@ -49,9 +53,6 @@ export default defineConfig({
       globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
       navigateFallback: 'index.html',
       runtimeCaching: [],
-      // The new SW claims any open client the instant it activates,
-      // instead of relying only on the post-reload race (§11 prompt flow).
-      clientsClaim: true,
     },
   })],
   test: {

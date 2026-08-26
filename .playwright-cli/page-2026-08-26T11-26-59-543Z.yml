@@ -1,0 +1,5 @@
+- generic [ref=f4e2]:
+  - alert [ref=f4e3]:
+    - generic [ref=f4e4]: HAY BANNER NUEVO 123
+    - button "Actualizar" [ref=f4e5] [cursor=pointer]
+  - main [ref=f4e6]: …

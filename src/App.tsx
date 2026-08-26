@@ -92,7 +92,7 @@ const FirstLaunch = () => {
 
   useEffect(() => {
     let cancelled = false
-    void resolveStartup(null, backend).then((d) => {
+    void resolveStartup(null, backend, getDeviceId()).then((d) => {
       if (!cancelled) setDecision(d)
     })
     return () => {

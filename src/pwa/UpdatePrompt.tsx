@@ -1,30 +1,89 @@
-import { useState } from 'react'
-import { useRegisterSW } from 'virtual:pwa-register/react'
+import { useEffect, useState } from 'react'
 
-/** Update prompt for registerType: 'prompt' (§11). Without this UI the new
- *  service worker would wait forever while the old one keeps serving.
+/**
+ * Update prompt for registerType: 'prompt' (§11), hand-rolled over the raw
+ * service worker API. The plugin's workbox-window wrapper kept firing the
+ * prompt spuriously (stuck needRefresh with no waiting worker).
  *
- *  Known limitations:
- *  - The very first update after a long-lived old SW can show this banner
- *    twice in a row before settling. Harmless — a second tap always
- *    finishes it.
- *  - Deploying several versions in quick succession can strand a device's
- *    SW in permanent "installing": the new revision precaches hashed assets
- *    that a later deploy already pruned (404). Symptom: endless update
- *    banner while the active version works fine. Remedy on the device:
- *    unregister the worker (chrome://serviceworker-internals) or reinstall.
- *    Prevention: let each deploy settle before shipping the next one. */
+ * Flow: register /sw.js · when an updated worker reaches `installed` show
+ * the banner · Actualizar posts SKIP_WAITING and reloads on controllerchange.
+ */
 export const UpdatePrompt = () => {
-  const { needRefresh, updateServiceWorker } = useRegisterSW()
+  const [waiting, setWaiting] = useState(false)
   const [updating, setUpdating] = useState(false)
 
-  if (!needRefresh || updating) return null
+  useEffect(() => {
+    let cancelled = false
+
+    // First-ever visit: nothing controls the page yet, the first install
+    // must stay silent (no "update" prompt for content never seen).
+    const hasController = (): boolean =>
+      !!navigator.serviceWorker.controller
+
+    const detect = async (): Promise<void> => {
+      const reg = await navigator.serviceWorker.getRegistration()
+      if (cancelled || !reg) return
+
+      if (
+        reg.waiting &&
+        hasController() &&
+        reg.waiting.scriptURL === navigator.serviceWorker.controller?.scriptURL
+      ) {
+        setWaiting(true)
+      }
+
+      reg.addEventListener('updatefound', () => {
+        const installing = reg.installing
+        installing?.addEventListener('statechange', () => {
+          if (
+            !cancelled &&
+            installing.state === 'installed' &&
+            hasController()
+          ) {
+            setWaiting(true)
+          }
+        })
+      })
+    }
+
+    const register = async (): Promise<void> => {
+      try {
+        await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        await detect()
+      } catch {
+        // A failed registration must never break the app (§11)
+      }
+    }
+
+    void register()
+
+    // Periodic update check (§9.3 spirit): every 60 s while open
+    const interval = setInterval(() => {
+      void navigator.serviceWorker.getRegistration().then((reg) => {
+        void reg?.update().then(() => detect())
+      })
+    }, 60_000)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
+
+  if (!waiting || updating) return null
 
   const update = (): void => {
-    // Hide the banner optimistically: the reload races against the
-    // activation event and would otherwise re-show it
     setUpdating(true)
-    void updateServiceWorker(true)
+    void navigator.serviceWorker.getRegistration().then((reg) => {
+      navigator.serviceWorker.addEventListener(
+        'controllerchange',
+        () => {
+          location.reload()
+        },
+        { once: true }
+      )
+      reg?.waiting?.postMessage({ type: 'SKIP_WAITING' })
+    })
   }
 
   return (

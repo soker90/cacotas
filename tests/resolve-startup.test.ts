@@ -19,13 +19,13 @@ const remoteBaby = (): Baby => {
 
 describe('resolveStartup (§9.7)', () => {
   it('goes HOME when there is a local baby', async () => {
-    const d = await resolveStartup(localBaby, null)
+    const d = await resolveStartup(localBaby, null, 'device-a')
     expect(d.route).toBe('HOME')
     expect(d.remote).toBeUndefined()
   })
 
   it('goes ONBOARDING without baby and without backend (phase 1)', async () => {
-    const d = await resolveStartup(null, null)
+    const d = await resolveStartup(null, null, 'device-a')
     expect(d.route).toBe('ONBOARDING')
   })
 
@@ -45,14 +45,14 @@ describe('resolveStartup (§9.7)', () => {
       serverSeq: 0,
     })
 
-    const d = await resolveStartup(null, backend)
+    const d = await resolveStartup(null, backend, 'device-a')
     expect(d.route).toBe('HOME')
     expect(d.remote?.baby.id).toBe('baby-remote')
     expect(d.remote?.movements).toHaveLength(1)
   })
 
   it('goes ONBOARDING when the server has no baby (first device)', async () => {
-    const d = await resolveStartup(null, new FakeSyncBackend())
+    const d = await resolveStartup(null, new FakeSyncBackend(), 'device-a')
     expect(d.route).toBe('ONBOARDING')
   })
 
@@ -60,7 +60,7 @@ describe('resolveStartup (§9.7)', () => {
     const failing = {
       sync: () => Promise.reject(new Error('network down')),
     }
-    const d = await resolveStartup(null, failing)
+    const d = await resolveStartup(null, failing, 'device-a')
     expect(d.route).toBe('JOIN_RETRY')
   })
 })
