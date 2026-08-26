@@ -17,13 +17,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "pnpm run build && wrangler dev",
+    "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit",
-    "typecheck:worker": "tsc -p worker/tsconfig.json --noEmit",
-    "deploy": "pnpm run build && wrangler deploy"
+    "typecheck:worker": "tsc -p worker/tsconfig.json --noEmit"
   },
   "dependencies": {
     "dexie": "4.4.5",
