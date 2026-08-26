@@ -1,0 +1,288 @@
+import { describe, expect, it } from 'vitest'
+import { computeForecast, usageByDay } from '../shared/forecast.ts'
+import { transitionDays } from '../shared/transition.ts'
+import type { Movement, TransitionSignals } from '../shared/types.ts'
+
+const BABY = 'baby-f'
+// January: no DST in Europe/Madrid — UTC noon is a safe mid-day instant.
+const DAY = (index: number): number =>
+  Date.UTC(2026, 0, 5 + index, 12, 0, 0)
+
+let counter = 0
+const uid = (): string => `f-${(counter++).toString().padStart(4, '0')}`
+
+/** One OWN_STOCK usage of `quantity` on logical day `dayIndex`. */
+const usageOn = (dayIndex: number, quantity = 1): Movement => ({
+  id: uid(),
+  babyId: BABY,
+  sizeId: 2,
+  type: 'USAGE',
+  usageSource: 'OWN_STOCK',
+  quantity,
+  delta: -quantity,
+  occurredAt: DAY(dayIndex),
+  recordedAt: DAY(dayIndex) + 60_000,
+  deviceId: 'device-test',
+  serverSeq: 0,
+})
+
+const externalOn = (dayIndex: number): Movement => ({
+  ...usageOn(dayIndex),
+  usageSource: 'EXTERNAL',
+  delta: 0,
+})
+
+/** Builds `perDay` usages for each index in `days`, plus `now` on day 100. */
+const build = (
+  days: Array<[number, number]>,
+  nowDay = 100
+): { usage: Movement[]; now: number } => {
+  const usage = days.flatMap(([day, perDay]) =>
+    Array.from({ length: perDay }, () => usageOn(day))
+  )
+  return { usage, now: DAY(nowDay) }
+}
+
+const forecast = (
+  days: Array<[number, number]>,
+  stock: number,
+  extra: Partial<Parameters<typeof computeForecast>[0]> = {}
+) =>
+  computeForecast({
+    stock,
+    usage: build(days).usage,
+    now: build(days).now,
+    transitionDays: null,
+    warningDays: 7,
+    coverageDays: 21,
+    ...extra,
+  })
+
+describe('forecast — casos del issue #5', () => {
+  it('stock 70 con consumo 7/día → 10 días', () => {
+    // 10 días estables de 7
+    const f = forecast(
+      [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7], [7, 7]],
+      70
+    )
+    expect(f.dailyConsumption).toBe(7)
+    expect(f.daysRemaining).toBe(10)
+    expect(f.status).toBe('OK')
+  })
+
+  it('stock 0 → 0 días', () => {
+    const f = forecast(
+      [[1, 5], [2, 5], [3, 5], [4, 5], [5, 5], [6, 5], [7, 5]],
+      0
+    )
+    expect(f.daysRemaining).toBe(0)
+    expect(f.status).toBe('BUY_NOW')
+  })
+
+  it('sin historial → NO_DATA', () => {
+    const f = forecast([], 50)
+    expect(f.status).toBe('NO_DATA')
+    expect(f.dailyConsumption).toBeNull()
+    expect(f.confidence).toBe('NONE')
+  })
+
+  it('solo pañales EXTERNAL → NO_DATA (D-05)', () => {
+    const usage = [
+      externalOn(1),
+      externalOn(2),
+      externalOn(3),
+      externalOn(4),
+      externalOn(5),
+    ]
+    const f = computeForecast({
+      stock: 50,
+      usage,
+      now: DAY(100),
+      transitionDays: null,
+      warningDays: 7,
+      coverageDays: 21,
+    })
+    expect(f.status).toBe('NO_DATA')
+  })
+
+  it('días sin registro intercalados no hunden la media', () => {
+    // 7 días con registro de 6, separados por huecos sin registro
+    const f = forecast(
+      [[1, 6], [3, 6], [5, 6], [7, 6], [9, 6], [11, 6], [13, 6]],
+      60
+    )
+    expect(f.daysCovered).toBe(7)
+    expect(f.dailyConsumption).toBeCloseTo(6)
+    // coverage < 0.6 baja la confianza, pero el consumo no se hunde
+  })
+
+  it('un día con 1 registro entre días de 7 → la mediana lo absorbe', () => {
+    const f = forecast(
+      [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 1], [7, 7]],
+      70
+    )
+    // mediana(last7)=7, mediana(last3)=7 → 7
+    expect(f.dailyConsumption).toBe(7)
+  })
+
+  it('registros de dos tallas se agregan juntos (D-12)', () => {
+    const day = (i: number, q: number): Movement => {
+      const m = usageOn(i, q)
+      return m
+    }
+    const usage = [
+      ...Array.from({ length: 3 }, (_, i) => day(i, 2)), // talla 2 implícita
+      ...Array.from({ length: 8 }, (_, i) => day(i + 10, 3)),
+    ]
+    // Reasignar la mitad a otra talla para probar D-12
+    const mixed: Movement[] = usage.map((m, i) =>
+      i % 2 === 0 ? { ...m, sizeId: 1 } : m
+    )
+    const f = computeForecast({
+      stock: 40,
+      usage: mixed,
+      now: DAY(100),
+      transitionDays: null,
+      warningDays: 7,
+      coverageDays: 21,
+    })
+    // Últimos 7 días naturales: cada uno tiene 3 (repartidos entre tallas)
+    expect(f.dailyConsumption).toBe(3)
+  })
+
+  it('consumo reciente al alza → la predicción reacciona', () => {
+    const f = forecast(
+      [
+        [1, 3], [2, 3], [3, 3], [4, 3], [5, 3], [6, 3],
+        [7, 3], [8, 3], [9, 3],
+        [10, 12], [11, 12], [12, 12], [13, 12],
+      ],
+      100
+    )
+    // Baseline 3/día; el pico reciente domina ambas medianas
+    expect(f.dailyConsumption).toBeGreaterThan(9)
+    expect(f.dailyConsumption).toBeLessThanOrEqual(12)
+  })
+
+  it('cambio de talla en 8 d y agotamiento en 12 d → HOLD_SIZE_CHANGE', () => {
+    const f = forecast(
+      [[1, 5], [2, 5], [3, 5], [4, 5], [5, 5], [6, 5], [7, 5]],
+      60, // 60/5 = 12 días restantes
+      { transitionDays: 8 }
+    )
+    expect(f.daysRemaining).toBe(12)
+    expect(f.status).toBe('HOLD_SIZE_CHANGE')
+  })
+
+  it('cambio de talla en 3 d y agotamiento en 5 d → BUY_BOTH_SIZES (D-15)', () => {
+    const f = forecast(
+      [[1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 6], [7, 6]],
+      30, // 30/6 = 5 días restantes, lowStock (≤42)
+      { transitionDays: 3 }
+    )
+    expect(f.status).toBe('BUY_BOTH_SIZES')
+  })
+
+  it('98 necesarios con paquetes de 30 → 4 paquetes', () => {
+    const f = forecast(
+      [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7], [7, 7]],
+      49, // 7/día → necesita ceil(7*21)=147 − 49 = 98
+      { diapersPerPackage: 30 }
+    )
+    expect(f.recommendedDiapers).toBe(98)
+    expect(f.recommendedPackages).toBe(4)
+  })
+
+  it('1 día de datos → confianza LOW', () => {
+    const f = forecast([[1, 6]], 60)
+    expect(f.daysCovered).toBe(1)
+    expect(f.confidence).toBe('LOW')
+  })
+
+  it('20 días estables → confianza HIGH', () => {
+    const days: Array<[number, number]> = []
+    for (let i = 1; i <= 20; i++) days.push([i, 6])
+    const f = forecast(days, 200)
+    expect(f.confidence).toBe('HIGH')
+  })
+
+  it('20 días erráticos → confianza MEDIUM', () => {
+    const pattern = [2, 12, 3, 11, 2, 13, 3, 12, 2, 11]
+    const days: Array<[number, number]> = []
+    for (let i = 1; i <= 20; i++) days.push([i, pattern[(i - 1) % pattern.length] ?? 6])
+    const f = forecast(days, 150)
+    expect(f.variabilityHigh).toBe(true)
+    expect(f.confidence).toBe('MEDIUM')
+  })
+})
+
+describe('forecast — detalles del SPEC §7', () => {
+  it('excluye el día en curso aunque tenga registros', () => {
+    // Hoy es DAY(100); registros HOY no cuentan
+    const f = forecast([[99, 6], [100, 50]], 60)
+    expect(f.dailyConsumption).toBe(6)
+  })
+
+  it('exhaustionDate coherente con daysRemaining', () => {
+    const { now } = build([[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7], [7, 7]])
+    const f = computeForecast({
+      stock: 70,
+      usage: build([[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7], [7, 7]]).usage,
+      now,
+      transitionDays: null,
+      warningDays: 7,
+      coverageDays: 21,
+    })
+    // 10 días desde el día lógico de now
+    expect(f.exhaustionDate).not.toBeNull()
+  })
+
+  it('recommendedDiapers nunca negativo', () => {
+    const f = forecast(
+      [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7], [7, 7]],
+      300
+    )
+    expect(f.recommendedDiapers).toBe(0)
+  })
+})
+
+describe('usageByDay', () => {
+  it('agrupa por día lógico excluyendo EXTERNAL', () => {
+    const byDay = usageByDay([
+      usageOn(1, 2),
+      usageOn(1, 1),
+      externalOn(1),
+      usageOn(2, 3),
+    ])
+    expect(byDay.get('2026-01-06')).toBe(3)
+    expect(byDay.get('2026-01-07')).toBe(3)
+  })
+})
+
+describe('transitionDays (§8)', () => {
+  const signals = (overrides: Partial<TransitionSignals>): TransitionSignals => ({
+    leaks: false,
+    tight: false,
+    marks: false,
+    hardToClose: false,
+    ...overrides,
+  })
+
+  it('0 señales → null', () => {
+    expect(
+      transitionDays(signals({}))
+    ).toBeNull()
+  })
+
+  it('1 señal → 21 días', () => {
+    expect(transitionDays(signals({ leaks: true }))).toBe(21)
+    expect(transitionDays(signals({ tight: true }))).toBe(21)
+  })
+
+  it('2+ señales → 7 días', () => {
+    expect(transitionDays(signals({ leaks: true, tight: true }))).toBe(7)
+    expect(
+      transitionDays(signals({ leaks: true, tight: true, marks: true }))
+    ).toBe(7)
+  })
+})

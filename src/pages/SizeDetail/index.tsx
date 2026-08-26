@@ -5,13 +5,24 @@ import {
   useNavigate,
   useParams,
 } from 'react-router-dom'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { createMovement } from '../../../shared/factory.ts'
-import type { Baby } from '../../../shared/types.ts'
+import { usageByDay } from '../../../shared/forecast.ts'
+import { logicalDate } from '../../../shared/time.ts'
+import type { Baby, TransitionSignals } from '../../../shared/types.ts'
+import { liveUsage } from '../../db/derive.ts'
 import { db } from '../../db/index.ts'
 import {
   useCurrentSize,
+  useForecast,
   useStockBySize,
 } from '../../hooks'
+import {
+  clearSignals,
+  readSignals,
+  writeSignal,
+} from '../../lib/transition-signals.ts'
+import { confidenceLabel } from '../../lib/forecast-texts.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
@@ -28,6 +39,10 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
 
   const stocks = useStockBySize(baby.id)
   const currentSizeId = useCurrentSize(baby.id)
+  const forecast = useForecast(baby.id, Number.isInteger(sizeId) ? sizeId : null)
+  const [signals, setSignals] = useState<TransitionSignals>(() =>
+    readSignals(baby.id, sizeId)
+  )
 
   const [packagesText, setPackagesText] = useState('1')
   const [perPackageText, setPerPackageText] = useState('30')
@@ -131,6 +146,8 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
       { type: 'SIZE_CHANGE' }
     )
     await db.movements.add(movement)
+    // The signals described the old size — clear them (§8)
+    clearSignals(baby.id, currentSizeId)
     notifyWrite()
     void navigate('/inventory')
   }
@@ -240,15 +257,122 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
             )}
       </section>
 
+      <section className='card'>
+        <h2>📏 Predicción</h2>
+        {forecast === null || forecast === undefined
+          ? (
+            <p className='muted'>Sin talla actual que predecir.</p>
+            )
+          : forecast.status === 'NO_DATA'
+            ? (
+              <p className='muted'>Estamos aprendiendo el patrón de consumo.</p>
+              )
+            : (
+              <>
+                <p>
+                  ≈ {forecast.dailyConsumption?.toFixed(1)} pañales/día ·{' '}
+                  quedan ≈ {Math.round(forecast.daysRemaining ?? 0)} días
+                </p>
+                <p className='muted small'>
+                  Agotamiento aprox.: {forecast.exhaustionDate} ·{' '}
+                  {confidenceLabel(forecast) ?? 'sin datos suficientes'}
+                  {forecast.variabilityHigh && ' · consumo irregular'}
+                </p>
+              </>
+              )}
+      </section>
+
+      <section className='card'>
+        <h2>🧷 Señales de talla pequeña</h2>
+        <p className='muted small'>
+          Marca lo que observes. Con una señal avisamos 21 días antes del
+          cambio; con dos o más, 7.
+        </p>
+        {SIGNAL_DEFS.map(({ key, label }) => (
+          <label key={key} className='check-row'>
+            <input
+              type='checkbox'
+              checked={signals[key]}
+              onChange={(e) => {
+                writeSignal(baby.id, sizeId, key, e.target.checked)
+                setSignals(readSignals(baby.id, sizeId))
+              }}
+            />
+            {label}
+          </label>
+        ))}
+      </section>
+
+      <section className='card'>
+        <h2>Últimos días</h2>
+        <LastDays babyId={baby.id} />
+      </section>
+
       {error && (
         <p role='alert' className='error'>
           {error}
         </p>
       )}
-
-      <p className='muted small'>
-        Consumo y días restantes llegarán con el motor de predicciones.
-      </p>
     </main>
+  )
+}
+
+const SIGNAL_DEFS: Array<{ key: keyof TransitionSignals; label: string }> = [
+  { key: 'leaks', label: 'Escapes frecuentes' },
+  { key: 'tight', label: 'Le queda ajustado' },
+  { key: 'marks', label: 'Le deja marcas' },
+  { key: 'hardToClose', label: 'Cuesta cerrarlo' },
+]
+
+/** Average daily usage over the last `window` natural days (today excluded). */
+/** Aggregated per baby (D-12): same basis as the prediction above. */
+const LastDays = ({ babyId }: { babyId: string }) => {
+  // Aggregated per baby (D-12): same basis as the prediction above.
+  const rows = useLiveQuery(
+    async () => {
+      const usage = await liveUsage(db, babyId, 0)
+      const byDay = usageByDay(usage)
+      const now = Date.now()
+      const today = logicalDate(now)
+      const rows: Array<{ windowDays: number; average: number | null }> = []
+      for (const windowDays of [7, 14]) {
+        let total = 0
+        let counted = 0
+        for (let i = 1; i <= windowDays; i++) {
+          const day = logicalDate(now - i * 86_400_000)
+          const value = byDay.get(day)
+          if (value !== undefined) {
+            total += value
+            counted++
+          }
+        }
+        rows.push({
+          windowDays,
+          average: counted > 0 ? total / windowDays : null,
+        })
+      }
+      void today
+      return rows
+    },
+    [babyId]
+  )
+
+  if (rows === undefined) return null
+
+  return (
+    <ul className='last-days'>
+      {rows.map((row) => (
+        <li key={row.windowDays}>
+          Últimos {String(row.windowDays)} días:{' '}
+          {row.average === null
+            ? (
+              <span className='muted'>sin datos</span>
+              )
+            : (
+              <>≈ {row.average.toFixed(1)}/día</>
+              )}
+        </li>
+      ))}
+    </ul>
   )
 }

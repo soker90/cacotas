@@ -19,6 +19,7 @@ import { SizeDetail } from './pages/SizeDetail/index.tsx'
 import { RecordMultiple } from './pages/RecordMultiple/index.tsx'
 import { History } from './pages/History/index.tsx'
 import { Settings } from './pages/Settings/index.tsx'
+import { Stats } from './pages/Stats/index.tsx'
 import { UpdatePrompt } from './pwa/UpdatePrompt.tsx'
 import { HttpSyncBackend } from './sync/http-backend.ts'
 import { startSyncLoop } from './sync/scheduler.ts'
@@ -70,6 +71,7 @@ const AppRoutes = () => {
             element={<SizeDetail baby={localBaby} />}
           />
           <Route path='/history' element={<History baby={localBaby} />} />
+          <Route path='/stats' element={<Stats />} />
           <Route path='/settings' element={<Settings />} />
           <Route path='*' element={<Navigate to='/' replace />} />
         </Route>

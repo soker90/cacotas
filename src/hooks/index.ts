@@ -1,5 +1,6 @@
 export { useBaby } from './use-baby.ts'
 export { useCurrentSize } from './use-current-size.ts'
+export { useForecast } from './use-forecast.ts'
 export { useHistoryMovements } from './use-history-movements.ts'
 export { useRecordMovement } from './use-record-movement.ts'
 export { useStockBySize } from './use-stock-by-size.ts'

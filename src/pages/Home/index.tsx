@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import type { Forecast } from '../../../shared/forecast.ts'
 import type { Baby } from '../../../shared/types.ts'
 import {
   useCurrentSize,
+  useForecast,
   useRecordMovement,
   useStockBySize,
 } from '../../hooks'
+import {
+  confidenceLabel,
+  forecastCaveats,
+  forecastHeadline,
+} from '../../lib/forecast-texts.ts'
 import { isStayMode } from '../../lib/stay-mode.ts'
 import { lastSyncAt } from '../../sync/engine.ts'
 
@@ -13,6 +20,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
   const sizeId = useCurrentSize(baby.id)
   const stocks = useStockBySize(baby.id)
   const { recordDiaper, undoLast, lastUsage } = useRecordMovement(baby.id)
+  const forecast = useForecast(baby.id, sizeId)
   // Route changes remount this page, so the flag is read fresh each time
   const [stayMode] = useState(() => isStayMode())
 
@@ -72,12 +80,18 @@ export const Home = ({ baby }: { baby: Baby }) => {
           : (
             <p>
               {stock} pañales
+              {typeof forecast?.daysRemaining === 'number' &&
+                ` · ≈ ${String(Math.round(forecast.daysRemaining))} días`}
               {stock < 0 && (
                 <strong className='warn'> · revisa el inventario</strong>
               )}
             </p>
             )}
       </section>
+
+      {forecast !== null && forecast !== undefined && sizeId != null && (
+        <ForecastCard forecast={forecast} sizeId={sizeId} />
+      )}
 
       <footer className='home-footer'>
         <Link to='/record' className='secondary-action'>
@@ -87,6 +101,44 @@ export const Home = ({ baby }: { baby: Baby }) => {
 
       <SyncIndicator />
     </main>
+  )
+}
+
+/** Status headline + caveats + confidence bar (§10 Home). */
+const ForecastCard = ({
+  forecast,
+  sizeId,
+}: {
+  forecast: Forecast
+  sizeId: number
+}) => {
+  const confidence = confidenceLabel(forecast)
+  const confidenceWidth =
+    forecast.confidence === 'HIGH'
+      ? 100
+      : forecast.confidence === 'MEDIUM'
+        ? 60
+        : forecast.confidence === 'LOW'
+          ? 25
+          : 0
+
+  return (
+    <section className='forecast-card'>
+      <p className='forecast-headline'>{forecastHeadline(forecast, sizeId)}</p>
+      {forecastCaveats(forecast).map((caveat) => (
+        <p key={caveat} className='muted small'>
+          {caveat}
+        </p>
+      ))}
+      {confidence !== null && (
+        <div className='confidence'>
+          <div className='confidence-bar' aria-hidden='true'>
+            <div style={{ width: `${String(confidenceWidth)}%` }} />
+          </div>
+          <span className='muted small'>{confidence}</span>
+        </div>
+      )}
+    </section>
   )
 }
 

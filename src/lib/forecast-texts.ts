@@ -1,0 +1,45 @@
+import type { Forecast } from '../../shared/forecast.ts'
+
+/**
+ * UI texts for each forecast status (SPEC.md §7.5). The engine never
+ * returns strings; the interface speaks.
+ */
+export const forecastHeadline = (
+  forecast: Forecast,
+  sizeId: number
+): string => {
+  switch (forecast.status) {
+    case 'NO_DATA':
+      return 'Estamos aprendiendo el patrón de consumo.'
+    case 'OK':
+      return `Quedan ≈ ${String(Math.round(forecast.daysRemaining ?? 0))} días.`
+    case 'BUY_NOW':
+      return `Conviene comprar pañales de talla ${String(sizeId)}.`
+    case 'BUY_BOTH_SIZES':
+      return `Queda poco stock y el cambio de talla se acerca: compra un paquete pequeño de la talla ${String(sizeId)} y otro de la ${String(sizeId + 1)}.`
+    case 'HOLD_SIZE_CHANGE':
+      return `No parece conveniente comprar más talla ${String(sizeId)}. Es probable que paséis a la ${String(sizeId + 1)} antes de agotarlos.`
+  }
+}
+
+/** Caveat lines shown below the headline, never invented numbers. */
+export const forecastCaveats = (forecast: Forecast): string[] => {
+  const caveats: string[] = []
+  if (forecast.confidence === 'LOW') { caveats.push('Predicción poco fiable todavía.') }
+  if (forecast.variabilityHigh) { caveats.push('El consumo es irregular.') }
+  return caveats
+}
+
+/** Confidence label for the little bar in Home. */
+export const confidenceLabel = (forecast: Forecast): string | null => {
+  switch (forecast.confidence) {
+    case 'HIGH':
+      return 'predicción fiable'
+    case 'MEDIUM':
+      return 'predicción razonable'
+    case 'LOW':
+      return 'pocos datos'
+    default:
+      return null
+  }
+}
