@@ -80,7 +80,9 @@ export const Settings = () => {
         </p>
       )}
 
-      <p className='muted small'>Dispositivo: {getDeviceId()}</p>
+      <p className='muted small'>
+        Cacotas v{__APP_VERSION__} · dispositivo {getDeviceId()}
+      </p>
     </main>
   )
 }
