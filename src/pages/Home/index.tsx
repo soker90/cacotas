@@ -80,8 +80,11 @@ export const Home = ({ baby }: { baby: Baby }) => {
           : (
             <p>
               {stock} pañales
+              {typeof forecast?.dailyConsumption === 'number' &&
+                ` · ≈ ${forecast.dailyConsumption.toFixed(1)}/día`}
               {typeof forecast?.daysRemaining === 'number' &&
-                ` · ≈ ${String(Math.round(forecast.daysRemaining))} días`}
+                ` · quedan ≈ ${String(Math.round(forecast.daysRemaining))} días`}
+              {forecast?.exhaustionDate != null && ` · se acaban el ${forecast.exhaustionDate}`}
               {stock < 0 && (
                 <strong className='warn'> · revisa el inventario</strong>
               )}
