@@ -43,17 +43,6 @@ jobs:
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
 
-      # Temporary diagnostics — remove once VITE_* proven baked
-      - name: Debug build vars
-        if: github.ref == 'refs/heads/master'
-        run: |
-          echo "VITE_SYNC_URL len=${#VITE_SYNC_URL}"
-          echo "VITE_SYNC_SECRET len=${#VITE_SYNC_SECRET}"
-          echo "VITE_VAPID_PUBLIC_KEY len=${#VITE_VAPID_PUBLIC_KEY}"
-          echo "VITE_SENTRY_DSN len=${#VITE_SENTRY_DSN}"
-          ls dist/assets/
-          grep -c "soker.workers.dev" dist/assets/*.js || true
-
       - name: Deploy to Netlify (production, fixed site)
         if: github.ref == 'refs/heads/master' && github.event_name == 'push'
         run: |
