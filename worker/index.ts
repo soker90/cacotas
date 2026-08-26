@@ -475,7 +475,13 @@ export default {
     return (async () => {
       const url = new URL(request.url)
       if (request.method !== 'POST') return json({ error: 'not found' }, 404)
-      if (!authorized(request, env)) return json({ error: 'unauthorized' }, 401)
+
+      // /snooze is called from the service worker on notificationclick,
+      // which has no access to the build-time secret. Low-risk action
+      // (silences one notification kind) — accepted per §9.8's model.
+      if (url.pathname !== '/snooze' && !authorized(request, env)) {
+        return json({ error: 'unauthorized' }, 401)
+      }
 
       switch (url.pathname) {
         case '/sync':

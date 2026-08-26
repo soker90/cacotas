@@ -58,7 +58,10 @@ export const subscribeToPush = async (
 
   const response = await fetch('/api/push-subscribe', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      'X-Auth': import.meta.env.VITE_SYNC_SECRET ?? '',
+    },
     body: JSON.stringify({ babyId, endpoint: subscription.endpoint, keys: json.keys }),
   })
   if (!response.ok) throw new Error('No se pudo guardar la suscripción')
