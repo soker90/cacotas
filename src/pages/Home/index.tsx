@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Baby } from '../../../shared/types.ts'
 import {
@@ -7,6 +7,7 @@ import {
   useStockBySize,
 } from '../../hooks'
 import { isStayMode } from '../../lib/stay-mode.ts'
+import { lastSyncAt } from '../../sync/engine.ts'
 
 export const Home = ({ baby }: { baby: Baby }) => {
   const sizeId = useCurrentSize(baby.id)
@@ -83,6 +84,41 @@ export const Home = ({ baby }: { baby: Baby }) => {
           ＋ Registrar varios
         </Link>
       </footer>
+
+      <SyncIndicator />
     </main>
   )
+}
+
+/** Discreet "synced X ago" (§9.3) — a failed sync is never an error. */
+const SyncIndicator = () => {
+  const [now, setNow] = useState<number | null>(null)
+
+  useEffect(() => {
+    const tick = (): void => {
+      setNow(Date.now())
+    }
+    tick()
+    const interval = setInterval(tick, 30_000)
+    return () => {
+      clearInterval(interval)
+    }
+  }, [])
+
+  if (now === null) return null
+
+  const last = lastSyncAt()
+  const text =
+    last === null
+      ? 'sin sincronizar'
+      : `sincronizado ${relativeTime(now - last)}`
+  return <p className='sync-indicator muted'>{text}</p>
+}
+
+const relativeTime = (elapsedMs: number): string => {
+  const minutes = Math.floor(elapsedMs / 60_000)
+  if (minutes < 1) return 'ahora mismo'
+  if (minutes < 60) return `hace ${String(minutes)} min`
+  const hours = Math.floor(minutes / 60)
+  return `hace ${String(hours)} h`
 }

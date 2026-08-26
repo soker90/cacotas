@@ -714,3 +714,9 @@ input[type='datetime-local'] {
   padding: 0;
   margin-bottom: 0.6rem;
 }
+
+.sync-indicator {
+  text-align: center;
+  font-size: 0.78rem;
+  margin: 0.2rem 0 0;
+}

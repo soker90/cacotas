@@ -20,13 +20,24 @@ import { RecordMultiple } from './pages/RecordMultiple/index.tsx'
 import { History } from './pages/History/index.tsx'
 import { Settings } from './pages/Settings/index.tsx'
 import { UpdatePrompt } from './pwa/UpdatePrompt.tsx'
+import { HttpSyncBackend } from './sync/http-backend.ts'
+import { startSyncLoop } from './sync/scheduler.ts'
+import { getDeviceId } from './sync/device-id.ts'
 
 void seedSizes(db)
 
-/** In phase 1 there is no sync secret configured → backend is always null
- *  and every launch lands on ONBOARDING. Phase 3 injects HttpSyncBackend
- *  here and nothing else changes (§9.7). */
-const backend = null
+/** §9.7: with the sync secret configured at build time the backend is real
+ *  and the startup flow can adopt a remote baby; without it everything
+ *  stays local (first device). */
+const SYNC_URL = import.meta.env.VITE_SYNC_URL
+const SYNC_SECRET = import.meta.env.VITE_SYNC_SECRET
+const backend =
+  typeof SYNC_URL === 'string' &&
+  SYNC_URL !== '' &&
+  typeof SYNC_SECRET === 'string' &&
+  SYNC_SECRET !== ''
+    ? new HttpSyncBackend(SYNC_URL, SYNC_SECRET)
+    : null
 
 export const App = () => (
   <BrowserRouter>
@@ -47,21 +58,32 @@ const AppRoutes = () => {
   }
 
   return (
-    <Routes>
-      <Route element={<AppLayout />}>
-        <Route path='/' element={<Home baby={localBaby} />} />
-        <Route path='/record' element={<RecordMultiple baby={localBaby} />} />
-        <Route path='/inventory' element={<Inventory baby={localBaby} />} />
-        <Route
-          path='/inventory/:sizeId'
-          element={<SizeDetail baby={localBaby} />}
-        />
-        <Route path='/history' element={<History baby={localBaby} />} />
-        <Route path='/settings' element={<Settings />} />
-        <Route path='*' element={<Navigate to='/' replace />} />
-      </Route>
-    </Routes>
+    <>
+      <SyncLoop />
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route path='/' element={<Home baby={localBaby} />} />
+          <Route path='/record' element={<RecordMultiple baby={localBaby} />} />
+          <Route path='/inventory' element={<Inventory baby={localBaby} />} />
+          <Route
+            path='/inventory/:sizeId'
+            element={<SizeDetail baby={localBaby} />}
+          />
+          <Route path='/history' element={<History baby={localBaby} />} />
+          <Route path='/settings' element={<Settings />} />
+          <Route path='*' element={<Navigate to='/' replace />} />
+        </Route>
+      </Routes>
+    </>
   )
+}
+
+/** Mounts the sync triggers for as long as a local baby exists (§9.3). */
+const SyncLoop = () => {
+  useEffect(() => {
+    startSyncLoop(backend, getDeviceId())
+  }, [])
+  return null
 }
 
 /** Startup flow of §9.7 when there is no local Baby. */

@@ -144,3 +144,7 @@ vite.config.ts.timestamp-*
 
 # Local Netlify folder
 .netlify
+
+# Wrangler local secrets
+.dev.vars
+.wrangler/

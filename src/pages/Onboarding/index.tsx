@@ -5,6 +5,7 @@ import type { Baby } from '../../../shared/types.ts'
 import { db } from '../../db/index.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
+import { notifyWrite } from '../../sync/scheduler.ts'
 
 /** Three steps, no more (§10): name → current size → initial stock. */
 export const Onboarding = () => {
@@ -67,7 +68,8 @@ export const Onboarding = () => {
         await db.babies.put(baby)
         await db.movements.bulkAdd([initial, sizeChange])
       })
-      // The immediate sync that publishes the new Baby arrives in phase 3.
+      // Publish the new Baby right away (§9.7)
+      notifyWrite()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error inesperado')
     }

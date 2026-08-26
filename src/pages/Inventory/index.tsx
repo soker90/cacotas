@@ -9,6 +9,7 @@ import {
 } from '../../hooks'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
+import { notifyWrite } from '../../sync/scheduler.ts'
 
 /** Quick inventory correction: ±1 as an ADJUSTMENT difference. */
 const quickAdjust = async (
@@ -29,6 +30,7 @@ const quickAdjust = async (
     { type: 'ADJUSTMENT', delta }
   )
   await db.movements.add(movement)
+  notifyWrite()
 }
 
 export const Inventory = ({ baby }: { baby: Baby }) => {

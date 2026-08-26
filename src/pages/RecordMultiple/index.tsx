@@ -9,6 +9,7 @@ import {
 } from '../../hooks'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
+import { notifyWrite } from '../../sync/scheduler.ts'
 
 const SIZES = [0, 1, 2, 3, 4, 5, 6] as const
 
@@ -97,6 +98,7 @@ export const RecordMultiple = ({ baby }: { baby: Baby }) => {
       { type: 'USAGE', usageSource, quantity }
     )
     await db.movements.add(movement)
+    notifyWrite()
     void navigate('/')
   }
 

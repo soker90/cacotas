@@ -5,6 +5,7 @@ import { db } from '../db/index.ts'
 import { isStayMode } from '../lib/stay-mode.ts'
 import { uuid } from '../lib/uuid.ts'
 import { getDeviceId } from '../sync/device-id.ts'
+import { notifyWrite } from '../sync/scheduler.ts'
 
 const UNDO_WINDOW_MS = 5_000
 
@@ -50,6 +51,7 @@ export const useRecordMovement = (
       }
     )
     await db.movements.add(movement)
+    notifyWrite()
 
     setLastUsage(movement)
     if (timer.current) clearTimeout(timer.current)
@@ -74,6 +76,7 @@ export const useRecordMovement = (
       { type: 'UNDO', original: lastUsage }
     )
     await db.movements.add(undo)
+    notifyWrite()
     setLastUsage(null)
   }
 

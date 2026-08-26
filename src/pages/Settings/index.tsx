@@ -3,6 +3,7 @@ import type { ChangeEvent } from 'react'
 import { exportJSON, importJSON } from '../../lib/backup.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { isStayMode, setStayMode } from '../../lib/stay-mode.ts'
+import { notifyWrite } from '../../sync/scheduler.ts'
 
 export const Settings = () => {
   const [stayMode, setStayModeState] = useState(() => isStayMode())
@@ -18,6 +19,7 @@ export const Settings = () => {
     if (!file) return
     try {
       await importJSON(file)
+      notifyWrite()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo importar')
     }

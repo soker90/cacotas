@@ -14,6 +14,7 @@ import {
 } from '../../hooks'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
+import { notifyWrite } from '../../sync/scheduler.ts'
 
 const parsePositive = (text: string): number | null => {
   const value = Number.parseInt(text, 10)
@@ -67,6 +68,7 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
       { type: 'PURCHASE', quantity: packages * perPackage }
     )
     await db.movements.add(movement)
+    notifyWrite()
     setError(null)
     setPackagesText('1')
   }
@@ -99,6 +101,7 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
       { type: 'ADJUSTMENT', delta }
     )
     await db.movements.add(movement)
+    notifyWrite()
     setError(null)
     setAdjustNewText('')
     setAdjustNote('')
@@ -128,6 +131,7 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
       { type: 'SIZE_CHANGE' }
     )
     await db.movements.add(movement)
+    notifyWrite()
     void navigate('/inventory')
   }
 

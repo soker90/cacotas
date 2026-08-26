@@ -8,6 +8,7 @@ import { useHistoryMovements } from '../../hooks'
 import { hasBeenUndone, undoLabel } from '../../lib/history.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
+import { notifyWrite } from '../../sync/scheduler.ts'
 
 const TYPE_LABELS: Record<Movement['type'], string> = {
   INITIAL: 'Stock inicial',
@@ -56,6 +57,7 @@ const undoMovement = async (original: Movement): Promise<void> => {
     { type: 'UNDO', original }
   )
   await db.movements.add(movement)
+  notifyWrite()
 }
 
 export const History = ({ baby }: { baby: Baby }) => {
