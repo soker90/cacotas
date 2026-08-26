@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useBaby } from '../../hooks'
 import type { ChangeEvent } from 'react'
 import { exportJSON, importJSON } from '../../lib/backup.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
@@ -19,7 +18,6 @@ import {
 import { notifyWrite } from '../../sync/scheduler.ts'
 
 export const Settings = () => {
-  const baby = useBaby()
   const [stayMode, setStayModeState] = useState(() => isStayMode())
   const [warningText, setWarningText] = useState(() =>
     String(getWarningDays())
@@ -36,10 +34,10 @@ export const Settings = () => {
       setPushSupport(state)
       // Self-heal: a subscription may exist in the browser but never have
       // reached the server (e.g. a past attempt failed silently).
-      if (state === 'subscribed' && baby != null) {
+      if (state === 'subscribed') {
         setResyncStatus('checking')
         try {
-          await resyncSubscription(baby.id)
+          await resyncSubscription()
           setResyncStatus('ok')
         } catch (err) {
           setResyncStatus(
@@ -48,7 +46,7 @@ export const Settings = () => {
         }
       }
     })
-  }, [baby])
+  }, [])
 
   const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
   const [activatingPush, setActivatingPush] = useState(false)
@@ -60,8 +58,7 @@ export const Settings = () => {
     }
     setActivatingPush(true)
     try {
-      if (baby === null || baby === undefined) throw new Error('Sin bebé configurado')
-      const result = await subscribeToPush(baby.id, vapidKey)
+      const result = await subscribeToPush(vapidKey)
       setPushSupport(result)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo activar')

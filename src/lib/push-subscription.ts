@@ -1,10 +1,11 @@
-import type { UUID } from '../../shared/types.ts'
-
 /**
  * Web Push subscription (SPEC.md §12). Requires VITE_VAPID_PUBLIC_KEY at
  * build time; the subscription is stored in D1 through the same-origin
- * proxy.
+ * proxy, keyed by deviceId (§4.5 push_subscriptions PK is device_id — the
+ * baby is irrelevant here, only the device matters).
  */
+
+import { getDeviceId } from '../sync/device-id.ts'
 
 const urlBase64ToUint8Array = (base64: string): Uint8Array<ArrayBuffer> => {
   // Typed as ArrayBuffer-backed for pushManager's applicationServerKey
@@ -37,7 +38,6 @@ export const pushState = async (): Promise<PushSupport> => {
 
 /** Idempotent upsert on the server (§4.5 push_subscriptions PK is device_id). */
 const saveSubscription = async (
-  babyId: UUID,
   subscription: PushSubscription
 ): Promise<void> => {
   const json = subscription.toJSON()
@@ -48,7 +48,7 @@ const saveSubscription = async (
       'X-Auth': import.meta.env.VITE_SYNC_SECRET ?? '',
     },
     body: JSON.stringify({
-      babyId,
+      deviceId: getDeviceId(),
       endpoint: subscription.endpoint,
       keys: json.keys,
     }),
@@ -62,7 +62,6 @@ const saveSubscription = async (
 }
 
 export const subscribeToPush = async (
-  babyId: UUID,
   vapidPublicKey: string
 ): Promise<PushSupport> => {
   const permission = await Notification.requestPermission()
@@ -80,7 +79,7 @@ export const subscribeToPush = async (
       applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
     }))
 
-  await saveSubscription(babyId, subscription)
+  await saveSubscription(subscription)
   return 'subscribed'
 }
 
@@ -89,8 +88,8 @@ export const subscribeToPush = async (
  * reached the server (e.g. an earlier attempt failed silently). Cheap and
  * idempotent — safe to call on every Settings mount.
  */
-export const resyncSubscription = async (babyId: UUID): Promise<void> => {
+export const resyncSubscription = async (): Promise<void> => {
   const reg = await navigator.serviceWorker.getRegistration()
   const subscription = await reg?.pushManager.getSubscription()
-  if (subscription) await saveSubscription(babyId, subscription)
+  if (subscription) await saveSubscription(subscription)
 }
