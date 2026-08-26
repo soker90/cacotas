@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createMovement } from '../../shared/factory.ts'
 import type { Movement, UUID } from '../../shared/types.ts'
 import { db } from '../db/index.ts'
+import { isStayMode } from '../lib/stay-mode.ts'
 import { uuid } from '../lib/uuid.ts'
 import { getDeviceId } from '../sync/device-id.ts'
 
@@ -40,7 +41,13 @@ export const useRecordMovement = (
         occurredAt: now,
         recordedAt: now,
       },
-      { type: 'USAGE', usageSource: 'OWN_STOCK', quantity: 1 }
+      {
+        type: 'USAGE',
+        // Stay mode: hospital/grandparents diapers count in history but not
+        // in stock (D-05)
+        usageSource: isStayMode() ? 'EXTERNAL' : 'OWN_STOCK',
+        quantity: 1
+      }
     )
     await db.movements.add(movement)
 

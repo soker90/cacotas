@@ -1,33 +1,25 @@
-import type { ChangeEvent } from 'react'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { Baby } from '../../../shared/types.ts'
 import {
   useCurrentSize,
   useRecordMovement,
   useStockBySize,
 } from '../../hooks'
-import { exportJSON, importJSON } from '../../lib/backup.ts'
+import { isStayMode } from '../../lib/stay-mode.ts'
 
 export const Home = ({ baby }: { baby: Baby }) => {
   const sizeId = useCurrentSize(baby.id)
   const stocks = useStockBySize(baby.id)
   const { recordDiaper, undoLast, lastUsage } = useRecordMovement(baby.id)
+  // Route changes remount this page, so the flag is read fresh each time
+  const [stayMode] = useState(() => isStayMode())
 
   const stock =
     typeof sizeId === 'number' ? (stocks?.get(sizeId) ?? 0) : null
 
   const handleRecordDiaper = (): void => {
     if (typeof sizeId === 'number') void recordDiaper(sizeId)
-  }
-
-  const onImport = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    try {
-      await importJSON(file)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'No se pudo importar')
-    }
-    e.target.value = ''
   }
 
   return (
@@ -37,7 +29,16 @@ export const Home = ({ baby }: { baby: Baby }) => {
           👶 {baby.name}
           {typeof sizeId === 'number' ? ` · Talla ${String(sizeId)}` : ''}
         </span>
+        <Link to='/settings' aria-label='Ajustes' className='header-link'>
+          ⚙️
+        </Link>
       </header>
+
+      {stayMode && (
+        <p className='stay-banner' role='status'>
+          🏥 Modo estancia activo — los pañales no descuentan stock
+        </p>
+      )}
 
       <button
         type='button'
@@ -78,24 +79,9 @@ export const Home = ({ baby }: { baby: Baby }) => {
       </section>
 
       <footer className='home-footer'>
-        <button
-          type='button'
-          onClick={() => {
-            void exportJSON()
-          }}
-        >
-          Exportar JSON
-        </button>
-        <label className='file-label'>
-          Importar JSON
-          <input
-            type='file'
-            accept='application/json'
-            onChange={(e) => {
-              void onImport(e)
-            }}
-          />
-        </label>
+        <Link to='/record' className='secondary-action'>
+          ＋ Registrar varios
+        </Link>
       </footer>
     </main>
   )
