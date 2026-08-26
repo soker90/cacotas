@@ -3,7 +3,7 @@
     "target": "ES2022",
     "lib": ["ES2023"],
     "module": "ESNext",
-    "types": ["@cloudflare/workers-types"],
+    "types": ["@cloudflare/workers-types"], "lib": ["ES2023", "DOM"],
     "skipLibCheck": true,
 
     "moduleResolution": "bundler",

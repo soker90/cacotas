@@ -1,4 +1,5 @@
 import { createMovement } from '../shared/factory.ts'
+import { madridNow, runNotifications } from './notify.ts'
 import type { MovementType } from '../shared/types.ts'
 
 /**
@@ -10,6 +11,9 @@ import type { MovementType } from '../shared/types.ts'
 export interface Env {
   DB: D1Database
   AUTH_SECRET: string
+  VAPID_PRIVATE_KEY: string
+  VAPID_SUBJECT: string
+  HEARTBEAT_URL?: string
 }
 
 interface MovementRow {
@@ -383,7 +387,90 @@ const handleSingleMovement = async (
   return json({ movement: { ...movement, serverSeq: 0 } }, 200)
 }
 
+const handlePushSubscribe = async (
+  request: Request,
+  env: Env
+): Promise<Response> => {
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'invalid JSON' }, 400)
+  }
+  if (typeof body !== 'object' || body === null) { return json({ error: 'invalid payload' }, 400) }
+  const r = body as Record<string, unknown>
+  const keys = r.keys as Record<string, unknown> | undefined
+  if (
+    typeof r.deviceId !== 'string' ||
+    typeof r.endpoint !== 'string' ||
+    typeof keys?.p256dh !== 'string' ||
+    typeof keys?.auth !== 'string'
+  ) {
+    return json({ error: 'deviceId, endpoint and keys required' }, 400)
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO push_subscriptions (device_id, endpoint, keys_json)
+     VALUES (?1, ?2, ?3)
+     ON CONFLICT(device_id) DO UPDATE SET
+       endpoint = excluded.endpoint,
+       keys_json = excluded.keys_json`
+  )
+    .bind(r.deviceId, r.endpoint, JSON.stringify(keys))
+    .run()
+  return json({ status: 'subscribed' })
+}
+
+const handleSnooze = async (
+  request: Request,
+  env: Env
+): Promise<Response> => {
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'invalid JSON' }, 400)
+  }
+  if (typeof body !== 'object' || body === null) { return json({ error: 'invalid payload' }, 400) }
+  const r = body as Record<string, unknown>
+  if (
+    typeof r.babyId !== 'string' ||
+    typeof r.kind !== 'string' ||
+    !Number.isInteger(r.sizeId) ||
+    !Number.isInteger(r.snoozedUntil)
+  ) {
+    return json({ error: 'babyId, kind, sizeId, snoozedUntil required' }, 400)
+  }
+
+  await env.DB.prepare(
+    `UPDATE notification_log SET snoozed_until = ?4
+     WHERE baby_id = ?1 AND size_id = ?2 AND kind = ?3`
+  )
+    .bind(r.babyId, r.sizeId, r.kind, r.snoozedUntil)
+    .run()
+  return json({ status: 'snoozed' })
+}
+
 export default {
+  // Hourly cron; the notification pass only runs during the 20:00 hour in
+  // Europe/Madrid (cron triggers are UTC-only).
+  async scheduled (
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
+    const { hour } = madridNow()
+    if (hour !== 20) return
+
+    const result = await runNotifications(env)
+
+    // healthchecks.io heartbeat — silence here means "out of diapers soon"
+    if (env.HEARTBEAT_URL !== undefined && env.HEARTBEAT_URL !== '') {
+      ctx.waitUntil(fetch(env.HEARTBEAT_URL).catch(() => undefined))
+    }
+    console.log('notifications:', JSON.stringify(result))
+  },
+
   fetch (request: Request, env: Env): Promise<Response> {
     return (async () => {
       const url = new URL(request.url)
@@ -395,6 +482,12 @@ export default {
           return handleSync(request, env)
         case '/movement':
           return handleSingleMovement(request, env)
+        case '/push-subscribe':
+          return handlePushSubscribe(request, env)
+        case '/snooze':
+          return handleSnooze(request, env)
+        case '/run-notifications':
+          return runNotifications(env).then((result) => json(result))
         default:
           return json({ error: 'not found' }, 404)
       }

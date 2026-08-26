@@ -53,6 +53,8 @@ export default defineConfig({
       globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
       navigateFallback: 'index.html',
       runtimeCaching: [],
+      // Push + notificationclick handlers (phase 5)
+      importScripts: ['/push-handler.js'],
     },
   })],
   test: {

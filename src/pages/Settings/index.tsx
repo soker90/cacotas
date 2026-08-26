@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useBaby } from '../../hooks'
 import type { ChangeEvent } from 'react'
 import { exportJSON, importJSON } from '../../lib/backup.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
@@ -9,9 +10,15 @@ import {
   setCoverageDays,
   setWarningDays,
 } from '../../lib/settings.ts'
+import {
+  pushState,
+  subscribeToPush,
+  type PushSupport,
+} from '../../lib/push-subscription.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
 
 export const Settings = () => {
+  const baby = useBaby()
   const [stayMode, setStayModeState] = useState(() => isStayMode())
   const [warningText, setWarningText] = useState(() =>
     String(getWarningDays())
@@ -20,6 +27,27 @@ export const Settings = () => {
     String(getCoverageDays())
   )
   const [error, setError] = useState<string | null>(null)
+  const [pushSupport, setPushSupport] = useState<PushSupport | null>(null)
+
+  useEffect(() => {
+    void pushState().then(setPushSupport)
+  }, [])
+
+  const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+
+  const enablePush = async (): Promise<void> => {
+    if (typeof vapidKey !== 'string' || vapidKey === '') {
+      setError('Falta la clave VAPID en este build')
+      return
+    }
+    try {
+      if (baby === null || baby === undefined) throw new Error('Sin bebé configurado')
+      const result = await subscribeToPush(baby.id, vapidKey)
+      setPushSupport(result)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo activar')
+    }
+  }
 
   const toggleStayMode = (checked: boolean): void => {
     setStayMode(checked)
@@ -111,6 +139,44 @@ export const Settings = () => {
         >
           Guardar
         </button>
+      </section>
+
+      <section className='card'>
+        <h2>Notificaciones</h2>
+        {pushSupport === 'unsupported' && (
+          <p className='muted small'>
+            Este navegador no soporta notificaciones push.
+          </p>
+        )}
+        {pushSupport === 'denied' && (
+          <p className='muted small'>
+            Los permisos están bloqueados: actívalos desde los ajustes del
+            navegador.
+          </p>
+        )}
+        {(pushSupport === 'subscribed' || pushSupport === 'unsubscribed') && (
+          <>
+            <p className='muted small'>
+              Aviso diario a las 20:00 si queda poco stock. Con acción «me
+              encargo yo» para silenciarlo un día.
+            </p>
+            {pushSupport === 'subscribed'
+              ? (
+                <p className='forecast-buy'>✓ Suscrito a este dispositivo</p>
+                )
+              : (
+                <button
+                  type='button'
+                  className='primary'
+                  onClick={() => {
+                    void enablePush()
+                  }}
+                >
+                  Activar avisos en este móvil
+                </button>
+                )}
+          </>
+        )}
       </section>
 
       <section className='card'>

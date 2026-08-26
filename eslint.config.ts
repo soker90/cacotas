@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 export default [
   ...neostandard({ ts: true }),
 
-  globalIgnores(['dist', 'dev-dist', 'coverage']),
+  globalIgnores(['dist', 'dev-dist', 'coverage', 'public/push-handler.js']),
 
   // Type-aware rules on top of Standard: catches silent failures
   // (floating promises, misused async) that syntax-only linting cannot see.

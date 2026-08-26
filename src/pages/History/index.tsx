@@ -93,7 +93,14 @@ export const History = ({ baby }: { baby: Baby }) => {
 
       {groups.map(([day, items]) => (
         <section key={day} className='history-day'>
-          <h2>{day}</h2>
+          <h2 title={day}>
+            {new Intl.DateTimeFormat('es-ES', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              timeZone: 'Europe/Madrid'
+            }).format(new Date(`${day}T12:00:00Z`))}
+          </h2>
           <ul className='history-list'>
             {items.map((m) => (
               <li key={m.id} className='history-row'>
