@@ -4,11 +4,16 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 /** Update prompt for registerType: 'prompt' (§11). Without this UI the new
  *  service worker would wait forever while the old one keeps serving.
  *
- *  Known limitation: the very first update after a long-lived old SW can
- *  show this banner twice in a row before settling (documented upstream in
- *  vite-plugin-pwa's prompt flow). Harmless — a second tap always finishes
- *  it. Not worth chasing further; `clientsClaim` already reduces it to at
- *  most one extra cycle. */
+ *  Known limitations:
+ *  - The very first update after a long-lived old SW can show this banner
+ *    twice in a row before settling. Harmless — a second tap always
+ *    finishes it.
+ *  - Deploying several versions in quick succession can strand a device's
+ *    SW in permanent "installing": the new revision precaches hashed assets
+ *    that a later deploy already pruned (404). Symptom: endless update
+ *    banner while the active version works fine. Remedy on the device:
+ *    unregister the worker (chrome://serviceworker-internals) or reinstall.
+ *    Prevention: let each deploy settle before shipping the next one. */
 export const UpdatePrompt = () => {
   const { needRefresh, updateServiceWorker } = useRegisterSW()
   const [updating, setUpdating] = useState(false)
