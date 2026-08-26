@@ -36,10 +36,11 @@ export const Home = ({ baby }: { baby: Baby }) => {
   return (
     <main className='home'>
       <header className='home-header'>
-        <span>
-          👶 {baby.name}
+        <h1 className='home-title'>
+          <span aria-hidden='true'>👶 </span>
+          {baby.name}
           {typeof sizeId === 'number' ? ` · Talla ${String(sizeId)}` : ''}
-        </span>
+        </h1>
         <Link to='/settings' aria-label='Ajustes' className='header-link'>
           ⚙️
         </Link>

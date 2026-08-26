@@ -268,8 +268,9 @@ main.home {
 }
 
 .btn-accent {
-  background: var(--accent);
-  border-color: #b95a3d;
+  /* #bd5738: terracotta darkened to 4.6:1 with white (AA for normal text) */
+  background: #bd5738;
+  border-color: #9c4530;
   color: #fff;
   font-weight: 700;
 }
@@ -277,7 +278,8 @@ main.home {
 .btn-neutral {
   background: var(--blue-soft);
   border-color: var(--blue);
-  color: var(--blue);
+  /* #3a5a86: --blue darkened to 4.7:1 on blue-soft (AA for normal text) */
+  color: #3a5a86;
   font-weight: 700;
 }
 
@@ -299,6 +301,12 @@ main.home {
   align-items: center;
   font-size: 1.1rem;
   padding: 0.5rem 0;
+}
+
+/* h1 kept visually identical to the old span header */
+.home-title {
+  font-size: inherit;
+  margin: 0;
 }
 
 .stay-banner {

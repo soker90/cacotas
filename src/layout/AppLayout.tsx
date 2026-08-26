@@ -11,7 +11,7 @@ const NAV = [
 export const AppLayout = () => (
   <>
     <Outlet />
-    <nav className='bottom-nav'>
+    <nav className='bottom-nav' aria-label='Principal'>
       {NAV.map((item) => (
         <NavLink
           key={item.to}

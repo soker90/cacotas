@@ -102,6 +102,8 @@ export const Onboarding = () => {
                 key={i}
                 type='button'
                 className={sizeId === i ? 'size selected' : 'size'}
+                aria-label={`Talla ${String(i)}`}
+                aria-pressed={sizeId === i}
                 onClick={() => { setSizeId(i) }}
               >
                 {i}

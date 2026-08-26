@@ -157,6 +157,7 @@ export const RecordMultiple = ({ baby }: { baby: Baby }) => {
         <h2>Cuándo</h2>
         <input
           type='datetime-local'
+          aria-label='Cuándo'
           value={when}
           onChange={(e) => {
             setWhen(e.target.value)
