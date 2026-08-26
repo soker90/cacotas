@@ -36,10 +36,7 @@ jobs:
       # VITE_* vars are baked into the bundle at build time (SPEC §9.8) —
       # without them production ships with no sync backend and no VAPID key.
       - name: Build
-        run: |
-          pnpm build
-          echo "--- bundle fingerprints:"
-          ls dist/assets/
+        run: pnpm build
         env:
           VITE_SYNC_URL: ${{ secrets.VITE_SYNC_URL }}
           VITE_SYNC_SECRET: ${{ secrets.VITE_SYNC_SECRET }}
