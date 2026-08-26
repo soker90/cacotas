@@ -5,8 +5,12 @@ import type { SyncBackend } from './backend.ts'
 const CURSOR_KEY = 'cacotas.syncCursor'
 const LAST_SYNC_KEY = 'cacotas.lastSyncAt'
 
-const readCursor = (): number => {
-  const raw = localStorage.getItem(CURSOR_KEY)
+// The cursor belongs to a device↔server pair; namespacing it by deviceId
+// keeps multiple backends (or restored devices) from stepping on each other.
+const cursorKey = (deviceId: string): string => `${CURSOR_KEY}:${deviceId}`
+
+const readCursor = (deviceId: string): number => {
+  const raw = localStorage.getItem(cursorKey(deviceId))
   const parsed = raw === null ? NaN : Number.parseInt(raw, 10)
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0
 }
@@ -28,7 +32,7 @@ export const runSync = async (
   backend: SyncBackend,
   deviceId: string
 ): Promise<void> => {
-  let since = readCursor()
+  let since = readCursor(deviceId)
   let hasMore = true
 
   while (hasMore) {
@@ -94,6 +98,7 @@ export const runSync = async (
     hasMore = res.hasMore
   }
 
-  localStorage.setItem(CURSOR_KEY, String(since))
+  localStorage.setItem(cursorKey(deviceId), String(since))
+  // Global stamp for the UI indicator (single-device UI, D-23)
   localStorage.setItem(LAST_SYNC_KEY, String(Date.now()))
 }
