@@ -37,6 +37,14 @@ export interface Forecast {
   status: ForecastStatus
   recommendedDiapers: number | null
   recommendedPackages: number | null
+  /**
+   * Passthrough of the input (SPEC.md §8). Non-null means a size change is
+   * projected within `transitionDays` days. Drives the app-only
+   * `SIZE_CHANGE_APPROACHING` notice (never a push, SPEC.md §12) for the
+   * cases where it does not already change `status` (HOLD_SIZE_CHANGE /
+   * BUY_BOTH_SIZES already communicate it when it does).
+   */
+  transitionDays: number | null
 }
 
 const median = (values: number[]): number => {
@@ -121,6 +129,7 @@ export const computeForecast = (input: ForecastInput): Forecast => {
       status: 'NO_DATA',
       recommendedDiapers: null,
       recommendedPackages: null,
+      transitionDays,
     }
   }
 
@@ -147,6 +156,7 @@ export const computeForecast = (input: ForecastInput): Forecast => {
       status: 'NO_DATA',
       recommendedDiapers: null,
       recommendedPackages: null,
+      transitionDays,
     }
   }
   const span = daysBetween(firstDay, lastDay) + 1
@@ -191,5 +201,6 @@ export const computeForecast = (input: ForecastInput): Forecast => {
     status,
     recommendedDiapers,
     recommendedPackages,
+    transitionDays,
   }
 }

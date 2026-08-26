@@ -27,6 +27,18 @@ export const forecastCaveats = (forecast: Forecast): string[] => {
   const caveats: string[] = []
   if (forecast.confidence === 'LOW') { caveats.push('Predicción poco fiable todavía.') }
   if (forecast.variabilityHigh) { caveats.push('El consumo es irregular.') }
+  // SIZE_CHANGE_APPROACHING (SPEC.md §12): app-only notice. Skipped when
+  // HOLD_SIZE_CHANGE / BUY_BOTH_SIZES already communicate the transition
+  // via the headline, to avoid saying it twice.
+  if (
+    forecast.transitionDays !== null &&
+    forecast.status !== 'HOLD_SIZE_CHANGE' &&
+    forecast.status !== 'BUY_BOTH_SIZES'
+  ) {
+    caveats.push(
+      `Podríais cambiar de talla en unos ${String(forecast.transitionDays)} días.`
+    )
+  }
   return caveats
 }
 
