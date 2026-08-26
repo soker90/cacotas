@@ -19,6 +19,7 @@ import { SizeDetail } from './pages/SizeDetail/index.tsx'
 import { RecordMultiple } from './pages/RecordMultiple/index.tsx'
 import { History } from './pages/History/index.tsx'
 import { Settings } from './pages/Settings/index.tsx'
+import { UpdatePrompt } from './pwa/UpdatePrompt.tsx'
 
 void seedSizes(db)
 
@@ -29,6 +30,7 @@ const backend = null
 
 export const App = () => (
   <BrowserRouter>
+    <UpdatePrompt />
     <AppRoutes />
   </BrowserRouter>
 )

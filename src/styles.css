@@ -597,3 +597,27 @@ input[type='datetime-local'] {
   background: var(--blue-soft);
   color: var(--blue);
 }
+
+/* ── SW update prompt ───────────────────────────────── */
+.update-banner {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  background: var(--surface);
+  border: 1px solid var(--green);
+  border-top: none;
+  border-radius: 0 0 0.8rem 0.8rem;
+  box-shadow: var(--shadow);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.88rem;
+}
+
+.update-banner button {
+  padding: 0.35rem 0.8rem;
+  font-weight: 700;
+}
