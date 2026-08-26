@@ -5,7 +5,9 @@ import { PermanentSyncError, TransientSyncError } from './http-backend.ts'
 import { runSync } from './engine.ts'
 
 const WRITE_DEBOUNCE_MS = 3_000
-const PERIODIC_MS = 15 * 60_000
+// SPEC §9.3 said 15 min; lowered to 5 so an idle open app never shows
+// stock older than 5 minutes. Cost: one tiny POST per interval.
+const PERIODIC_MS = 5 * 60_000
 const INITIAL_BACKOFF_MS = 60_000
 const MAX_BACKOFF_MS = 30 * 60_000
 
