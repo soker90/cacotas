@@ -10,6 +10,8 @@ const WRITE_DEBOUNCE_MS = 3_000
 const PERIODIC_MS = 5 * 60_000
 const INITIAL_BACKOFF_MS = 60_000
 const MAX_BACKOFF_MS = 30 * 60_000
+// Quick tab flips don't need a resume sync; being away a minute or more does.
+const RESUME_SYNC_MIN_HIDDEN_MS = 60_000
 
 let backend: SyncBackend | null = null
 let deviceId = ''
@@ -94,3 +96,23 @@ const scheduleNext = (): void => {
 }
 
 export const getSyncStatus = (): SyncStatus => ({ lastError })
+
+// Backgrounded apps freeze JS timers: neither the 3 s write debounce nor
+// the periodic tick can run while the phone is locked or the tab hidden.
+// A phone reopened after a while shows stale indicators until something
+// pokes the loop — observed on device during the phase 5 DoD, where only
+// a pull-to-refresh nudged it. Returning to the foreground after more
+// than a minute away counts as "opening the app" (§9.3); sync once, now.
+let hiddenAt = 0
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now()
+      return
+    }
+    if (hiddenAt === 0) return // nothing to resume from
+    const awayFor = Date.now() - hiddenAt
+    hiddenAt = 0
+    if (backend !== null && awayFor >= RESUME_SYNC_MIN_HIDDEN_MS) void trigger()
+  })
+}
