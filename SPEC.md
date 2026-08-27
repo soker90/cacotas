@@ -97,6 +97,8 @@ Cada una con su motivo. **No revisitar sin motivo nuevo.**
 | D-21 | El consumo del recién nacido decrece rápido | 10-12/día → 5-6 a los 6 meses. Ventanas largas sobreestiman |
 | D-22 | El registro es irregular y a posteriori | A las 4 AM no se registra nada; se meten 3 de golpe por la mañana |
 | D-23 | Multi-bebé en el modelo, uno en la UI | `babyId` en todo, sin selector por ahora |
+| D-24 | Transición de talla: tres estimadores combinados por el mínimo | Señales observadas, proyección de peso y tiempo en la talla (§8). Funciona desde el día 1 sin registrar ningún peso —gracias a la duración típica por talla de la tabla Dodot— y mejora sola con cada peso registrado. Solo bloquea compras con confianza `MEDIUM`+, por la asimetría del coste de error (§8.6). Sustituye a la extrapolación por peso que estaba en "fuera de alcance": se descartó cuando la alternativa era el histórico de tallas, que no existe el día del estreno |
+| D-25 | La incertidumbre se muestra, no se esconde | La transición se presenta siempre como un rango (*"entre 5 y 10 semanas"*), nunca como una cifra puntual. Con más pesos registrados el rango se estrecha, de modo que el usuario ve que la app está aprendiendo en vez de confiar en una falsa precisión. Para decidir compras se usa el extremo pesimista (§8.9) |
 
 ---
 
@@ -116,7 +118,7 @@ export type UsageSource = 'OWN_STOCK' | 'EXTERNAL';
 export interface Movement {
   id: UUID;
   babyId: UUID;
-  sizeId: number;                 // 0..6
+  sizeId: number;                 // 0..7
 
   type: MovementType;
   usageSource?: UsageSource;      // obligatorio si type === 'USAGE'
@@ -137,8 +139,11 @@ export interface Movement {
 export interface Baby {
   id: UUID;
   name: string;
-  birthDate?: string;             // 'YYYY-MM-DD'
+  birthDate?: string;             // 'YYYY-MM-DD' — se pide en el onboarding (§10)
   zoneId: string;                 // 'Europe/Madrid'
+  birthWeightKg?: number;         // también se registra como primer WeightRecord (§8.8)
+  sex?: 'male' | 'female';        // factor de ganancia de peso (§8.8)
+  gestationalWeeks?: number;      // semanas de gestación; se asume 40 (a término)
   createdAt: number;
   updatedAt: number;              // last-write-wins al sincronizar
   serverSeq?: number;
@@ -148,24 +153,29 @@ export interface WeightRecord {
   id: UUID;
   babyId: UUID;
   weightKg: number;
+  lengthCm?: number;              // se guarda, no se usa en el MVP (§8.8)
   recordedAt: number;
   deviceId: string;
   serverSeq?: number;
 }
 
 export interface DiaperSize {
-  id: number;                     // 0..6 = número de talla
+  id: number;                     // 0..7 = número de talla
   name: string;                   // 'Talla 2'
   minWeightKg?: number;
   maxWeightKg?: number;
+  dailyDiapers?: number;          // consumo medio de fabricante (siembra §7.2)
+  typicalMonths?: number;         // duración típica de la talla (§8.4)
 }
 
-/** Señales manuales de que la talla se queda pequeña. */
+/** Señales manuales de que la talla se queda pequeña (guía Dodot, §8.3). */
 export interface TransitionSignals {
-  leaks: boolean;                 // escapes frecuentes
-  tight: boolean;                 // queda ajustado
-  marks: boolean;                 // deja marcas
-  hardToClose: boolean;           // cuesta cerrarlo
+  tabsNotCentered: boolean;       // las cintas no llegan al centro de la cintura
+  noTwoFingers: boolean;          // no caben dos dedos bajo la cintura cerrada
+  redMarks: boolean;              // deja marcas rojas en barriga o muslos
+  uncoveredButtocks: boolean;     // el pañal no le cubre del todo las nalgas
+  frequentDermatitis: boolean;    // dermatitis del pañal frecuente
+  pullsDiaper: boolean;           // se muestra molesto o tira del pañal
 }
 ```
 
@@ -188,7 +198,7 @@ export interface TransitionSignals {
 o del botón físico.
 
 ```
-Siempre:          quantity >= 0, sizeId ∈ [0,6], occurredAt <= recordedAt + 60s
+Siempre:          quantity >= 0, sizeId ∈ [0,7], occurredAt <= recordedAt + 60s
 
 type=USAGE        usageSource definido, quantity >= 1
   OWN_STOCK       delta = -quantity
@@ -220,7 +230,8 @@ this.version(1).stores({
 ```
 
 Nombre de la base: `cacotas`.
-Al crearla, sembrar las tallas 0-6 con `name: 'Talla N'` y rangos de peso vacíos.
+Al crearla, sembrar las tallas 0-7 a partir de `DODOT_SIZES` (§8.2): nombre, rangos de peso,
+`dailyDiapers` y `typicalMonths`. Rangos y medias son editables por el usuario (§8.8).
 
 ### 4.5 Esquema D1 (`worker/schema.sql`)
 
@@ -247,6 +258,7 @@ CREATE TABLE weights (
   id         TEXT NOT NULL UNIQUE,
   baby_id    TEXT NOT NULL,
   weight_kg  REAL NOT NULL,
+  length_cm  REAL,                  -- se guarda, no se usa en el MVP (§8.8)
   recorded_at INTEGER NOT NULL,
   device_id  TEXT NOT NULL
 );
@@ -256,6 +268,9 @@ CREATE TABLE babies (
   name       TEXT NOT NULL,
   birth_date TEXT,
   zone_id    TEXT NOT NULL,
+  birth_weight_kg REAL,              -- datos de transición de talla (§8.8)
+  sex        TEXT,
+  gestational_weeks INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
@@ -340,14 +355,21 @@ Módulo **puro**: sin base de datos, sin red, sin React. Compartido entre client
 export interface ForecastInput {
   stock: number;                    // de la talla evaluada
   usage: Movement[];                // consumos vivos de TODAS las tallas (D-12)
+  currentSize: DiaperSize | null;   // para la siembra en frío (§7.2)
   now: number;
-  transitionDays: number | null;    // ver §8
+  transition: TransitionEstimate | null;   // estimación de transición (§8)
   warningDays: number;              // 7
   coverageDays: number;             // 21
   diapersPerPackage?: number;
 }
 
 export type Confidence = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
+
+/** Estimación de transición de talla producida por §8. */
+export interface TransitionEstimate {
+  days: number;                     // días estimados hasta el cambio
+  confidence: Confidence;           // nunca NONE: sin datos el estimador devuelve null
+}
 
 export type ForecastStatus =
   | 'NO_DATA'              // sin historial suficiente
@@ -363,6 +385,7 @@ export interface Forecast {
   confidence: Confidence;
   variabilityHigh: boolean;
   daysCovered: number;              // días con registro usados
+  seeded: boolean;                  // consumo semillado de fabricante (§7.2)
   status: ForecastStatus;
   recommendedDiapers: number | null;
   recommendedPackages: number | null;
@@ -374,7 +397,11 @@ La UI renderiza el texto a partir de `status`. **El motor no devuelve cadenas de
 ### 7.2 Cálculo del consumo diario
 
 ```ts
-export function dailyConsumption(usage: Movement[], now: number) {
+export function dailyConsumption(
+  usage: Movement[],
+  currentSize: DiaperSize | null,   // talla evaluada, para la siembra en frío
+  now: number
+) {
   // 1. Solo stock propio (D-05)
   const own = usage.filter(m => m.usageSource === 'OWN_STOCK');
 
@@ -391,27 +418,35 @@ export function dailyConsumption(usage: Movement[], now: number) {
   // 4. Los días sin registro NO están en el mapa, y así se quedan.
   //    No se rellenan con 0: son datos ausentes, no ceros (D-13)
   const days = [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b));
-  if (days.length === 0) return null;
+
+  // 5. Arranque en frío (§7.2.1): sin ningún día con registro, se siembra con la
+  //    media de fabricante de la talla actual. Cifra publicada y etiquetada, no inventada
+  if (days.length === 0) {
+    const seed = currentSize?.dailyDiapers;
+    if (!seed) return null;
+    return { value: seed, daysCovered: 0, coverage: 0,
+             variabilityHigh: false, seeded: true };
+  }
 
   const counts = days.map(([, n]) => n);
   const last7  = counts.slice(-7);
   const last3  = counts.slice(-3);
 
-  // 5. Estimador: mediana, robusta a días parcialmente registrados (D-22)
+  // 6. Estimador: mediana, robusta a días parcialmente registrados (D-22)
   let value: number;
   if (days.length >= 7)      value = 0.4 * median(last3) + 0.6 * median(last7);
   else if (days.length >= 3) value = median(counts);
   else                       value = mean(counts);
 
-  // 6. Cobertura: cuántos de los días naturales del periodo tienen registro
+  // 7. Cobertura: cuántos de los días naturales del periodo tienen registro
   const span = daysBetween(days[0][0], days.at(-1)![0]) + 1;
   const coverage = days.length / span;
 
-  // 7. Variabilidad
+  // 8. Variabilidad
   const variabilityHigh = counts.length >= 3 &&
     stdev(last7) / median(last7) > 0.4;
 
-  return { value, daysCovered: days.length, coverage, variabilityHigh };
+  return { value, daysCovered: days.length, coverage, variabilityHigh, seeded: false };
 }
 ```
 
@@ -421,10 +456,28 @@ export function dailyConsumption(usage: Movement[], now: number) {
 > medianas `0.4·mediana(3) + 0.6·mediana(7)` reacciona igual a la tendencia, es robusta a
 > valores atípicos, y no admite dos interpretaciones distintas.
 
+#### 7.2.1 Reglas del arranque en frío
+
+- `confidence` = `LOW` siempre que `seeded === true`, con o sin ajustes de §7.3
+- **Nunca bloquea una compra** — misma asimetría de §8.6
+- **Sí genera recomendación de compra**: errar comprando de más es el lado barato
+- En cuanto haya al menos un día con registro, el dato real sustituye al de fabricante
+  (solo se siembra con `days.length === 0`); con 3+ días la confianza sube (§7.3)
+- La UI dice *"estimación del fabricante"*, nunca una cifra a secas
+
+> **Coherencia con D-13.** D-13 dice *"nunca inventar una cifra"*. Usar una media publicada por
+> el fabricante, etiquetada como tal y con confianza `LOW`, **no es inventarla**. Lo que D-13
+> prohíbe es presentar una estimación como si fuera un dato medido.
+
+> **Nota de calibración.** Las cifras de Dodot son *"hasta N"*, es decir, cotas superiores.
+> Otras fuentes citan 10-12 pañales/día en recién nacidos frente a los 9 de la talla 1. Como
+> sobreestimar el consumo lleva a comprar de más —el error barato—, no se corrige al alza.
+
 ### 7.3 Confianza
 
 ```
-daysCovered = 0            → NONE
+daysCovered = 0, sin semilla → NONE
+daysCovered = 0, semillado   → LOW   (§7.2.1 — el semillado nunca sube de nivel)
 daysCovered 1-2            → LOW
 daysCovered 3-13           → MEDIUM
 daysCovered >= 14          → HIGH
@@ -460,13 +513,24 @@ Este bloque es el corazón de la app. Orden de evaluación estricto:
 if (daily === null)                    return 'NO_DATA';
 
 const transitionFirst =
-  transitionDays !== null && transitionDays < daysRemaining;
+  transition !== null && transition.days < daysRemaining;
 
-// D-15: el bloqueo NUNCA aplica cuando ya queda poco margen
+// D-24 / §8.6: el bloqueo exige confianza de transición MEDIUM o superior.
+// La media poblacional (LOW) avisa, pero no bloquea. Con consumo semillado
+// (§7.2) tampoco se bloquea: el propio forecast está en LOW.
+const canHold =
+  transition !== null &&
+  (transition.confidence === 'MEDIUM' || transition.confidence === 'HIGH') &&
+  !daily.seeded;
+
 if (lowStock && transitionFirst)       return 'BUY_BOTH_SIZES';
 if (lowStock)                          return 'BUY_NOW';
-if (transitionFirst)                   return 'HOLD_SIZE_CHANGE';
+if (transitionFirst && canHold)        return 'HOLD_SIZE_CHANGE';
 return 'OK';
+
+// D-15: HOLD_SIZE_CHANGE solo se alcanza sin stock bajo, es decir, con
+// daysRemaining > warningDays. El bloqueo NUNCA aplica con <= 7 días,
+// sea cual sea la confianza — no hay rama que lo permita.
 ```
 
 Textos que debe mostrar la UI:
@@ -481,6 +545,8 @@ Textos que debe mostrar la UI:
 
 Si `confidence` es `LOW`, añadir *"predicción poco fiable todavía"*.
 Si `variabilityHigh`, añadir *"el consumo es irregular"*.
+Si el consumo está semillado (`seeded`, §7.2), anteponer *"estimación del fabricante:"* a la
+cifra — *Estimación del fabricante: ≈ 9 pañales al día.* Nunca una cifra a secas.
 
 Mostrar siempre *"aproximadamente 12 días"*, **nunca** `11,99923`.
 
@@ -488,37 +554,405 @@ Mostrar siempre *"aproximadamente 12 días"*, **nunca** `11,99923`.
 
 ## 8. Transición de talla (`shared/transition.ts`)
 
-El usuario cambia de talla a mano (D-06). Esto solo produce el **horizonte estimado** que
-alimenta `transitionDays`.
+Módulo **puro**: sin BD, sin red, sin React. Compartido entre cliente y Worker.
 
-### Fuente: señales manuales
+Datos de referencia: guía oficial de tallas Dodot (P&G, abril 2025) y guías de crecimiento OMS.
+**Marca de referencia del proyecto: Dodot.**
 
-En el detalle de talla, cuatro casillas que el usuario marca cuando lo observa:
+### 8.1 Principio
+
+El usuario cambia de talla a mano (D-06). Este módulo **solo produce una estimación** de cuándo
+va a tocar, que alimenta `transition` en el forecast (§7).
+
+**Esto es una heurística de producto, no una recomendación médica.** La app nunca presenta un
+peso como "recomendado" ni valora si el crecimiento del bebé es adecuado. Cualquier duda sobre
+el peso del bebé es del pediatra.
+
+Tres estimadores independientes, combinados por el **mínimo**:
+
+```ts
+transition = min(signalDays, weightDays, durationDays)   // por days
+```
+
+El mínimo es correcto porque cualquiera de los tres solo puede significar "antes de lo que
+creías". La confianza resultante es la del estimador que produjo el mínimo; **si dos empatan en
+días, gana la confianza más alta** — el resultado no puede depender del orden del array. Cada
+uno se degrada a `null` si le faltan datos, y el modelo sigue funcionando con los demás.
+
+### 8.2 Datos semilla — tabla Dodot
+
+Van en `DiaperSize` como valores por defecto **editables** (§4.1, §4.4). Nunca presentados como
+recomendación médica: son rangos y medias de fabricante.
+
+```ts
+export const DODOT_SIZES = [
+  { id: 0, name: 'Talla 0', minWeightKg: 1.5, maxWeightKg:  2.5, dailyDiapers: 10, typicalMonths: 1.6 },
+  { id: 1, name: 'Talla 1', minWeightKg: 2.0, maxWeightKg:  5.0, dailyDiapers:  9, typicalMonths: 1.7 },
+  { id: 2, name: 'Talla 2', minWeightKg: 4.0, maxWeightKg:  8.0, dailyDiapers:  8, typicalMonths: 2.8 },
+  { id: 3, name: 'Talla 3', minWeightKg: 6.0, maxWeightKg: 10.0, dailyDiapers:  7, typicalMonths: 5.8 },
+  { id: 4, name: 'Talla 4', minWeightKg: 9.0, maxWeightKg: 15.0, dailyDiapers:  7, typicalMonths: 6.8 },
+  { id: 5, name: 'Talla 5', minWeightKg: 11.0, maxWeightKg: 17.0, dailyDiapers: 6, typicalMonths: 5.0 },
+  { id: 6, name: 'Talla 6', minWeightKg: 13.0, maxWeightKg: null, dailyDiapers: 6, typicalMonths: 5.8 },
+  { id: 7, name: 'Talla 7', minWeightKg: 17.0, maxWeightKg: null, dailyDiapers: 6, typicalMonths: 4.1 },
+];
+```
+
+> **Nota:** la propia guía de Dodot es internamente inconsistente — la tabla dice talla 5
+> "11-17 kg" mientras el texto dice "por encima de 12 kg". Se usa la tabla, que es el dato
+> estructurado. En cualquier caso los rangos son editables por el usuario.
+
+### 8.3 Señales manuales
+
+Seis señales, tomadas literalmente de la guía Dodot. En el detalle de talla, casillas que el
+usuario marca cuando lo observa:
 
 ```
-☐ Escapes frecuentes
-☐ Le queda ajustado
-☐ Le deja marcas
-☐ Cuesta cerrarlo
+☐ Las cintas no llegan al centro de la cintura
+☐ No caben dos dedos bajo la cintura cerrada
+☐ Le deja marcas rojas en barriga o muslos
+☐ El pañal no le cubre del todo las nalgas
+☐ Dermatitis del pañal frecuente
+☐ Se muestra molesto o tira del pañal
 ```
 
 ```ts
-export function transitionDays(signals: TransitionSignals): number | null {
-  const n = Object.values(signals).filter(Boolean).length;
-  if (n === 0) return null;    // sin señales, sin predicción y sin bloqueo
-  if (n === 1) return 21;      // APPROACHING
-  return 7;                    // LIKELY_SOON (2 o más señales)
+export function signalDays(signals: TransitionSignals): TransitionEstimate | null {
+  const n = countTrue(signals);
+  if (n === 0) return null;
+  if (n === 1) return { days: 3, confidence: 'MEDIUM' };
+  return { days: 0, confidence: 'HIGH' };   // dos o más: cambiar ya
 }
 ```
 
-**Se descarta la extrapolación por peso** para el MVP: los rangos de los fabricantes se solapan
-mucho (talla 2: 3-6 kg, talla 3: 4-9 kg), exige pesar al bebé con regularidad, y las señales
-observadas son mejores predictores.
+**El umbral.** Una sola señal ya justifica plantear la talla siguiente (`MEDIUM`): una marca
+roja no es una predicción, es piel irritada ahora. Dos o más (`HIGH`) significan cambiar ya.
 
-`WeightRecord` se mantiene en el modelo para el futuro, pero **no se usa en el MVP**.
+**Los escapes no son señal.** No son fiables: Dodot los describe como consecuencia tanto de un
+pañal demasiado pequeño (falta de absorción) como de uno demasiado grande (se sale antes de
+absorber). Un escape aislado no distingue entre las dos causas. Si se conservan en la interfaz,
+es como pregunta secundaria que no puntúa por sí sola:
+
+```
+Hay escapes frecuentes → ¿le quedan marcas o cuesta cerrarlo?
+                          Sí → cuenta como señal
+                          No → podría ser al revés: el pañal le queda grande
+```
+
+**Señal inversa, para completar:** si las cintas **se superponen**, el pañal es demasiado
+grande. Útil si alguien sube de talla antes de tiempo.
 
 Las señales se guardan por `(babyId, sizeId)` en `localStorage` y se limpian al cambiar de
-talla. No se sincronizan.
+talla. No se sincronizan (§17).
+
+### 8.4 Estimador por tiempo en la talla
+
+**El más valioso: funciona desde el día 1 sin registrar ningún peso.** Solo necesita la fecha
+del último `SIZE_CHANGE`, que ya está en el ledger (§6).
+
+```ts
+export function durationDays(
+  sizeStartedAt: number,
+  size: DiaperSize,
+  now: number
+): TransitionEstimate | null {
+
+  if (!size.typicalMonths) return null;
+
+  const elapsed  = (now - sizeStartedAt) / 86_400_000;
+  const expected = size.typicalMonths * 30.44;
+
+  return {
+    days: Math.max(0, Math.floor(expected - elapsed)),
+    confidence: 'LOW',    // media poblacional: nunca basta para bloquear (§8.6)
+  };
+}
+```
+
+Confianza siempre `LOW`: es una media de población, y la variación individual es grande.
+
+### 8.5 Estimador por peso
+
+#### Ganancia poblacional (OMS)
+
+```ts
+const WEEKLY_GAIN_G = [
+  { untilWeeks: 6,   grams: 175 },   // 0-6 sem   (rango 140-250)
+  { untilWeeks: 17,  grams: 150 },   // 6 sem-4 m (rango 100-200)
+  { untilWeeks: 26,  grams: 115 },   // 4-6 m     (rango  80-150)
+  { untilWeeks: 52,  grams:  60 },   // 6-12 m    (rango  40- 80)
+  { untilWeeks: 999, grams:  40 },
+];
+
+export const weeklyGainG = (ageWeeks: number) =>
+  WEEKLY_GAIN_G.find(r => ageWeeks < r.untilWeeks)!.grams;
+
+const SEX_FACTOR = { male: 1.05, female: 0.95, unknown: 1.0 };
+```
+
+#### Edad en semanas — sobre días naturales
+
+`weeksSince` y `weeksBetween` se calculan sobre **días naturales entre fechas lógicas** (§5),
+nunca dividiendo milisegundos: con el cambio de hora de marzo y octubre el truncado falla.
+
+```ts
+/** Semanas de edad sobre fechas lógicas: DST-safe. */
+export const weeksSince = (birthDate: string, now: number): number =>
+  daysBetween(birthDate, logicalDate(now)) / 7;
+
+/** Semanas entre dos instantes, también sobre fechas lógicas. */
+export const weeksBetween = (from: number, to: number): number =>
+  daysBetween(logicalDate(from), logicalDate(to)) / 7;
+
+/** Edad corregida para prematuros: toda la tabla de crecimiento se desplaza (§8.8). */
+export function correctedAgeWeeks(
+  birthDate: string, gestationalWeeks: number, now: number
+): number {
+  const chrono = weeksSince(birthDate, now);
+  return Math.max(0, chrono - (40 - gestationalWeeks));
+}
+```
+
+#### Peso objetivo: punto medio del solapamiento
+
+Los rangos Dodot se solapan mucho (T1: 2-5, T2: 4-8, T3: 6-10). Esperar al máximo llega tarde;
+en la práctica se cambia dentro de la zona común.
+
+```ts
+export function targetWeightKg(current: DiaperSize, next: DiaperSize | null): number | null {
+  if (!current.maxWeightKg) return null;
+  if (!next?.minWeightKg)   return current.maxWeightKg;
+  return (next.minWeightKg + current.maxWeightKg) / 2;
+}
+```
+
+**Validación contra los datos de Dodot:**
+
+| Cambio | Rangos | Objetivo | Duración calculada | Dodot dice |
+|---|---|---|---|---|
+| T1 → T2 | 2-5 / 4-8 | 4,5 kg | 1,6 meses | **1,7** ✅ |
+| T2 → T3 | 4-8 / 6-10 | 7,0 kg | 3,8 meses | 2,8 ⚠️ |
+| T3 → T4 | 6-10 / 9-15 | 9,5 kg | ~5 meses | 5,8 ✅ |
+
+El segundo se desvía un mes. Por eso los tres estimadores se combinan por el mínimo: donde el
+peso llega tarde, el tiempo en la talla corrige.
+
+#### Estimación del peso actual
+
+```ts
+export function estimateWeightKg(
+  weights: WeightRecord[],       // ordenados por recordedAt
+  baby: Pick<Baby, 'birthDate' | 'sex' | 'gestationalWeeks'>,
+  now: number
+): { kg: number; personal: boolean } | null {
+
+  if (!baby.birthDate) return null;   // sin fecha no hay edad, no hay proyección (§10)
+
+  const last = weights.at(-1);
+  if (!last) return null;
+
+  const ageWeeks = correctedAgeWeeks(baby.birthDate, baby.gestationalWeeks ?? 40, now);
+
+  // ⚠️ Las 2 primeras semanas el bebé PIERDE peso (descenso fisiológico)
+  // antes de recuperarlo. Proyectar aquí da resultados falsos.
+  if (ageWeeks < 2) return null;
+
+  const elapsed  = weeksBetween(last.recordedAt, now);
+  const observed = observedGainG(weights);
+  const gain     = observed ?? weeklyGainG(ageWeeks) * SEX_FACTOR[baby.sex ?? 'unknown'];
+
+  return { kg: last.weightKg + (gain * elapsed) / 1000, personal: observed !== null };
+}
+
+/** Ganancia real g/semana entre los dos últimos pesos, si son fiables. */
+function observedGainG(weights: WeightRecord[]): number | null {
+  if (weights.length < 2) return null;
+  const [a, b] = weights.slice(-2);
+  const weeks = weeksBetween(a.recordedAt, b.recordedAt);
+  if (weeks < 1) return null;                  // intervalo corto: ruido de báscula
+  const g = ((b.weightKg - a.weightKg) * 1000) / weeks;
+  if (g <= 0 || g > 400) return null;          // implausible: error de medida
+  return g;
+}
+
+export function weightDays(
+  weights: WeightRecord[],
+  baby: Pick<Baby, 'birthDate' | 'sex' | 'gestationalWeeks'>,
+  current: DiaperSize, next: DiaperSize | null, now: number
+): TransitionEstimate | null {
+
+  const est = estimateWeightKg(weights, baby, now);
+  const target = targetWeightKg(current, next);
+  if (!est || target === null) return null;
+
+  const confidence = est.personal ? 'MEDIUM' : 'LOW';
+  if (est.kg >= target) return { days: 0, confidence };
+
+  const gain = weeklyGainG(correctedAgeWeeks(baby.birthDate!, baby.gestationalWeeks ?? 40, now)) *
+               SEX_FACTOR[baby.sex ?? 'unknown'];
+  return {
+    days: Math.floor((target - est.kg) / (gain / 7000)),
+    confidence,
+  };
+}
+```
+
+**Degradación:**
+
+| Datos | Comportamiento |
+|---|---|
+| Sin `birthDate` | `null` — quedan señales y tiempo en talla |
+| Sin pesos | `null` — quedan señales y tiempo en talla |
+| Edad < 2 semanas | `null` — descenso fisiológico |
+| 1 peso | Tabla poblacional — `LOW` |
+| 2+ pesos | Ganancia observada del propio bebé — `MEDIUM` |
+
+### 8.6 Regla de asimetría — la más importante
+
+**Equivocarse hacia arriba y hacia abajo no cuesta lo mismo:**
+
+- Predecir el cambio demasiado pronto → se bloquea la compra → **os quedáis sin pañales**
+- Predecir demasiado tarde → se compra de más → **sobran veinte pañales**
+
+> **Solo se puede bloquear una compra (`HOLD_SIZE_CHANGE`) con confianza `MEDIUM` o superior.**
+
+En la práctica eso significa: al menos una señal marcada (`MEDIUM`+), o dos pesos reales
+registrados (`MEDIUM`). La media poblacional por sí sola (`LOW`) **avisa pero no bloquea**, y
+el arranque en frío del forecast (§7.2.1) tampoco bloquea nunca.
+
+Sigue vigente **D-15**: el bloqueo nunca aplica con `daysRemaining <= 7`, sea cual sea la
+confianza (§7.5).
+
+Motivo: la variabilidad entre bebés llega a 100 g/semana en dos desviaciones típicas. Sobre un
+objetivo de 7 kg eso son semanas de error — insuficiente para decirle a alguien que no compre.
+
+### 8.7 Convertir la estimación en un hecho
+
+```
+¿Le queda pequeño el pañal?
+Lleva 7 semanas con la talla 2 y su peso estimado es ≈ 6,8 kg.
+
+[ Sí, cambiar a talla 3 ]   [ Todavía no ]
+```
+
+- **"Sí"** → registra el `SIZE_CHANGE` (evento del ledger, ya existente)
+- **"Todavía no"** → silencia el aviso 14 días
+
+Máximo una vez cada 14 días, y solo si `transition.days <= 7`. El prompt vive en el detalle de
+talla (§10). El snooze se guarda en `localStorage`, como las señales: **no se sincroniza**,
+así que cada padre ve y silencia el aviso por su lado (§17).
+
+### 8.8 Parámetros que se piden al usuario
+
+| Dato | Dónde | Cuándo | Efecto si falta |
+|---|---|---|---|
+| Fecha de nacimiento | Onboarding | Una vez | Sin estimador de peso (§8.5) |
+| Peso al nacer | Onboarding | Una vez | Se registra como primer `WeightRecord` |
+| Sexo | Onboarding | Una vez | Factor neutro (×1,0) |
+| Semanas de gestación | Onboarding | Solo si nació antes de tiempo | Se asume 40 (a término) |
+| Peso actual | Home / detalle de talla | Cada visita al pediatra | Proyección poblacional |
+| Longitud | Junto al peso, opcional | Cada visita | Ninguno en el MVP |
+| Señales | Detalle de talla | Cuando se observen | Sin estimador de señales |
+| Rangos y medias por talla | Ajustes → tallas | Precargados Dodot | Sin estimadores de peso/tiempo |
+
+#### Sexo
+
+Las tablas OMS difieren: los niños ganan algo más rápido en los primeros meses.
+
+```ts
+weeklyGainG(correctedAgeWeeks(...)) * SEX_FACTOR[baby.sex ?? 'unknown']
+```
+
+Un toque en el onboarding. Mejora modesta pero gratuita.
+
+#### Semanas de gestación — ⚠️ crítico si aplica
+
+Con un prematuro, **toda la tabla de crecimiento se desplaza**. Se usa `correctedAgeWeeks`
+(§8.5) en lugar de la edad cronológica en **todos** los cálculos del estimador de peso. Con un
+bebé a término (40 semanas) no cambia nada, así que el caso normal no se ve afectado.
+
+Preguntar solo: *"¿nació antes de tiempo?"* → si sí, pedir semanas. Un campo que casi nadie
+rellenará y que para quien lo necesita cambia el modelo entero.
+
+#### Longitud
+
+Cuando pesan al bebé en el pediatra también lo miden: capturarla es gratis. En el MVP **se
+guarda pero no se usa**. Aporta lo que el peso no capta — dos bebés de 7 kg, uno largo y delgado
+y otro compacto, no llevan la misma talla.
+
+`WeightRecord` gana `lengthCm?: number` (§4.1). Se sincroniza, no se muestra.
+
+#### Descartados a propósito
+
+| Parámetro | Por qué no |
+|---|---|
+| Percentil | Se deriva de peso + edad + sexo. No aporta señal nueva |
+| Tipo de lactancia | La divergencia aparece a partir de los 4-6 meses y es modesta |
+| Marca del pañal | Ya lo cubren los rangos editables por talla |
+| Perímetro craneal | Sin relación con el ajuste del pañal |
+
+**Un parámetro solo mejora el modelo si aporta señal independiente Y el usuario lo rellena.**
+Un campo vacío es un `null`. Con un recién nacido en casa, la mayoría de campos opcionales se
+quedan vacíos.
+
+#### Cómo pesar en casa
+
+Texto de ayuda, de la guía Dodot: súbete a la báscula con el bebé desnudo, apunta la cifra,
+vuelve a subirte sin él y resta.
+
+**Recordatorio suave:** si han pasado más de 30 días sin registrar peso, mostrar en la Home
+*"¿cuánto pesa ya?"*. Sin insistir, sin push.
+
+### 8.9 Presentación honesta — mostrar rangos, no cifras
+
+**La predicción nunca es fiable del todo, y eso debe verse en pantalla.** Devolver "23 días"
+proyecta una precisión que no existe (D-25).
+
+La ganancia de peso tiene una desviación típica de unos **50 g/semana**. Aplicándola:
+
+```ts
+const SD_GAIN_G = 50;
+
+export function weightDaysRange(...): { min: number; max: number; mid: number } | null {
+  const gain = weeklyGainG(correctedAgeWeeks(...)) * SEX_FACTOR[sex];
+  const need = target - estimated;              // kg que faltan
+
+  return {
+    min: Math.floor(need / ((gain + SD_GAIN_G) / 7000)),   // crece rápido
+    mid: Math.floor(need / (gain / 7000)),
+    max: Math.floor(need / ((gain - SD_GAIN_G) / 7000)),   // crece lento
+  };
+}
+```
+
+Ejemplo: faltan 1,2 kg con ganancia de 175 g/semana → cifra puntual 48 días, rango honesto
+**de 5 a 10 semanas**.
+
+#### Reglas de presentación
+
+- Mostrar **el rango**: *"probablemente entre 5 y 10 semanas"*, nunca *"48 días"*
+- Con dos pesos reales el rango se estrecha solo → el usuario **ve** que la app aprende
+- Para la **decisión de compra** se usa `max` (el pesimista, el que dice que tardará más):
+  errar comprando de más es el lado barato (§8.6)
+- El peso siempre como estimación: *"≈ 6,8 kg"*, nunca *"6,8 kg"*
+- Con confianza `LOW`, añadir *"estimación aproximada, registra un peso para afinarla"*
+- Con dos o más pesos: *"según su ritmo de crecimiento"*
+- **Nunca** valorar si el crecimiento es adecuado, ni comparar con percentiles
+- **Nunca** presentar los rangos de talla como recomendación médica: son de fabricante
+
+#### Ayuda visual del ajuste
+
+Las cuatro comprobaciones de ajuste (cintura bajo el ombligo, huecos de las piernas sin
+holgura, dos dedos bajo la cintura, sin marcas rojas) son **visuales**: en texto se entienden
+mal.
+
+⚠️ **No copiar las imágenes de Dodot ni de ningún fabricante — son material con copyright.**
+
+Dos opciones válidas:
+- Enlace externo *"cómo comprobar el ajuste"* a la guía del fabricante
+- **Recomendado:** un SVG propio y sencillo, cuatro iconos con las cuatro comprobaciones.
+  Funciona sin conexión, que encaja con una app offline-first
+
+Los casos de test del módulo están en §15 (`transition.ts`).
 
 ---
 
@@ -708,8 +1142,14 @@ lógico equivocado y ensuciará las estadísticas.
 
 Nombre → talla actual → stock inicial. Crea `Baby`, un `INITIAL` y un `SIZE_CHANGE`.
 
-Fecha de nacimiento y peso **no se piden aquí**: se piden después, en contexto. Es una pantalla
-que se usa una sola vez y cada paso extra es fricción antes de ver valor.
+En el paso del bebé se piden además los datos que alimentan la transición de talla (§8.8):
+**fecha de nacimiento** (obligatoria), peso al nacer, sexo y *"¿nació antes de tiempo?"*
+(semanas de gestación si la respuesta es sí). Todos menos la fecha se pueden saltar: cada
+campo vacío es un `null` y el modelo degrada solo esa parte. El peso al nacer se registra
+además como primer `WeightRecord`.
+
+Es una pantalla que se usa una sola vez y cada paso extra es fricción antes de ver valor:
+por eso los datos del bebé se agrupan en el primer paso y nada es un bloqueo duro.
 
 ### `/` — Home
 
@@ -736,6 +1176,9 @@ Es la pantalla que se abre 10 veces al día. Prioridad absoluta al registro.
 - Confirmación efímera con **[ Deshacer ]** (5 s)
 - Si el "modo estancia" está activo, indicador visible y el botón registra `EXTERNAL`
 - Acceso secundario al registro múltiple
+- Recordatorio suave (§8.8): si han pasado más de 30 días sin registrar peso,
+  *"¿cuánto pesa ya?"*. Sin insistir, sin push
+- Si el consumo está semillado (§7.2), la cifra se etiqueta *"estimación del fabricante"*
 
 ### Registro múltiple
 
@@ -760,8 +1203,16 @@ Stock negativo → fila en color de aviso con *"revisa el inventario"*. **No se 
 
 ### `/inventory/:sizeId`
 
-Stock, consumo diario, últimos 7/14 días, estimación, fecha de agotamiento, confianza.
-Casillas de señales de transición (§8).
+Stock, consumo diario, últimos 7/14 días, estimación de transición en rango (§8.9), fecha de
+agotamiento, confianza. Casillas de señales de transición (§8.3): las seis de la guía Dodot,
+con los escapes como pregunta secundaria que no puntúa sola. Registro de peso —y longitud,
+opcional— para las visitas al pediatra (§8.8). Ayuda visual del ajuste: SVG propio con las
+cuatro comprobaciones (§8.9).
+
+Prompt de confirmación (§8.7) cuando `transition.days <= 7`: *"¿le queda pequeño?"* →
+**[ Sí, cambiar ]** registra el `SIZE_CHANGE`; **[ Todavía no ]** silencia el aviso 14 días
+(en `localStorage`, sin sincronizar — §17).
+
 Acciones: añadir compra, ajustar inventario, **cambiar a esta talla**.
 
 > El botón de cambio de talla debe ser fácil de encontrar (D-21): la talla 1 puede durar tres
@@ -837,7 +1288,7 @@ El cron usa el mismo motor de forecast de `/shared`.
 |---|---|---|
 | `STOCK_LOW` | `daysRemaining <= warningDays` | Push |
 | `PURCHASE_RECOMMENDED` | `status === 'BUY_NOW'` o `BUY_BOTH_SIZES` | Push |
-| `SIZE_CHANGE_APPROACHING` | `transitionDays !== null` | Solo en la app |
+| `SIZE_CHANGE_APPROACHING` | `transition !== null && transition.days <= 7` (§8.7) | Solo en la app |
 | `HOLD_SIZE_CHANGE` | — | **Nunca push.** Solo en la app |
 
 ### Anti-spam
@@ -913,18 +1364,49 @@ curva descendente del primer año, D-21), **duración real de cada talla** deriv
 |---|---|
 | stock 70, consumo 7/día | 10 días |
 | stock 0 | 0 días |
-| sin historial | `NO_DATA` |
-| solo pañales `EXTERNAL` | `NO_DATA` |
+| sin historial, talla con `dailyDiapers` | 9/día (talla 1), `LOW`, `seeded: true` |
+| sin historial, talla sin `dailyDiapers` | `NO_DATA` |
+| solo pañales `EXTERNAL` | consumo semillado (`seeded: true`) — sin días propios no hay dato real (D-05) |
+| 3 días de historial | dato real, `seeded: false` |
+| `seeded` + cambio de talla próximo | **no** bloquea la compra |
 | días sin registro intercalados | no hunden la media |
 | un día con 1 registro entre días de 7 | la mediana lo absorbe |
 | registros de dos tallas | se agregan juntos (D-12) |
 | consumo reciente al alza | la predicción reacciona |
-| cambio de talla en 8 d, agotamiento en 12 | `HOLD_SIZE_CHANGE` |
+| cambio de talla en 8 d, confianza `MEDIUM`+, agotamiento en 12 | `HOLD_SIZE_CHANGE` |
+| cambio de talla en 8 d, confianza `LOW` (media poblacional) | avisa, **no** bloquea |
 | cambio de talla en 3 d, agotamiento en 5 | `BUY_BOTH_SIZES` |
 | 98 necesarios, paquetes de 30 | 4 paquetes |
 | 1 día de datos | confianza `LOW` |
 | 20 días, consumo estable | confianza `HIGH` |
 | 20 días, consumo errático | confianza `MEDIUM` |
+
+**`transition.ts`** (§8) — combinados por el mínimo, sin mocks:
+
+| Caso | Esperado |
+|---|---|
+| Sin pesos, sin señales, sin `typicalMonths` | `null` |
+| Sin pesos, 3 semanas en talla 1 (típica 1,7 m) | ~29 días, `LOW` |
+| Bebé de 10 días | peso `null`; puede haber estimación por tiempo |
+| Sin `birthDate` | estimador de peso `null` |
+| 1 peso, 4 kg, talla 1, objetivo 4,5 | ~20 días, `LOW` |
+| 2 pesos, ganancia real 250 g/sem | usa 250, no la tabla; `MEDIUM` |
+| 2 pesos, ganancia negativa | ignora, usa tabla; `LOW` |
+| 2 pesos separados 3 días | intervalo corto → usa tabla |
+| Peso ya sobre el objetivo | 0 días |
+| Talla sin rangos configurados | peso → `null` |
+| 1 señal | 3 días, `MEDIUM` |
+| 2 señales | 0 días, `HIGH` |
+| Señales (3 d) y peso (30 d) | **3 días** — gana el mínimo |
+| Empate en días entre dos estimadores | gana la confianza más alta, sea cual sea el orden |
+| `LOW` + stock alto | avisa, **no** bloquea |
+| `MEDIUM` + stock alto | bloquea → `HOLD_SIZE_CHANGE` |
+| `MEDIUM` + quedan 5 días | **no bloquea** (D-15) |
+| Prematuro de 34 sem, 8 sem de vida | edad corregida = 2 sem |
+| A término (40 sem) | edad corregida = cronológica |
+| Sexo masculino | ganancia × 1,05 |
+| Rango con 1,2 kg pendientes a 175 g/sem | min ≈ 37 d, max ≈ 67 d |
+| Edad a través de un cambio de hora | días naturales entre fechas lógicas, no milisegundos |
 
 ### Sincronización — con `FakeSyncBackend`
 
@@ -971,15 +1453,18 @@ las descubra por sorpresa.
 
 | Limitación | Consecuencia | Por qué se acepta |
 |---|---|---|
-| Las tallas no se sincronizan | Editar un rango de peso en un móvil no llega al otro | Datos casi estáticos, sembrados igual en ambos. Sincronizarlos añadiría conflictos por un caso marginal |
+| Las tallas no se sincronizan | Editar un rango de peso o una media de talla en un móvil no llega al otro | Datos casi estáticos, sembrados igual en ambos con `DODOT_SIZES`. Sincronizarlos añadiría conflictos por un caso marginal |
 | Las señales de transición no se sincronizan | Cada padre ve las suyas | Viven en `localStorage`. Sincronizarlas exigiría un tipo de evento nuevo |
+| El snooze de "Todavía no" (§8.7) no se sincroniza | Cada padre ve el aviso de transición por separado y lo silencia solo en su móvil | Vive en `localStorage`, como las señales. Sincronizarlo exigiría un evento nuevo; el coste es bajo — un aviso de más, nunca una compra de más |
 | El secreto es público | Ver §9.8 | Sin datos sensibles |
 | Desfase de reloj entre móviles | Ver §9.9 | Ambos con hora automática de red |
 | Sin resolución de conflictos para `Baby` | Editar el nombre a la vez en ambos: gana el último | Last-write-wins sobre `updated_at`. Se edita casi nunca |
-| El forecast no dice nada las 2 primeras semanas | Sin predicción justo al llegar del hospital | Es lo honesto: no hay datos. Mostrar una cifra inventada sería peor (D-21) |
+| El forecast semillado usa medias de fabricante | Los primeros días el consumo es una cifra de la tabla Dodot, etiquetada *"estimación del fabricante"*, con confianza `LOW` y sin poder bloquear compras | No es inventar una cifra (D-13): es una media publicada y etiquetada como tal. Callarse, justo los días tras el parto, sería peor |
 
 ## 18. Fuera de alcance
 
 Login · cuentas de usuario · sincronización multi-hogar · iOS · comparación de precios · compra
 integrada · escáner de códigos de barras · IA · reconocimiento de imágenes · integración con
-tiendas · curvas pediátricas · recomendaciones médicas · extrapolación de talla por peso.
+tiendas · curvas pediátricas · recomendaciones médicas.
+
+> La *extrapolación de talla por peso* estaba aquí y sale de la lista: la rescata D-24 (§8).
