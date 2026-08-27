@@ -230,8 +230,22 @@ this.version(1).stores({
 ```
 
 Nombre de la base: `cacotas`.
-Al crearla, sembrar las tallas 0-7 a partir de `DODOT_SIZES` (§8.2): nombre, rangos de peso,
-`dailyDiapers` y `typicalMonths`. Rangos y medias son editables por el usuario (§8.8).
+
+**Instalación nueva** — `version(1)`: sembrar las tallas 0-7 a partir de `DODOT_SIZES` (§8.2):
+nombre, rangos de peso, `dailyDiapers` y `typicalMonths`. Rangos y medias son editables por el
+usuario (§8.8).
+
+**Migración de las bases existentes** — las bases de la fase 1 sembraron tallas 0-6 sin datos,
+así que `version(2).upgrade()` debe:
+
+- Insertar la **talla 7**, que no existía en la siembra original
+- Rellenar en las tallas 0-6 los campos ausentes (`minWeightKg`, `maxWeightKg`, `dailyDiapers`,
+  `typicalMonths`) desde `DODOT_SIZES`
+- **Nunca sobrescribir un valor ya definido**: el usuario pudo haber editado sus rangos
+- No tocar los movimientos (D-02)
+
+La migración se verifica sobre una **base v1 con datos** — movimientos, pesos, una talla con el
+rango editado — nunca sobre una base vacía (§15).
 
 ### 4.5 Esquema D1 (`worker/schema.sql`)
 
@@ -601,6 +615,9 @@ export const DODOT_SIZES = [
 > "11-17 kg" mientras el texto dice "por encima de 12 kg". Se usa la tabla, que es el dato
 > estructurado. En cualquier caso los rangos son editables por el usuario.
 
+La talla 0 (1,5-2,5 kg) cubre prematuros y bajo peso al nacer: es la única que el onboarding no
+sugiere por defecto — ahí se propone la talla 1 (§10).
+
 ### 8.3 Señales manuales
 
 Seis señales, tomadas literalmente de la guía Dodot. En el detalle de talla, casillas que el
@@ -756,11 +773,10 @@ export function estimateWeightKg(
   // antes de recuperarlo. Proyectar aquí da resultados falsos.
   if (ageWeeks < 2) return null;
 
-  const elapsed  = weeksBetween(last.recordedAt, now);
-  const observed = observedGainG(weights);
-  const gain     = observed ?? weeklyGainG(ageWeeks) * SEX_FACTOR[baby.sex ?? 'unknown'];
+  const elapsed = weeksBetween(last.recordedAt, now);
+  const { g: gain, observed } = currentGainG(weights, baby, now);
 
-  return { kg: last.weightKg + (gain * elapsed) / 1000, personal: observed !== null };
+  return { kg: last.weightKg + (gain * elapsed) / 1000, personal: observed };
 }
 
 /** Ganancia real g/semana entre los dos últimos pesos, si son fiables. */
@@ -772,6 +788,25 @@ function observedGainG(weights: WeightRecord[]): number | null {
   const g = ((b.weightKg - a.weightKg) * 1000) / weeks;
   if (g <= 0 || g > 400) return null;          // implausible: error de medida
   return g;
+}
+
+/**
+ * Mejor estimación de la ganancia semanal (g): la observada del propio bebé si
+ * es fiable; si no, la tabla poblacional ajustada por sexo.
+ *
+ * ⚠️ SEX_FACTOR se aplica aquí, y SOLO aquí: es el único punto del módulo que
+ * ajusta la ganancia. Ni la proyección de peso ni el cálculo de días vuelven a
+ * multiplicar — una doble aplicación daría 175 × 1,05² en vez de 175 × 1,05.
+ */
+function currentGainG(
+  weights: WeightRecord[],
+  baby: Pick<Baby, 'birthDate' | 'sex' | 'gestationalWeeks'>,
+  now: number
+): { g: number; observed: boolean } {
+  const observed = observedGainG(weights);
+  if (observed !== null) return { g: observed, observed: true };
+  const ageWeeks = correctedAgeWeeks(baby.birthDate!, baby.gestationalWeeks ?? 40, now);
+  return { g: weeklyGainG(ageWeeks) * SEX_FACTOR[baby.sex ?? 'unknown'], observed: false };
 }
 
 export function weightDays(
@@ -787,8 +822,9 @@ export function weightDays(
   const confidence = est.personal ? 'MEDIUM' : 'LOW';
   if (est.kg >= target) return { days: 0, confidence };
 
-  const gain = weeklyGainG(correctedAgeWeeks(baby.birthDate!, baby.gestationalWeeks ?? 40, now)) *
-               SEX_FACTOR[baby.sex ?? 'unknown'];
+  // Misma tasa que estimateWeightKg: si la estimación era personal (ganancia
+  // observada), los días restantes se calculan con ESA tasa, no con la tabla
+  const { g: gain } = currentGainG(weights, baby, now);
   return {
     days: Math.floor((target - est.kg) / (gain / 7000)),
     confidence,
@@ -859,6 +895,7 @@ así que cada padre ve y silencia el aviso por su lado (§17).
 Las tablas OMS difieren: los niños ganan algo más rápido en los primeros meses.
 
 ```ts
+// Dentro de currentGainG (§8.5): el único punto donde SEX_FACTOR se aplica
 weeklyGainG(correctedAgeWeeks(...)) * SEX_FACTOR[baby.sex ?? 'unknown']
 ```
 
@@ -913,7 +950,7 @@ La ganancia de peso tiene una desviación típica de unos **50 g/semana**. Aplic
 const SD_GAIN_G = 50;
 
 export function weightDaysRange(...): { min: number; max: number; mid: number } | null {
-  const gain = weeklyGainG(correctedAgeWeeks(...)) * SEX_FACTOR[sex];
+  const gain = currentGainG(weights, baby, now).g;   // misma tasa que weightDays → mid === days
   const need = target - estimated;              // kg que faltan
 
   return {
@@ -1142,6 +1179,9 @@ lógico equivocado y ensuciará las estadísticas.
 
 Nombre → talla actual → stock inicial. Crea `Baby`, un `INITIAL` y un `SIZE_CHANGE`.
 
+El selector de talla arranca con la **talla 1 preseleccionada**: la 0 (1,5-2,5 kg) es para
+prematuros o bajo peso, y quien la necesita la elige a mano.
+
 En el paso del bebé se piden además los datos que alimentan la transición de talla (§8.8):
 **fecha de nacimiento** (obligatoria), peso al nacer, sexo y *"¿nació antes de tiempo?"*
 (semanas de gestación si la respuesta es sí). Todos menos la fecha se pueden saltar: cada
@@ -1357,6 +1397,7 @@ curva descendente del primer año, D-21), **duración real de cada talla** deriv
 - `EXTERNAL` produce `delta = 0` con `quantity = 1`
 - `UNDO` de un `EXTERNAL` produce `delta = 0`
 - `UNDO` de una compra de 60 produce `delta = -60`
+- `sizeId = 7` es válido; `sizeId = 8` lanza excepción (§4.3: rango [0,7])
 
 **`forecast.ts`**
 
@@ -1390,6 +1431,8 @@ curva descendente del primer año, D-21), **duración real de cada talla** deriv
 | Bebé de 10 días | peso `null`; puede haber estimación por tiempo |
 | Sin `birthDate` | estimador de peso `null` |
 | 1 peso, 4 kg, talla 1, objetivo 4,5 | ~20 días, `LOW` |
+| Peso de 4 kg registrado hoy, talla 1, objetivo 4,5, sexo masculino | **19 días** exactos — 183,75 g/sem (175 × 1,05), aplicado una sola vez; neutro daría 20, doble aplicación 18 |
+| Mismo caso, sexo femenino | **21 días** exactos — 166,25 g/sem (175 × 0,95) |
 | 2 pesos, ganancia real 250 g/sem | usa 250, no la tabla; `MEDIUM` |
 | 2 pesos, ganancia negativa | ignora, usa tabla; `LOW` |
 | 2 pesos separados 3 días | intervalo corto → usa tabla |
@@ -1404,7 +1447,6 @@ curva descendente del primer año, D-21), **duración real de cada talla** deriv
 | `MEDIUM` + quedan 5 días | **no bloquea** (D-15) |
 | Prematuro de 34 sem, 8 sem de vida | edad corregida = 2 sem |
 | A término (40 sem) | edad corregida = cronológica |
-| Sexo masculino | ganancia × 1,05 |
 | Rango con 1,2 kg pendientes a 175 g/sem | min ≈ 37 d, max ≈ 67 d |
 | Edad a través de un cambio de hora | días naturales entre fechas lógicas, no milisegundos |
 
@@ -1418,6 +1460,16 @@ curva descendente del primer año, D-21), **duración real de cada talla** deriv
 
 > El último test valida la premisa entera del ledger: **el orden de llegada no importa.** Si
 > pasa, la sincronización es correcta.
+
+### Migración de Dexie (src/db) — sobre base con datos, no vacía (§4.4)
+
+- Base v1 con movimientos, pesos y una talla con el rango editado a mano → tras migrar existe
+  la talla 7, los campos ausentes de las 0-6 quedan rellenos desde `DODOT_SIZES` y **el rango
+  editado se conserva intacto**
+- Base v1 con la siembra original intacta (0-6 sin datos) → las 8 tallas quedan idénticas a
+  `DODOT_SIZES`
+- Base nueva → siembra directa de 0-7, sin pasar por `upgrade()`
+- Los movimientos no cambian: mismo `count`, mismos deltas (D-02)
 
 ### End-to-end
 
