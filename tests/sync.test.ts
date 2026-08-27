@@ -32,6 +32,7 @@ import type { Baby, Movement } from '../shared/types.ts'
 import { stockBySize } from '../src/db/derive.ts'
 import { CacotasDB } from '../src/db/index.ts'
 import { runSync } from '../src/sync/engine.ts'
+import { nextDelayMs } from '../src/sync/scheduler.ts'
 import {
   FakeSyncBackend,
 } from '../src/sync/fake-backend.ts'
@@ -226,3 +227,14 @@ const mov = (opts: { type: Movement['type']; quantity: number }): Movement =>
       { type: 'INITIAL', quantity: opts.quantity }
     )
     : purchase('baby-shared', opts.quantity)
+
+describe('nextDelayMs — scheduler retry intervals', () => {
+  it('no backoff → the periodic interval', () => {
+    expect(nextDelayMs(0)).toBe(5 * 60_000)
+  })
+
+  it('after a transient failure → the backoff interval, not 5 min', () => {
+    expect(nextDelayMs(60_000)).toBe(60_000)
+    expect(nextDelayMs(30 * 60_000)).toBe(30 * 60_000)
+  })
+})

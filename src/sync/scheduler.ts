@@ -89,11 +89,21 @@ const trigger = async (): Promise<void> => {
 
 const scheduleNext = (): void => {
   if (nextTimer) clearTimeout(nextTimer)
-  const delay = Math.max(PERIODIC_MS, backoffMs)
   nextTimer = setTimeout(() => {
     void trigger()
-  }, delay)
+  }, nextDelayMs(backoffMs))
 }
+
+/**
+ * Delay until the next sync round. Pure for tests.
+ *
+ * After a transient failure the retry comes at the BACKOFF interval —
+ * flooring it at the periodic 5 min meant that a resume attempt fired
+ * before the radio finished reconnecting (airplane off) pushed the
+ * recovery five minutes out, leaving the app looking synced-but-stale.
+ */
+export const nextDelayMs = (currentBackoffMs: number): number =>
+  currentBackoffMs > 0 ? currentBackoffMs : PERIODIC_MS
 
 export const getSyncStatus = (): SyncStatus => ({ lastError })
 
@@ -114,5 +124,11 @@ if (typeof document !== 'undefined') {
     const awayFor = Date.now() - hiddenAt
     hiddenAt = 0
     if (backend !== null && awayFor >= RESUME_SYNC_MIN_HIDDEN_MS) void trigger()
+  })
+  // Reconnect while the app stays foregrounded (airplane off, Wi-Fi
+  // rejoining): nothing else fires — the resume listener only runs on a
+  // visibility change and the periodic tick may be minutes away.
+  window.addEventListener('online', () => {
+    if (backend !== null) void trigger()
   })
 }
