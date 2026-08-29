@@ -3,4 +3,6 @@
 # Must come before the SPA fallback.
 /api/* https://cacotas-sync.soker.workers.dev/:splat 200
 
-#    /index.html   200
+# SPA fallback: any deep link (/settings, /inventory/2, …) serves the shell.
+# Existing files (assets, icons) take precedence over this rule.
+/*    /index.html   200
