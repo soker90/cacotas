@@ -1,7 +1,9 @@
 import 'fake-indexeddb/auto'
+import Dexie, { type Table } from 'dexie'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createMovement } from '../shared/factory.ts'
-import type { Movement } from '../shared/types.ts'
+import { DODOT_SIZES } from '../shared/transition.ts'
+import type { DiaperSize, Movement, WeightRecord } from '../shared/types.ts'
 import { currentSize, liveUsage, stockBySize } from '../src/db/derive.ts'
 import { CacotasDB, seedSizes } from '../src/db/index.ts'
 
@@ -55,15 +57,141 @@ beforeEach(() => {
 })
 
 describe('seedSizes', () => {
-  it('seeds sizes 0-6 once', async () => {
+  it('seeds sizes 0-7 with the full Dodot data, once', async () => {
     await seedSizes(db)
     const sizes = await db.sizes.toArray()
-    expect(sizes.map((s) => s.id).sort()).toEqual([0, 1, 2, 3, 4, 5, 6])
-    expect(sizes[3]?.name).toBe('Talla 3')
+    expect(sizes.map((s) => s.id).sort()).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+    for (const seed of DODOT_SIZES) {
+      const row = sizes.find((s) => s.id === seed.id)
+      expect(row).toEqual(seed)
+    }
 
     // Second call must not duplicate
     await seedSizes(db)
-    expect(await db.sizes.count()).toBe(7)
+    expect(await db.sizes.count()).toBe(8)
+  })
+})
+
+// ── Migration v1 → v2 (SPEC.md §4.4 / §15) ───────────────────────────────
+
+/** The schema as phase 1 shipped it — sizes 0-6, name only. */
+class V1DB extends Dexie {
+  movements!: Table<Movement, string>
+  weights!: Table<WeightRecord, string>
+  sizes!: Table<DiaperSize, number>
+
+  constructor (name: string) {
+    super(name)
+    this.version(1).stores({
+      movements:
+        'id, babyId, occurredAt, serverSeq, undoesMovementId, ' +
+        '[babyId+occurredAt], [babyId+type], [babyId+sizeId]',
+      babies: 'id',
+      weights: 'id, babyId, recordedAt, serverSeq',
+      sizes: 'id',
+    })
+  }
+}
+
+const NAME_PREFIX = 'migration-'
+let migrationRun = 0
+
+/** Creates a v1 base with real data and one user-edited weight range. */
+const makeV1Base = async (edited: boolean): Promise<string> => {
+  const name = `${NAME_PREFIX}${(migrationRun++).toString()}`
+  const v1 = new V1DB(name)
+  await v1.open()
+  await v1.sizes.bulkAdd(
+    Array.from({ length: 7 }, (_, id) => ({
+      id,
+      name: `Talla ${id.toString()}`,
+    }))
+  )
+  const t = Date.now()
+  await v1.movements.bulkAdd([
+    createMovement(
+      { id: 'm1', babyId: BABY, sizeId: 1, deviceId: 'd', occurredAt: t, recordedAt: t },
+      { type: 'INITIAL', quantity: 84 }
+    ),
+    createMovement(
+      { id: 'm2', babyId: BABY, sizeId: 1, deviceId: 'd', occurredAt: t, recordedAt: t },
+      { type: 'USAGE', usageSource: 'OWN_STOCK', quantity: 3 }
+    ),
+  ])
+  await v1.weights.add({
+    id: 'w1',
+    babyId: BABY,
+    weightKg: 4.2,
+    recordedAt: t,
+    deviceId: 'd',
+    serverSeq: 0,
+  })
+  if (edited) {
+    await v1.sizes.update(2, { minWeightKg: 4.5, maxWeightKg: 8.5 })
+  }
+  v1.close()
+  return name
+}
+
+describe('migration v1 → v2', () => {
+  it('v1 base with data and an edited range: nothing lost, no edits overwritten', async () => {
+    const name = await makeV1Base(true)
+    const migrated = new CacotasDB(name)
+    await migrated.open()
+
+    // Size 7 inserted with its full seed row
+    const sizes = await migrated.sizes.toArray()
+    expect(sizes).toHaveLength(8)
+    expect(sizes.find((s) => s.id === 7)).toEqual(DODOT_SIZES[7])
+
+    // The edited range survives intact; the averages are resown (issue #10)
+    const edited = sizes.find((s) => s.id === 2)
+    expect(edited).toMatchObject({
+      minWeightKg: 4.5,
+      maxWeightKg: 8.5,
+      dailyDiapers: 8,
+      typicalMonths: 2.8,
+    })
+
+    // Missing fields of the untouched rows are filled from the seed table
+    const size0 = sizes.find((s) => s.id === 0)
+    expect(size0).toMatchObject({
+      minWeightKg: 1.5,
+      maxWeightKg: 2.5,
+      dailyDiapers: 10,
+      typicalMonths: 1.6,
+    })
+
+    // Movements untouched (D-02): same count, same deltas
+    const movements = await migrated.movements.toArray()
+    expect(movements).toHaveLength(2)
+    expect(movements.map((m) => m.delta).sort((a, b) => a - b)).toEqual([-3, 84])
+
+    // Weights untouched
+    expect(await migrated.weights.toArray()).toHaveLength(1)
+    migrated.close()
+  })
+
+  it('v1 base with the original seeding intact → 8 sizes identical to DODOT_SIZES', async () => {
+    const name = await makeV1Base(false)
+    const migrated = new CacotasDB(name)
+    await migrated.open()
+    const sizes = await migrated.sizes.toArray()
+    expect(sizes).toHaveLength(8)
+    for (const seed of DODOT_SIZES) {
+      expect(sizes.find((s) => s.id === seed.id)).toEqual(seed)
+    }
+    migrated.close()
+  })
+
+  it('new base → seeded directly with 0-7, without passing through upgrade()', async () => {
+    const fresh = makeDb()
+    await fresh.open()
+    // A fresh v2 base has no sizes until seedSizes runs; no upgrade needed
+    expect(await fresh.sizes.count()).toBe(0)
+    await seedSizes(fresh)
+    expect(await fresh.sizes.count()).toBe(8)
+    fresh.close()
   })
 })
 
