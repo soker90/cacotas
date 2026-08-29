@@ -1,4 +1,5 @@
 import type { Movement, UUID } from '../../shared/types.ts'
+import { daysBetween, logicalDate } from '../../shared/time.ts'
 import type { CacotasDB } from './index.ts'
 
 /** Stock per size = sum of deltas. */
@@ -31,6 +32,32 @@ export const lastSizeChange = async (
     .sortBy('occurredAt')
   const last = changes.at(-1)
   return last === undefined ? null : { sizeId: last.sizeId, occurredAt: last.occurredAt }
+}
+
+/**
+ * Real duration in logical days of each size, from the consecutive
+ * SIZE_CHANGEs (§6, §14). The still-open size counts up to `now` with its
+ * running total. Like currentSize, undone SIZE_CHANGE events still count
+ * (D-02 — the ledger view is derived, never rewritten). A size used in two
+ * separated periods sums both.
+ */
+export const sizeDurations = async (
+  database: CacotasDB,
+  babyId: UUID,
+  now: number = Date.now()
+): Promise<Map<number, number>> => {
+  const changes = await database.movements
+    .where('[babyId+type]')
+    .equals([babyId, 'SIZE_CHANGE'])
+    .sortBy('occurredAt')
+  const out = new Map<number, number>()
+  for (const [index, change] of changes.entries()) {
+    const next = changes[index + 1]
+    const end = next === undefined ? now : next.occurredAt
+    const days = Math.max(0, daysBetween(logicalDate(change.occurredAt), logicalDate(end)))
+    out.set(change.sizeId, (out.get(change.sizeId) ?? 0) + days)
+  }
+  return out
 }
 
 /**

@@ -1376,11 +1376,16 @@ Los Dash Button de Amazon funcionan vía sniffing de ARP en la red local (no dep
 servidores de Amazon, que están apagados desde 2019), pero la pila **no es reemplazable** y
 aguanta ~1000-2000 pulsaciones. A 10 pañales/día son 3.650 al año: mueren en meses y sin avisar.
 
-### Dashboard
+### Dashboard (decisión 2026-08-29: no hay dashboard aparte)
 
-Misma base de código, misma D1. Consumo diario en el tiempo, media móvil de 7 días (muestra la
-curva descendente del primer año, D-21), **duración real de cada talla** derivada de los
-`SIZE_CHANGE` — el dato con más valor a largo plazo.
+El dashboard standalone de esta sección **se descarta**: no se construirá como producto
+separado. Lo que aportaba va **dentro de la propia app** (issue #9 reconvertido):
+
+- Consumo diario en el tiempo → ya existe en `/stats` (gráfica de 30 días, §10)
+- Media móvil de 7 días → añadir a la gráfica de `/stats` (muestra la curva descendente del
+  primer año, D-21)
+- **Duración real de cada talla** derivada de los `SIZE_CHANGE` (`sizeDurations`, §6) →
+  mostrar en `/stats`; el dato con más valor a largo plazo
 
 ---
 

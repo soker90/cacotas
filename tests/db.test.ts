@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createMovement } from '../shared/factory.ts'
 import { DODOT_SIZES } from '../shared/transition.ts'
 import type { DiaperSize, Movement, WeightRecord } from '../shared/types.ts'
-import { currentSize, liveUsage, stockBySize } from '../src/db/derive.ts'
+import { currentSize, lastSizeChange, liveUsage, sizeDurations, stockBySize } from '../src/db/derive.ts'
 import { CacotasDB, seedSizes } from '../src/db/index.ts'
 
 let n = 0
@@ -244,6 +244,42 @@ describe('currentSize', () => {
 
   it('returns null when there is no SIZE_CHANGE', async () => {
     expect(await currentSize(db, BABY)).toBeNull()
+  })
+})
+
+describe('lastSizeChange / sizeDurations (§6, §14)', () => {
+  // Fixed January instants: no DST, logical dates are unambiguous.
+  const DAY_1 = Date.UTC(2026, 0, 1, 12)
+  const DAY_24 = Date.UTC(2026, 0, 24, 12)
+  const FEB_1 = Date.UTC(2026, 1, 1, 12)
+
+  it('derives closed sizes from consecutive SIZE_CHANGEs and the open one up to now', async () => {
+    await db.movements.bulkAdd([
+      mov({ type: 'SIZE_CHANGE', sizeId: 1, occurredAt: DAY_1 }),
+      mov({ type: 'SIZE_CHANGE', sizeId: 2, occurredAt: DAY_24 }),
+    ])
+    const durations = await sizeDurations(db, BABY, FEB_1)
+    expect(durations.get(1)).toBe(23) // talla 1 cerrada
+    expect(durations.get(2)).toBe(8) // talla 2 abierta, en curso
+    expect(await lastSizeChange(db, BABY)).toEqual({
+      sizeId: 2,
+      occurredAt: DAY_24,
+    })
+  })
+
+  it('returns an empty map with no SIZE_CHANGE', async () => {
+    expect(await sizeDurations(db, BABY, FEB_1)).toEqual(new Map())
+  })
+
+  it('a size used in two periods sums both', async () => {
+    await db.movements.bulkAdd([
+      mov({ type: 'SIZE_CHANGE', sizeId: 2, occurredAt: DAY_1 }),
+      mov({ type: 'SIZE_CHANGE', sizeId: 3, occurredAt: DAY_24 }),
+      mov({ type: 'SIZE_CHANGE', sizeId: 2, occurredAt: FEB_1 }),
+    ])
+    const durations = await sizeDurations(db, BABY, Date.UTC(2026, 1, 8, 12))
+    expect(durations.get(2)).toBe(30) // 23 + 7 abierta
+    expect(durations.get(3)).toBe(8)
   })
 })
 
