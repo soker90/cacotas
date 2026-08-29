@@ -10,6 +10,8 @@ export type MovementType =
 
 export type UsageSource = 'OWN_STOCK' | 'EXTERNAL'
 
+export type Sex = 'male' | 'female'
+
 export interface Movement {
   id: UUID;
   babyId: UUID;
@@ -38,7 +40,7 @@ export interface Baby {
   birthDate?: string; // 'YYYY-MM-DD'
   zoneId: string; // 'Europe/Madrid'
   birthWeightKg?: number; // also recorded as the first WeightRecord (§8.8)
-  sex?: 'male' | 'female'; // weight-gain factor (§8.5)
+  sex?: Sex; // weight-gain factor (§8.5)
   gestationalWeeks?: number; // weeks of gestation; 40 (full term) assumed
   createdAt: number;
   updatedAt: number; // last-write-wins on sync
