@@ -75,6 +75,11 @@ export const History = ({ baby }: { baby: Baby }) => {
     return [...byDay.entries()].sort(([a], [b]) => b.localeCompare(a))
   }, [movements])
 
+  // §10: loading is its own state — never flash the empty message
+  if (!movements) {
+    return <main className='loading'>…</main>
+  }
+
   const handleUndo = async (movement: Movement): Promise<void> => {
     // Guard against double undo: the second attempt must not re-apply
     // the inverse delta (issue #3 test).
