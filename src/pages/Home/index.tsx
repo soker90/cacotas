@@ -17,6 +17,7 @@ import { formatLogicalDateEs } from '../../lib/format-date.ts'
 import { getCoverageDays } from '../../lib/settings.ts'
 import { isStayMode } from '../../lib/stay-mode.ts'
 import { lastSyncAt } from '../../sync/engine.ts'
+import { WeightForm, useWeightReminder } from '../../components/WeightForm.tsx'
 
 export const Home = ({ baby }: { baby: Baby }) => {
   const sizeId = useCurrentSize(baby.id)
@@ -25,6 +26,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
   const forecast = useForecast(baby.id, sizeId)
   // Route changes remount this page, so the flag is read fresh each time
   const [stayMode] = useState(() => isStayMode())
+  const weightReminder = useWeightReminder(baby.id)
 
   const stock =
     typeof sizeId === 'number' ? (stocks?.get(sizeId) ?? 0) : null
@@ -102,6 +104,14 @@ export const Home = ({ baby }: { baby: Baby }) => {
       {forecast !== null && forecast !== undefined && sizeId != null && (
         <ForecastCard forecast={forecast} sizeId={sizeId} />
       )}
+
+      {weightReminder && (
+        <p className='muted small' role='status'>
+          ¿Cuánto pesa ya?
+        </p>
+      )}
+
+      <WeightForm baby={baby} />
 
       <footer className='home-footer'>
         <Link to='/record' className='secondary-action'>

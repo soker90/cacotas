@@ -27,6 +27,7 @@ import { formatLogicalDateEs } from '../../lib/format-date.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
+import { WeightForm } from '../../components/WeightForm.tsx'
 
 const parsePositive = (text: string): number | null => {
   const value = Number.parseInt(text, 10)
@@ -283,6 +284,15 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
                 </p>
               </>
               )}
+      </section>
+
+      <section className='card'>
+        <h2>⚖️ Peso</h2>
+        <p className='muted small'>
+          Apúntalo en cada visita al pediatra: con un peso registrado la
+          estimación del cambio de talla se afina.
+        </p>
+        <WeightForm baby={baby} />
       </section>
 
       <section className='card'>
