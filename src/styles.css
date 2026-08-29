@@ -799,3 +799,27 @@ input[type='datetime-local'] {
 .weight-form button {
   margin-top: 0.5rem;
 }
+
+.chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chart-svg .chart-bar {
+  fill: var(--green);
+  opacity: 0.55;
+}
+
+.chart-svg .chart-ma {
+  fill: none;
+  stroke: var(--green-dark);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chart-svg .chart-base {
+  stroke: var(--line);
+  stroke-width: 1;
+}
