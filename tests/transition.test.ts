@@ -516,6 +516,7 @@ describe('transición + forecast (§7.5, §8.6)', () => {
       stock: 90, // 90/6 = 15 días restantes
       usage: sevenStableDays,
       now: NOW,
+      currentSize: T1,
       transition,
       warningDays: 7,
       coverageDays: 21,
@@ -538,6 +539,7 @@ describe('transición + forecast (§7.5, §8.6)', () => {
       stock: 90, // 15 días restantes > 7 → D-15 no aplica
       usage: sevenStableDays,
       now: NOW,
+      currentSize: T1,
       transition,
       warningDays: 7,
       coverageDays: 21,
@@ -559,6 +561,7 @@ describe('transición + forecast (§7.5, §8.6)', () => {
       stock: 30, // 30/6 = 5 días restantes, lowStock
       usage: sevenStableDays,
       now: NOW,
+      currentSize: T1,
       transition,
       warningDays: 7,
       coverageDays: 21,

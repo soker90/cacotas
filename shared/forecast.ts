@@ -1,4 +1,4 @@
-import type { Movement } from './types.ts'
+import type { DiaperSize, Movement } from './types.ts'
 import { daysBetween, logicalDate } from './time.ts'
 
 /**
@@ -13,6 +13,8 @@ export interface ForecastInput {
   now: number
   /** Size-transition estimate from shared/transition.ts (§8). */
   transition: TransitionEstimate | null
+  /** The size being forecast — seeds the cold start (§7.2). */
+  currentSize: DiaperSize | null
   warningDays: number // 7
   coverageDays: number // 21
   diapersPerPackage?: number
@@ -50,6 +52,8 @@ export interface Forecast {
   variabilityHigh: boolean
   /** Days with registration actually used. */
   daysCovered: number
+  /** True when the daily figure is the manufacturer seed (§7.2.1). */
+  seeded: boolean
   status: ForecastStatus
   recommendedDiapers: number | null
   recommendedPackages: number | null
@@ -116,6 +120,7 @@ export const computeForecast = (input: ForecastInput): Forecast => {
     usage,
     now,
     transition,
+    currentSize,
     warningDays,
     coverageDays,
     diapersPerPackage,
@@ -133,17 +138,54 @@ export const computeForecast = (input: ForecastInput): Forecast => {
   const counts = days.map(([, n]) => n)
   const daysCovered = counts.length
 
+  // ── Cold start (§7.2.1): with NO day of registration, seed with the
+  // manufacturer average for the current size. A published, labelled
+  // figure — not an invented one (D-13). Seeding only happens at zero
+  // days: one real day already replaces the seed.
   if (daysCovered === 0) {
+    const seed = currentSize?.dailyDiapers
+    if (!seed) {
+      return {
+        dailyConsumption: null,
+        daysRemaining: null,
+        exhaustionDate: null,
+        confidence: 'NONE',
+        variabilityHigh: false,
+        daysCovered: 0,
+        seeded: false,
+        status: 'NO_DATA',
+        recommendedDiapers: null,
+        recommendedPackages: null,
+        transition,
+      }
+    }
+
+    const seededDaysRemaining = Math.floor(stock / seed)
+    const seededLowStock = stock <= seed * warningDays
+    // §7.5: the seeded forecast is LOW and NEVER holds a purchase — the
+    // seeded canHold clause is what closes that path for good (§7.2.1).
+    const seededTransitionFirst =
+      transition !== null && transition.days < seededDaysRemaining
+    let seededStatus: ForecastStatus = 'OK'
+    if (seededLowStock && seededTransitionFirst) seededStatus = 'BUY_BOTH_SIZES'
+    else if (seededLowStock) seededStatus = 'BUY_NOW'
+
+    const seededRecommended = Math.max(0, Math.ceil(seed * coverageDays) - stock)
     return {
-      dailyConsumption: null,
-      daysRemaining: null,
-      exhaustionDate: null,
-      confidence: 'NONE',
+      dailyConsumption: seed,
+      daysRemaining: seededDaysRemaining,
+      exhaustionDate: logicalDate(now + seededDaysRemaining * 86_400_000),
+      // §7.2.1: LOW always, with or without adjustments — it never rises
+      confidence: 'LOW',
       variabilityHigh: false,
       daysCovered: 0,
-      status: 'NO_DATA',
-      recommendedDiapers: null,
-      recommendedPackages: null,
+      seeded: true,
+      status: seededStatus,
+      recommendedDiapers: seededRecommended,
+      recommendedPackages:
+        diapersPerPackage !== undefined
+          ? Math.ceil(seededRecommended / diapersPerPackage)
+          : null,
       transition,
     }
   }
@@ -168,6 +210,7 @@ export const computeForecast = (input: ForecastInput): Forecast => {
       confidence: 'NONE',
       variabilityHigh: false,
       daysCovered: 0,
+      seeded: false,
       status: 'NO_DATA',
       recommendedDiapers: null,
       recommendedPackages: null,
@@ -192,9 +235,14 @@ export const computeForecast = (input: ForecastInput): Forecast => {
     transition !== null && transition.days < daysRemaining
 
   // §7.5 / §8.6: the hold requires transition confidence MEDIUM or higher.
-  // The population average (LOW) warns, but never blocks. (The cold-start
-  // seeding clause `!daily.seeded`, §7.2, lands with issue #11.)
+  // The population average (LOW) warns, but never blocks. The seeded
+  // forecast (§7.2.1) is LOW anyway, and the `!seeded` clause closes the
+  // path explicitly: the manufacturer estimate never holds a purchase.
+  // (Seeding only happens in the cold-start branch above, which returned
+  // already — here the forecast is never seeded.)
+  const seeded = false
   const canHold =
+    !seeded &&
     transition !== null &&
     (transition.confidence === 'MEDIUM' || transition.confidence === 'HIGH')
 
@@ -220,6 +268,7 @@ export const computeForecast = (input: ForecastInput): Forecast => {
     confidence,
     variabilityHigh,
     daysCovered,
+    seeded: false,
     status,
     recommendedDiapers,
     recommendedPackages,

@@ -44,6 +44,7 @@ export const useForecast = (
       usage,
       now: Date.now(),
       transition,
+      currentSize,
       warningDays: getWarningDays(),
       coverageDays: getCoverageDays(),
     })

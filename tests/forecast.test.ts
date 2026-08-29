@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { computeForecast, usageByDay } from '../shared/forecast.ts'
+import { DODOT_SIZES } from '../shared/transition.ts'
 import { signalDays } from '../shared/transition.ts'
 import type { Movement, TransitionSignals } from '../shared/types.ts'
 
@@ -53,6 +54,7 @@ const forecast = (
     usage: build(days).usage,
     now: build(days).now,
     transition: null,
+    currentSize: null,
     warningDays: 7,
     coverageDays: 21,
     ...extra,
@@ -99,6 +101,7 @@ describe('forecast — casos del issue #5', () => {
       usage,
       now: DAY(100),
       transition: null,
+      currentSize: null,
       warningDays: 7,
       coverageDays: 21,
     })
@@ -143,6 +146,7 @@ describe('forecast — casos del issue #5', () => {
       usage: mixed,
       now: DAY(100),
       transition: null,
+      currentSize: null,
       warningDays: 7,
       coverageDays: 21,
     })
@@ -239,6 +243,7 @@ describe('forecast — detalles del SPEC §7', () => {
       usage: build([[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7], [7, 7]]).usage,
       now,
       transition: null,
+      currentSize: null,
       warningDays: 7,
       coverageDays: 21,
     })
@@ -308,5 +313,112 @@ describe('signalDays (§8.3)', () => {
         })
       )
     ).toEqual({ days: 0, confidence: 'HIGH' })
+  })
+})
+
+describe('arranque en frío (§7.2.1, issue #11)', () => {
+  const size1 = DODOT_SIZES[1]! // dailyDiapers: 9
+
+  it('sin historial, talla 1 → 9/día, LOW, seeded: true', () => {
+    const f = computeForecast({
+      stock: 100,
+      usage: [],
+      now: DAY(100),
+      transition: null,
+      currentSize: size1,
+      warningDays: 7,
+      coverageDays: 21,
+    })
+    expect(f.dailyConsumption).toBe(9)
+    expect(f.daysRemaining).toBe(11)
+    expect(f.confidence).toBe('LOW')
+    expect(f.daysCovered).toBe(0)
+    expect(f.seeded).toBe(true)
+    expect(f.status).toBe('OK')
+    expect(f.exhaustionDate).not.toBeNull()
+  })
+
+  it('sin historial, talla sin dailyDiapers → NO_DATA', () => {
+    const f = computeForecast({
+      stock: 50,
+      usage: [],
+      now: DAY(100),
+      transition: null,
+      currentSize: { id: 1, name: 'Talla 1' },
+      warningDays: 7,
+      coverageDays: 21,
+    })
+    expect(f.status).toBe('NO_DATA')
+    expect(f.dailyConsumption).toBeNull()
+    expect(f.seeded).toBe(false)
+  })
+
+  it('1 día de historial ya sustituye a la semilla (SPEC §7.2.1)', () => {
+    const f = computeForecast({
+      stock: 50,
+      usage: [usageOn(99, 4)],
+      now: DAY(100),
+      transition: null,
+      currentSize: size1,
+      warningDays: 7,
+      coverageDays: 21,
+    })
+    expect(f.seeded).toBe(false)
+    expect(f.dailyConsumption).toBe(4)
+  })
+
+  it('3 días de historial → dato real, seeded: false', () => {
+    const f = computeForecast({
+      stock: 50,
+      usage: [usageOn(98, 5), usageOn(99, 5), usageOn(97, 5)],
+      now: DAY(100),
+      transition: null,
+      currentSize: size1,
+      warningDays: 7,
+      coverageDays: 21,
+    })
+    expect(f.seeded).toBe(false)
+    expect(f.dailyConsumption).toBe(5)
+  })
+
+  it('seeded + cambio de talla próximo (MEDIUM) → NO bloquea la compra', () => {
+    const f = computeForecast({
+      stock: 100, // 100/9 = 11 días restantes, sin stock bajo
+      usage: [],
+      now: DAY(100),
+      transition: { days: 8, confidence: 'MEDIUM' },
+      currentSize: size1,
+      warningDays: 7,
+      coverageDays: 21,
+    })
+    expect(f.seeded).toBe(true)
+    expect(f.status).toBe('OK') // no HOLD_SIZE_CHANGE (§7.2.1)
+  })
+
+  it('seeded + stock bajo → sí recomienda comprar', () => {
+    const f = computeForecast({
+      stock: 20,
+      usage: [],
+      now: DAY(100),
+      transition: null,
+      currentSize: size1,
+      warningDays: 7,
+      coverageDays: 21,
+    })
+    expect(f.status).toBe('BUY_NOW')
+    expect(f.recommendedDiapers).toBe(169) // ceil(9·21) − 20
+  })
+
+  it('seeded + stock bajo y cambio en 3 d → BUY_BOTH_SIZES', () => {
+    const f = computeForecast({
+      stock: 40, // 40/9 = 4 días restantes > 3 de la transición
+      usage: [],
+      now: DAY(100),
+      transition: { days: 3, confidence: 'HIGH' },
+      currentSize: size1,
+      warningDays: 7,
+      coverageDays: 21,
+    })
+    expect(f.status).toBe('BUY_BOTH_SIZES')
   })
 })

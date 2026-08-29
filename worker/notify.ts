@@ -1,4 +1,5 @@
 import { computeForecast } from '../shared/forecast.ts'
+import { DODOT_SIZES } from '../shared/transition.ts'
 import {
   hashState,
   isPurchaseDay,
@@ -142,14 +143,17 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
   if (currentSize === undefined) return result
   const currentStock = stockBySize.get(currentSize) ?? 0
 
-  // Signals are device-local (§17) and not synced, and the Worker has no
-  // size table — transition stays null server-side and BUY_BOTH_SIZES
-  // degrades to plain BUY_NOW. Documented limitation.
+  // Signals are device-local (§17) and not synced — transition stays null
+  // server-side and BUY_BOTH_SIZES degrades to plain BUY_NOW. The size
+  // table is not synced either (§17), but the manufacturer seed lives in
+  // /shared, so the cold start (§7.2.1) works server-side too (issue #11).
   const forecast = computeForecast({
     stock: currentStock,
     usage: liveUsage,
     now: Date.now(),
     transition: null,
+    currentSize:
+      DODOT_SIZES.find((s) => s.id === currentSize) ?? null,
     warningDays: 7,
     coverageDays: 21,
   })
