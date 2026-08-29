@@ -142,14 +142,14 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
   if (currentSize === undefined) return result
   const currentStock = stockBySize.get(currentSize) ?? 0
 
-  // Signals are device-local (§17) and not synced — until that changes,
-  // transitionDays stays null server-side and BUY_BOTH_SIZES degrades to
-  // plain BUY_NOW. Documented limitation.
+  // Signals are device-local (§17) and not synced, and the Worker has no
+  // size table — transition stays null server-side and BUY_BOTH_SIZES
+  // degrades to plain BUY_NOW. Documented limitation.
   const forecast = computeForecast({
     stock: currentStock,
     usage: liveUsage,
     now: Date.now(),
-    transitionDays: null,
+    transition: null,
     warningDays: 7,
     coverageDays: 21,
   })

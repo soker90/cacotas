@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { computeForecast, usageByDay } from '../shared/forecast.ts'
-import { transitionDays } from '../shared/transition.ts'
+import { signalDays } from '../shared/transition.ts'
 import type { Movement, TransitionSignals } from '../shared/types.ts'
 
 const BABY = 'baby-f'
@@ -52,7 +52,7 @@ const forecast = (
     stock,
     usage: build(days).usage,
     now: build(days).now,
-    transitionDays: null,
+    transition: null,
     warningDays: 7,
     coverageDays: 21,
     ...extra,
@@ -98,7 +98,7 @@ describe('forecast — casos del issue #5', () => {
       stock: 50,
       usage,
       now: DAY(100),
-      transitionDays: null,
+      transition: null,
       warningDays: 7,
       coverageDays: 21,
     })
@@ -142,7 +142,7 @@ describe('forecast — casos del issue #5', () => {
       stock: 40,
       usage: mixed,
       now: DAY(100),
-      transitionDays: null,
+      transition: null,
       warningDays: 7,
       coverageDays: 21,
     })
@@ -164,21 +164,30 @@ describe('forecast — casos del issue #5', () => {
     expect(f.dailyConsumption).toBeLessThanOrEqual(12)
   })
 
-  it('cambio de talla en 8 d y agotamiento en 12 d → HOLD_SIZE_CHANGE', () => {
+  it('cambio de talla en 8 d con confianza MEDIUM → HOLD_SIZE_CHANGE (§7.5)', () => {
     const f = forecast(
       [[1, 5], [2, 5], [3, 5], [4, 5], [5, 5], [6, 5], [7, 5]],
       60, // 60/5 = 12 días restantes
-      { transitionDays: 8 }
+      { transition: { days: 8, confidence: 'MEDIUM' } }
     )
     expect(f.daysRemaining).toBe(12)
     expect(f.status).toBe('HOLD_SIZE_CHANGE')
+  })
+
+  it('cambio de talla en 8 d con confianza LOW → avisa, NO bloquea (§8.6)', () => {
+    const f = forecast(
+      [[1, 5], [2, 5], [3, 5], [4, 5], [5, 5], [6, 5], [7, 5]],
+      60,
+      { transition: { days: 8, confidence: 'LOW' } }
+    )
+    expect(f.status).toBe('OK')
   })
 
   it('cambio de talla en 3 d y agotamiento en 5 d → BUY_BOTH_SIZES (D-15)', () => {
     const f = forecast(
       [[1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 6], [7, 6]],
       30, // 30/6 = 5 días restantes, lowStock (≤42)
-      { transitionDays: 3 }
+      { transition: { days: 3, confidence: 'HIGH' } }
     )
     expect(f.status).toBe('BUY_BOTH_SIZES')
   })
@@ -229,7 +238,7 @@ describe('forecast — detalles del SPEC §7', () => {
       stock: 70,
       usage: build([[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7], [7, 7]]).usage,
       now,
-      transitionDays: null,
+      transition: null,
       warningDays: 7,
       coverageDays: 21,
     })
@@ -259,30 +268,45 @@ describe('usageByDay', () => {
   })
 })
 
-describe('transitionDays (§8)', () => {
+describe('signalDays (§8.3)', () => {
   const signals = (overrides: Partial<TransitionSignals>): TransitionSignals => ({
-    leaks: false,
-    tight: false,
-    marks: false,
-    hardToClose: false,
+    tabsNotCentered: false,
+    noTwoFingers: false,
+    redMarks: false,
+    uncoveredButtocks: false,
+    frequentDermatitis: false,
+    pullsDiaper: false,
     ...overrides,
   })
 
   it('0 señales → null', () => {
-    expect(
-      transitionDays(signals({}))
-    ).toBeNull()
+    expect(signalDays(signals({}))).toBeNull()
   })
 
-  it('1 señal → 21 días', () => {
-    expect(transitionDays(signals({ leaks: true }))).toBe(21)
-    expect(transitionDays(signals({ tight: true }))).toBe(21)
+  it('1 señal → 3 días, MEDIUM', () => {
+    expect(signalDays(signals({ redMarks: true }))).toEqual({
+      days: 3,
+      confidence: 'MEDIUM',
+    })
+    expect(signalDays(signals({ noTwoFingers: true }))).toEqual({
+      days: 3,
+      confidence: 'MEDIUM',
+    })
   })
 
-  it('2+ señales → 7 días', () => {
-    expect(transitionDays(signals({ leaks: true, tight: true }))).toBe(7)
+  it('2+ señales → 0 días, HIGH', () => {
+    expect(signalDays(signals({ redMarks: true, noTwoFingers: true }))).toEqual({
+      days: 0,
+      confidence: 'HIGH',
+    })
     expect(
-      transitionDays(signals({ leaks: true, tight: true, marks: true }))
-    ).toBe(7)
+      signalDays(
+        signals({
+          redMarks: true,
+          noTwoFingers: true,
+          tabsNotCentered: true,
+        })
+      )
+    ).toEqual({ days: 0, confidence: 'HIGH' })
   })
 })

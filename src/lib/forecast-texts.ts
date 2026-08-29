@@ -31,12 +31,12 @@ export const forecastCaveats = (forecast: Forecast): string[] => {
   // HOLD_SIZE_CHANGE / BUY_BOTH_SIZES already communicate the transition
   // via the headline, to avoid saying it twice.
   if (
-    forecast.transitionDays !== null &&
+    forecast.transition !== null &&
     forecast.status !== 'HOLD_SIZE_CHANGE' &&
     forecast.status !== 'BUY_BOTH_SIZES'
   ) {
     caveats.push(
-      `Podríais cambiar de talla en unos ${String(forecast.transitionDays)} días.`
+      `Podríais cambiar de talla en unos ${String(forecast.transition.days)} días.`
     )
   }
   return caveats

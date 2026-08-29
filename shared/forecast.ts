@@ -11,13 +11,24 @@ export interface ForecastInput {
   /** Live usage of ALL sizes (D-12), already filtered for undone movements. */
   usage: Movement[]
   now: number
-  transitionDays: number | null
+  /** Size-transition estimate from shared/transition.ts (§8). */
+  transition: TransitionEstimate | null
   warningDays: number // 7
   coverageDays: number // 21
   diapersPerPackage?: number
 }
 
 export type Confidence = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH'
+
+/**
+ * Estimate of when the size will run small, produced by §8. Never
+ * `confidence: NONE`: without data the estimator returns null instead.
+ */
+export interface TransitionEstimate {
+  /** Days until the change (pessimistic: §8.9 uses the range's max). */
+  days: number
+  confidence: Confidence
+}
 
 export type ForecastStatus =
   | 'NO_DATA'
@@ -39,12 +50,11 @@ export interface Forecast {
   recommendedPackages: number | null
   /**
    * Passthrough of the input (SPEC.md §8). Non-null means a size change is
-   * projected within `transitionDays` days. Drives the app-only
-   * `SIZE_CHANGE_APPROACHING` notice (never a push, SPEC.md §12) for the
-   * cases where it does not already change `status` (HOLD_SIZE_CHANGE /
-   * BUY_BOTH_SIZES already communicate it when it does).
+   * projected. Drives the app-only `SIZE_CHANGE_APPROACHING` notice (never
+   * a push, SPEC.md §12) and the §8.7 prompt for the cases where it does
+   * not already change `status`.
    */
-  transitionDays: number | null
+  transition: TransitionEstimate | null
 }
 
 const median = (values: number[]): number => {
@@ -100,7 +110,7 @@ export const computeForecast = (input: ForecastInput): Forecast => {
     stock,
     usage,
     now,
-    transitionDays,
+    transition,
     warningDays,
     coverageDays,
     diapersPerPackage,
@@ -129,7 +139,7 @@ export const computeForecast = (input: ForecastInput): Forecast => {
       status: 'NO_DATA',
       recommendedDiapers: null,
       recommendedPackages: null,
-      transitionDays,
+      transition,
     }
   }
 
@@ -156,7 +166,7 @@ export const computeForecast = (input: ForecastInput): Forecast => {
       status: 'NO_DATA',
       recommendedDiapers: null,
       recommendedPackages: null,
-      transitionDays,
+      transition,
     }
   }
   const span = daysBetween(firstDay, lastDay) + 1
@@ -174,13 +184,20 @@ export const computeForecast = (input: ForecastInput): Forecast => {
 
   const lowStock = stock <= daily * warningDays
   const transitionFirst =
-    transitionDays !== null && transitionDays < daysRemaining
+    transition !== null && transition.days < daysRemaining
+
+  // §7.5 / §8.6: the hold requires transition confidence MEDIUM or higher.
+  // The population average (LOW) warns, but never blocks. (The cold-start
+  // seeding clause `!daily.seeded`, §7.2, lands with issue #11.)
+  const canHold =
+    transition !== null &&
+    (transition.confidence === 'MEDIUM' || transition.confidence === 'HIGH')
 
   // D-15: the hold NEVER applies when stock is already low
   let status: ForecastStatus = 'OK'
   if (lowStock && transitionFirst) status = 'BUY_BOTH_SIZES'
   else if (lowStock) status = 'BUY_NOW'
-  else if (transitionFirst) status = 'HOLD_SIZE_CHANGE'
+  else if (transitionFirst && canHold) status = 'HOLD_SIZE_CHANGE'
 
   const recommendedDiapers = Math.max(
     0,
@@ -201,6 +218,6 @@ export const computeForecast = (input: ForecastInput): Forecast => {
     status,
     recommendedDiapers,
     recommendedPackages,
-    transitionDays,
+    transition,
   }
 }

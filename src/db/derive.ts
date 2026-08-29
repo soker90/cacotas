@@ -18,12 +18,19 @@ export const stockBySize = async (
 export const currentSize = async (
   database: CacotasDB,
   babyId: UUID
-): Promise<number | null> => {
+): Promise<number | null> => (await lastSizeChange(database, babyId))?.sizeId ?? null
+
+/** The last SIZE_CHANGE event: current sizeId and when it started (§8.4). */
+export const lastSizeChange = async (
+  database: CacotasDB,
+  babyId: UUID
+): Promise<{ sizeId: number, occurredAt: number } | null> => {
   const changes = await database.movements
     .where('[babyId+type]')
     .equals([babyId, 'SIZE_CHANGE'])
     .sortBy('occurredAt')
-  return changes.at(-1)?.sizeId ?? null
+  const last = changes.at(-1)
+  return last === undefined ? null : { sizeId: last.sizeId, occurredAt: last.occurredAt }
 }
 
 /**

@@ -13,7 +13,7 @@ export type UsageSource = 'OWN_STOCK' | 'EXTERNAL'
 export interface Movement {
   id: UUID;
   babyId: UUID;
-  sizeId: number; // 0..6
+  sizeId: number; // 0..7
 
   type: MovementType;
   usageSource?: UsageSource; // required if type === 'USAGE'
@@ -37,6 +37,9 @@ export interface Baby {
   name: string;
   birthDate?: string; // 'YYYY-MM-DD'
   zoneId: string; // 'Europe/Madrid'
+  birthWeightKg?: number; // also recorded as the first WeightRecord (§8.8)
+  sex?: 'male' | 'female'; // weight-gain factor (§8.5)
+  gestationalWeeks?: number; // weeks of gestation; 40 (full term) assumed
   createdAt: number;
   updatedAt: number; // last-write-wins on sync
   serverSeq: number;
@@ -46,22 +49,31 @@ export interface WeightRecord {
   id: UUID;
   babyId: UUID;
   weightKg: number;
+  lengthCm?: number; // stored, unused in the MVP (§8.8)
   recordedAt: number;
   deviceId: string;
   serverSeq: number;
 }
 
 export interface DiaperSize {
-  id: number; // 0..6 = size number
+  id: number; // 0..7 = size number
   name: string; // 'Talla 2'
   minWeightKg?: number;
   maxWeightKg?: number;
+  dailyDiapers?: number; // manufacturer average (cold start, §7.2)
+  typicalMonths?: number; // typical size duration (§8.4)
 }
 
-/** Manual signals that the current size is getting small. */
+/**
+ * Manual signals that the current size is getting small (Dodot guide, §8.3).
+ * Leaks are NOT a signal: Dodot describes them as a consequence of either a
+ * too-small or a too-big diaper, so alone they distinguish nothing (§8.3).
+ */
 export interface TransitionSignals {
-  leaks: boolean; // frequent leaks
-  tight: boolean; // fits tight
-  marks: boolean; // leaves marks
-  hardToClose: boolean; // hard to close
+  tabsNotCentered: boolean; // tabs do not reach the middle of the waist
+  noTwoFingers: boolean; // two fingers do not fit under the closed waist
+  redMarks: boolean; // red marks on belly or thighs
+  uncoveredButtocks: boolean; // diaper does not fully cover the buttocks
+  frequentDermatitis: boolean; // frequent diaper dermatitis
+  pullsDiaper: boolean; // fussy or pulls at the diaper
 }

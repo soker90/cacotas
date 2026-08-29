@@ -51,7 +51,7 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
   const [adjustNote, setAdjustNote] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  if (!Number.isInteger(sizeId) || sizeId < 0 || sizeId > 6) {
+  if (!Number.isInteger(sizeId) || sizeId < 0 || sizeId > 7) {
     return (
       <Navigate to='/inventory' replace />
     )
@@ -288,8 +288,9 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
       <section className='card'>
         <h2>🧷 Señales de talla pequeña</h2>
         <p className='muted small'>
-          Marca lo que observes. Con una señal avisamos 21 días antes del
-          cambio; con dos o más, 7.
+          Marca lo que observes en la guía del fabricante. Con una señal la
+          estimación pasa a días; con dos o más, toca cambiar ya. Los escapes
+          no puntúan: pueden indicar un pañal pequeño o uno grande.
         </p>
         {SIGNAL_DEFS.map(({ key, label }) => (
           <label key={key} className='check-row'>
@@ -321,10 +322,12 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
 }
 
 const SIGNAL_DEFS: Array<{ key: keyof TransitionSignals; label: string }> = [
-  { key: 'leaks', label: 'Escapes frecuentes' },
-  { key: 'tight', label: 'Le queda ajustado' },
-  { key: 'marks', label: 'Le deja marcas' },
-  { key: 'hardToClose', label: 'Cuesta cerrarlo' },
+  { key: 'tabsNotCentered', label: 'Las cintas no llegan al centro de la cintura' },
+  { key: 'noTwoFingers', label: 'No caben dos dedos bajo la cintura cerrada' },
+  { key: 'redMarks', label: 'Le deja marcas rojas en barriga o muslos' },
+  { key: 'uncoveredButtocks', label: 'El pañal no le cubre del todo las nalgas' },
+  { key: 'frequentDermatitis', label: 'Dermatitis del pañal frecuente' },
+  { key: 'pullsDiaper', label: 'Se muestra molesto o tira del pañal' },
 ]
 
 /** Average daily usage over the last `window` natural days (today excluded). */

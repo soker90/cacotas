@@ -1,7 +1,7 @@
 import type { TransitionSignals, UUID } from '../../shared/types.ts'
 
 /**
- * Manual size-transition signals (SPEC.md §8). They live per
+ * Manual size-transition signals (SPEC.md §8.3). They live per
  * (babyId, sizeId) in localStorage and are never synced (§17).
  */
 
@@ -11,20 +11,31 @@ const key = (babyId: UUID, sizeId: number): string =>
   `${KEY_PREFIX}.${babyId}.${sizeId}`
 
 const EMPTY: TransitionSignals = {
-  leaks: false,
-  tight: false,
-  marks: false,
-  hardToClose: false,
+  tabsNotCentered: false,
+  noTwoFingers: false,
+  redMarks: false,
+  uncoveredButtocks: false,
+  frequentDermatitis: false,
+  pullsDiaper: false,
 }
+
+/** Keys of the pre-#10 signal set — wiped on sight (decision: no mapping). */
+const LEGACY_KEYS = ['leaks', 'tight', 'marks', 'hardToClose']
 
 export const readSignals = (
   babyId: UUID,
   sizeId: number
 ): TransitionSignals => {
+  const k = key(babyId, sizeId)
   try {
-    const raw = localStorage.getItem(key(babyId, sizeId))
+    const raw = localStorage.getItem(k)
     if (raw === null) return EMPTY
-    return { ...EMPTY, ...(JSON.parse(raw) as TransitionSignals) }
+    const parsed = JSON.parse(raw) as Partial<TransitionSignals>
+    if (LEGACY_KEYS.some((legacy) => legacy in parsed)) {
+      localStorage.removeItem(k)
+      return EMPTY
+    }
+    return { ...EMPTY, ...parsed }
   } catch {
     return EMPTY
   }
