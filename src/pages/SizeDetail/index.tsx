@@ -33,6 +33,7 @@ import { uuid } from '../../lib/uuid.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
 import { WeightForm } from '../../components/WeightForm.tsx'
 import { FitGuide } from '../../components/FitGuide.tsx'
+import { TransitionPrompt } from '../../components/TransitionPrompt.tsx'
 
 const parsePositive = (text: string): number | null => {
   const value = Number.parseInt(text, 10)
@@ -302,6 +303,8 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
               </>
               )}
       </section>
+
+      {isCurrent && <TransitionPrompt baby={baby} sizeId={sizeId} />}
 
       <section className='card'>
         <h2>⚖️ Peso</h2>

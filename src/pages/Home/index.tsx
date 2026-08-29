@@ -18,6 +18,7 @@ import { getCoverageDays } from '../../lib/settings.ts'
 import { isStayMode } from '../../lib/stay-mode.ts'
 import { lastSyncAt } from '../../sync/engine.ts'
 import { WeightForm, useWeightReminder } from '../../components/WeightForm.tsx'
+import { TransitionPrompt } from '../../components/TransitionPrompt.tsx'
 
 export const Home = ({ baby }: { baby: Baby }) => {
   const sizeId = useCurrentSize(baby.id)
@@ -104,6 +105,8 @@ export const Home = ({ baby }: { baby: Baby }) => {
       {forecast !== null && forecast !== undefined && sizeId != null && (
         <ForecastCard forecast={forecast} sizeId={sizeId} />
       )}
+
+      {typeof sizeId === 'number' && <TransitionPrompt baby={baby} sizeId={sizeId} />}
 
       {weightReminder && (
         <p className='muted small' role='status'>
