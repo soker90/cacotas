@@ -28,6 +28,7 @@ import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
 import { WeightForm } from '../../components/WeightForm.tsx'
+import { FitGuide } from '../../components/FitGuide.tsx'
 
 const parsePositive = (text: string): number | null => {
   const value = Number.parseInt(text, 10)
@@ -299,9 +300,9 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
         <h2>🧷 Señales de talla pequeña</h2>
         <p className='muted small'>
           Marca lo que observes en la guía del fabricante. Con una señal la
-          estimación pasa a días; con dos o más, toca cambiar ya. Los escapes
-          no puntúan: pueden indicar un pañal pequeño o uno grande.
+          estimación pasa a días; con dos o más, toca cambiar ya.
         </p>
+        <FitGuide />
         {SIGNAL_DEFS.map(({ key, label }) => (
           <label key={key} className='check-row'>
             <input
@@ -315,6 +316,12 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
             {label}
           </label>
         ))}
+        <p className='muted small'>
+          ¿Escapes frecuentes? Los escapes no puntúan: pueden indicar un pañal
+          pequeño o uno grande. Fíjate más bien en si deja marcas o cuesta
+          cerrarlo — si es así, márcalo arriba; si no, puede que el pañal le
+          quede grande.
+        </p>
       </section>
 
       <section className='card'>
