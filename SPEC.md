@@ -1492,7 +1492,12 @@ separado. Lo que aportaba va **dentro de la propia app** (issue #9 reconvertido)
 | 3 | Worker, D1, sync completo | Dos móviles convergen |
 | 4 | Motor de forecast + integración en UI | Predicciones |
 | 5 | Web Push, anti-spam, accesibilidad, pulido | Completo |
-| 6 | Uso real, sin funcionalidades nuevas | Colchón |
+| 6 | Uso real, sin funcionalidades nuevas *(restricción levantada 2026-08-29, ver abajo)* | Colchón |
+
+**Actualización (2026-08-29): se levanta la restricción de "sin funcionalidades nuevas" en la
+fase 6.** La prioridad sigue siendo el uso real y que el contador compartido funcione perfecto;
+las funcionalidades aprobadas (issues #12–#15) pueden hacerse antes del parto siempre que no
+comprometan el sync ni el registro offline. La línea de corte de abajo se mantiene intacta.
 
 **El sync va en la fase 3, no al final.** Es la parte con más riesgo y debe quedar margen de
 maniobra.

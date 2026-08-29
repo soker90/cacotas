@@ -30,9 +30,11 @@ Prueba: `/shared` debe testearse con `vitest` sin un solo mock.
 ### 4. Los tests del SPEC §14 son parte del Definition of Done
 No son opcionales ni "para después". Una fase sin sus tests no está terminada.
 
-### 5. No añadas funcionalidades que no estén en el SPEC
-Ni aunque parezcan obvias, útiles o de dos minutos. El alcance está deliberadamente recortado
-porque hay una fecha límite dura. Si crees que falta algo, dilo; no lo implementes.
+### 5. No añadas funcionalidades que no estén en el SPEC o en un issue aprobado
+Ni aunque parezcan obvias, útiles o de dos minutos. *(Actualizado 2026-08-29: la restricción
+de "nada nuevo antes del parto" se levantó — SPEC §16. Los issues #12–#15 son alcance
+aprobado; la línea de corte sobre el sync sigue intacta.)* Si crees que falta algo, dilo;
+no lo implementes sin aprobación.
 
 ### 6. Una fase cada vez, en orden
 No adelantes trabajo de fases posteriores. El orden del SPEC §15 está pensado para que el riesgo
