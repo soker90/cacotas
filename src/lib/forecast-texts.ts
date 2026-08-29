@@ -1,4 +1,5 @@
 import type { Forecast } from '../../shared/forecast.ts'
+import { transitionSummary } from './transition-texts.ts'
 
 /**
  * UI texts for each forecast status (SPEC.md §7.5). The engine never
@@ -36,7 +37,7 @@ export const forecastCaveats = (forecast: Forecast): string[] => {
     forecast.status !== 'BUY_BOTH_SIZES'
   ) {
     caveats.push(
-      `Podríais cambiar de talla en unos ${String(forecast.transition.days)} días.`
+      `Cambio de talla ${transitionSummary(forecast.transition)}.`
     )
   }
   return caveats

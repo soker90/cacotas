@@ -28,6 +28,11 @@ export interface TransitionEstimate {
   /** Days until the change (pessimistic: §8.9 uses the range's max). */
   days: number
   confidence: Confidence
+  /**
+   * Honest ±1σ range when the weight estimator produces the minimum (§8.9):
+   * the UI shows "entre X y Y semanas", never a point figure (D-25).
+   */
+  range?: { min: number, mid: number, max: number }
 }
 
 export type ForecastStatus =

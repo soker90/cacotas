@@ -23,6 +23,10 @@ import {
   writeSignal,
 } from '../../lib/transition-signals.ts'
 import { confidenceLabel } from '../../lib/forecast-texts.ts'
+import {
+  transitionCaveats,
+  transitionSummary,
+} from '../../lib/transition-texts.ts'
 import { formatLogicalDateEs } from '../../lib/format-date.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
@@ -276,6 +280,18 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
                   ≈ {forecast.dailyConsumption?.toFixed(1)} pañales/día ·{' '}
                   quedan ≈ {Math.round(forecast.daysRemaining ?? 0)} días
                 </p>
+                {forecast.transition !== null && (
+                  <p>
+                    Cambio de talla:{' '}
+                    {transitionSummary(forecast.transition)}.
+                  </p>
+                )}
+                {forecast.transition !== null &&
+                  transitionCaveats(forecast.transition).map((caveat) => (
+                    <p key={caveat} className='muted small'>
+                      {caveat}
+                    </p>
+                  ))}
                 <p className='muted small'>
                   Agotamiento aprox.: {forecast.exhaustionDate !== null
                   ? formatLogicalDateEs(forecast.exhaustionDate)

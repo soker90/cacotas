@@ -239,16 +239,6 @@ export interface TransitionInput {
   now: number
 }
 
-export interface TransitionResult {
-  days: number
-  confidence: Confidence
-  /**
-   * Honest range when the weight estimator produces the minimum (§8.9).
-   * Absent for signal/duration winners: they have no dispersion model.
-   */
-  range?: { min: number, mid: number, max: number }
-}
-
 /**
  * The three estimators combined by the minimum; the confidence is the
  * winner's. If two tie in days, the higher confidence wins — the result
@@ -257,9 +247,9 @@ export interface TransitionResult {
  */
 export const estimateTransition = (
   input: TransitionInput
-): TransitionResult | null => {
+): TransitionEstimate | null => {
   const candidates: TransitionEstimate[] = []
-  let range: TransitionResult['range'] | undefined
+  let range: TransitionEstimate['range'] | undefined
 
   const signal = signalDays(input.signals)
   if (signal !== null) candidates.push(signal)
