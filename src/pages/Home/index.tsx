@@ -91,7 +91,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
               <p>
                 {stock} pañales
                 {typeof forecast?.dailyConsumption === 'number' &&
-                  ` · ≈ ${forecast.dailyConsumption.toFixed(1)}/día`}
+                  ` · ≈ ${forecast.dailyConsumption.toFixed(1)}/día${forecast.seeded ? ' (estimación del fabricante)' : ''}`}
                 {typeof forecast?.daysRemaining === 'number' &&
                   ` · quedan ≈ ${String(Math.round(forecast.daysRemaining))} días`}
                 {forecast?.exhaustionDate != null && ` · se acaban el ${formatLogicalDateEs(forecast.exhaustionDate)}`}

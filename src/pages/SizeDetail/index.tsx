@@ -278,7 +278,8 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
             : (
               <>
                 <p>
-                  ≈ {forecast.dailyConsumption?.toFixed(1)} pañales/día ·{' '}
+                  ≈ {forecast.dailyConsumption?.toFixed(1)} pañales/día
+                  {forecast.seeded && ' · estimación del fabricante'} ·{' '}
                   quedan ≈ {Math.round(forecast.daysRemaining ?? 0)} días
                 </p>
                 {forecast.transition !== null && (

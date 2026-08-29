@@ -26,7 +26,13 @@ export const forecastHeadline = (
 /** Caveat lines shown below the headline, never invented numbers. */
 export const forecastCaveats = (forecast: Forecast): string[] => {
   const caveats: string[] = []
-  if (forecast.confidence === 'LOW') { caveats.push('Predicción poco fiable todavía.') }
+  // §7.2.1: the seeded figure is always labelled — never a bare number
+  if (forecast.seeded && forecast.dailyConsumption !== null) {
+    caveats.push(
+      `Estimación del fabricante: ≈ ${forecast.dailyConsumption.toLocaleString('es-ES')} pañales al día.`
+    )
+  }
+  if (forecast.confidence === 'LOW' && !forecast.seeded) { caveats.push('Predicción poco fiable todavía.') }
   if (forecast.variabilityHigh) { caveats.push('El consumo es irregular.') }
   // SIZE_CHANGE_APPROACHING (SPEC.md §12): app-only notice. Skipped when
   // HOLD_SIZE_CHANGE / BUY_BOTH_SIZES already communicate the transition
