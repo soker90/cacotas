@@ -7,7 +7,8 @@
     {
       "binding": "DB",
       "database_name": "cacotas-db",
-      "database_id": "4c0d9be7-6755-49af-8dba-fa96082e7b20"
+      "database_id": "4c0d9be7-6755-49af-8dba-fa96082e7b20",
+      "migrations_dir": "migrations"
     }
   ],
   "triggers": {

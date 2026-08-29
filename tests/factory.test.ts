@@ -18,9 +18,12 @@ const purchase60 = (over = {}): Movement =>
   )
 
 describe('common validations', () => {
-  it('rejects sizeId out of range [0,6]', () => {
+  it('accepts sizeId 7 (talla 7) and rejects out of range', () => {
     expect(() =>
       createMovement({ ...base, sizeId: 7 }, { type: 'SIZE_CHANGE' })
+    ).not.toThrow()
+    expect(() =>
+      createMovement({ ...base, sizeId: 8 }, { type: 'SIZE_CHANGE' })
     ).toThrow()
     expect(() =>
       createMovement({ ...base, sizeId: -1 }, { type: 'SIZE_CHANGE' })

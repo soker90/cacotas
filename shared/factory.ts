@@ -6,7 +6,7 @@ import type { Movement, UUID, UsageSource } from './types.ts'
  * between `quantity` and `delta` (D-04) and appends-only semantics (D-02).
  */
 
-const SIZES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
+const SIZES: readonly number[] = [0, 1, 2, 3, 4, 5, 6, 7]
 /** Tolerance for devices with slightly fast clocks (§9.9). */
 const CLOCK_TOLERANCE_MS = 60_000
 
@@ -37,7 +37,7 @@ const fail = (rule: string): never => {
 const assertCommon = (common: CommonFields): void => {
   if (!common.id) fail('id required')
   if (!common.babyId) fail('babyId required')
-  if (!SIZES.includes(common.sizeId)) fail('sizeId out of range [0,6]')
+  if (!SIZES.includes(common.sizeId)) fail('sizeId out of range [0,7]')
   if (!common.deviceId) fail('deviceId required')
   if (common.occurredAt > common.recordedAt + CLOCK_TOLERANCE_MS) { fail('occurredAt in the future beyond tolerance') }
 }

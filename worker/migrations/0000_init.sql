@@ -1,7 +1,4 @@
--- Cacotas D1 schema (SPEC.md §4.5) — reference of the CURRENT state.
--- The canonical way to create or update the database is
--- `wrangler d1 migrations apply cacotas-db` (worker/migrations/); this file
--- is kept in sync for documentation and manual inspection only.
+-- Cacotas D1 schema (SPEC.md §4.5)
 -- Append-only ledger: rows are only ever INSERTed (D-02). The seq column is
 -- assigned by SQLite and doubles as the sync cursor.
 
@@ -27,7 +24,6 @@ CREATE TABLE IF NOT EXISTS weights (
   id         TEXT NOT NULL UNIQUE,
   baby_id    TEXT NOT NULL,
   weight_kg  REAL NOT NULL,
-  length_cm  REAL,                  -- stored, unused in the MVP (§8.8)
   recorded_at INTEGER NOT NULL,
   device_id  TEXT NOT NULL
 );
@@ -37,9 +33,6 @@ CREATE TABLE IF NOT EXISTS babies (
   name       TEXT NOT NULL,
   birth_date TEXT,
   zone_id    TEXT NOT NULL,
-  birth_weight_kg REAL,              -- transition data (§8.8)
-  sex        TEXT,
-  gestational_weeks INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );

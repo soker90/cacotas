@@ -38,6 +38,7 @@ interface WeightRow {
   id: string
   baby_id: string
   weight_kg: number
+  length_cm: number | null
   recorded_at: number
   device_id: string
 }
@@ -47,6 +48,9 @@ interface BabyRow {
   name: string
   birth_date: string | null
   zone_id: string
+  birth_weight_kg: number | null
+  sex: string | null
+  gestational_weeks: number | null
   created_at: number
   updated_at: number
 }
@@ -88,7 +92,7 @@ const isValidWireMovement = (m: unknown): m is WireMovement => {
     typeof v === 'number' && Number.isInteger(v)
 
   if (!str(r.id) || !str(r.babyId) || !str(r.deviceId)) return false
-  if (!int(r.sizeId) || r.sizeId < 0 || r.sizeId > 6) return false
+  if (!int(r.sizeId) || r.sizeId < 0 || r.sizeId > 7) return false
   if (!int(r.quantity) || r.quantity < 0) return false
   if (!int(r.delta)) return false
   if (!int(r.occurredAt) || !int(r.recordedAt)) return false
@@ -141,6 +145,7 @@ const rowToWeight = (row: WeightRow) => ({
   id: row.id,
   babyId: row.baby_id,
   weightKg: row.weight_kg,
+  ...(row.length_cm !== null ? { lengthCm: row.length_cm } : {}),
   recordedAt: row.recorded_at,
   deviceId: row.device_id,
   serverSeq: row.seq,
@@ -151,6 +156,13 @@ const rowToBaby = (row: BabyRow) => ({
   name: row.name,
   ...(row.birth_date !== null ? { birthDate: row.birth_date } : {}),
   zoneId: row.zone_id,
+  ...(row.birth_weight_kg !== null
+    ? { birthWeightKg: row.birth_weight_kg }
+    : {}),
+  ...(row.sex !== null ? { sex: row.sex } : {}),
+  ...(row.gestational_weeks !== null
+    ? { gestationalWeeks: row.gestational_weeks }
+    : {}),
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 })
@@ -216,7 +228,8 @@ const handleSync = async (
     if (
       typeof w !== 'object' ||
       w === null ||
-      typeof (w as Record<string, unknown>).id !== 'string'
+      typeof (w as Record<string, unknown>).id !== 'string' ||
+      typeof (w as Record<string, unknown>).weightKg !== 'number'
     ) {
       return json({ error: 'invalid weight' }, 400)
     }
@@ -224,11 +237,13 @@ const handleSync = async (
   if (incomingWeights.length > 0) {
     const statements = incomingWeights.map((w) => {
       const r = w as Record<string, unknown>
+      const lengthCm =
+        typeof r.lengthCm === 'number' && r.lengthCm > 0 ? r.lengthCm : null
       return env.DB.prepare(
-        `INSERT INTO weights (id, baby_id, weight_kg, recorded_at, device_id)
-         VALUES (?1, ?2, ?3, ?4, ?5)
+        `INSERT INTO weights (id, baby_id, weight_kg, length_cm, recorded_at, device_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT(id) DO NOTHING`
-      ).bind(r.id, r.babyId, r.weightKg, r.recordedAt, r.deviceId)
+      ).bind(r.id, r.babyId, r.weightKg, lengthCm, r.recordedAt, r.deviceId)
     })
     await env.DB.batch(statements)
   }
@@ -246,17 +261,32 @@ const handleSync = async (
       typeof b.name !== 'string' ||
       typeof b.zoneId !== 'string' ||
       typeof b.createdAt !== 'number' ||
-      typeof b.updatedAt !== 'number'
+      typeof b.updatedAt !== 'number' ||
+      // New transition fields (issue #10): optional, but validated when present
+      (b.sex !== undefined && b.sex !== 'male' && b.sex !== 'female') ||
+      (b.gestationalWeeks !== undefined &&
+        (typeof b.gestationalWeeks !== 'number' ||
+          !Number.isInteger(b.gestationalWeeks) ||
+          b.gestationalWeeks < 20 ||
+          b.gestationalWeeks > 43)) ||
+      (b.birthWeightKg !== undefined &&
+        (typeof b.birthWeightKg !== 'number' ||
+          b.birthWeightKg <= 0 ||
+          b.birthWeightKg > 15))
     ) {
       return json({ error: 'invalid baby' }, 400)
     }
     await env.DB.prepare(
-      `INSERT INTO babies (id, name, birth_date, zone_id, created_at, updated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+      `INSERT INTO babies (id, name, birth_date, zone_id, birth_weight_kg,
+                           sex, gestational_weeks, created_at, updated_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
          birth_date = excluded.birth_date,
          zone_id = excluded.zone_id,
+         birth_weight_kg = excluded.birth_weight_kg,
+         sex = excluded.sex,
+         gestational_weeks = excluded.gestational_weeks,
          updated_at = excluded.updated_at
        WHERE excluded.updated_at > babies.updated_at`
     )
@@ -265,6 +295,9 @@ const handleSync = async (
         b.name,
         typeof b.birthDate === 'string' ? b.birthDate : null,
         b.zoneId,
+        typeof b.birthWeightKg === 'number' ? b.birthWeightKg : null,
+        typeof b.sex === 'string' ? b.sex : null,
+        typeof b.gestationalWeeks === 'number' ? b.gestationalWeeks : null,
         b.createdAt,
         b.updatedAt
       )
