@@ -70,6 +70,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
           <button
             type='button'
             onClick={() => {
+              navigator.vibrate?.(15)
               void undoLast()
             }}
           >
