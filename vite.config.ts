@@ -28,6 +28,18 @@ export default defineConfig({
       start_url: '/',
       scope: '/',
       display: 'standalone',
+      shortcuts: [
+        {
+          name: 'Registrar pañal',
+          url: '/',
+          icons: [{ src: '/icons/shortcut-add-96.png', sizes: '96x96' }],
+        },
+        {
+          name: 'Inventario',
+          url: '/inventory',
+          icons: [{ src: '/icons/shortcut-stock-96.png', sizes: '96x96' }],
+        },
+      ],
       background_color: '#ffffff',
       theme_color: '#5b8a72',
       icons: [
