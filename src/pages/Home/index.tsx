@@ -66,10 +66,12 @@ export const Home = ({ baby }: { baby: Baby }) => {
 
       {lastUsage && (
         <p className='toast' role='status'>
+          <span aria-hidden='true'>✅ </span>
           Registrado.{' '}
           <button
             type='button'
             onClick={() => {
+              navigator.vibrate?.(15)
               void undoLast()
             }}
           >

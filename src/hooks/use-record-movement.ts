@@ -52,6 +52,7 @@ export const useRecordMovement = (
     )
     await db.movements.add(movement)
     notifyWrite()
+    navigator.vibrate?.(30)
 
     setLastUsage(movement)
     if (timer.current) clearTimeout(timer.current)
