@@ -18,13 +18,14 @@ export const useForecast = (
 ): Forecast | null | undefined =>
   useLiveQuery(async () => {
     if (typeof sizeId !== 'number') return null
-    const [stocks, usage, sizeChange, sizes, baby, weights] = await Promise.all([
+    const [stocks, usage, sizeChange, sizes, baby, weights, location] = await Promise.all([
       stockBySize(db, babyId, locationId),
       liveUsage(db, babyId, 0, locationId),
       lastSizeChange(db, babyId),
       db.sizes.bulkGet([sizeId, sizeId + 1]),
       db.babies.get(babyId),
       db.weights.where('babyId').equals(babyId).sortBy('recordedAt'),
+      locationId === undefined ? Promise.resolve(undefined) : db.locations.get(locationId),
     ])
     const currentSize = sizes[0] ?? null
     const nextSize = sizes[1] ?? null
@@ -47,9 +48,7 @@ export const useForecast = (
       transition,
       currentSize,
       warningDays: getWarningDays(),
-      ...(await db.locations.get(locationId ?? ''))?.reorderPoint !== undefined
-        ? { reorderPoint: (await db.locations.get(locationId ?? ''))?.reorderPoint as number }
-        : {},
+      ...(location?.reorderPoint !== undefined ? { reorderPoint: location.reorderPoint } : {}),
       coverageDays: getCoverageDays(),
     })
   }, [babyId, sizeId, locationId])
