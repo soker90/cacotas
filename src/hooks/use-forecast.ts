@@ -10,6 +10,10 @@ import { readSignals } from '../lib/transition-signals.ts'
 /**
  * Live forecast for the given size (SPEC.md §7 + §8). undefined = loading;
  * null = no current size to forecast.
+ *
+ * Consumption is always global for the baby: locationId only scopes physical
+ * stock
+ * and the location-specific reorder point.
  */
 export const useForecast = (
   babyId: UUID,
@@ -20,7 +24,7 @@ export const useForecast = (
     if (typeof sizeId !== 'number') return null
     const [stocks, usage, sizeChange, sizes, baby, weights, location] = await Promise.all([
       stockBySize(db, babyId, locationId),
-      liveUsage(db, babyId, 0, locationId),
+      liveUsage(db, babyId, 0),
       lastSizeChange(db, babyId),
       db.sizes.bulkGet([sizeId, sizeId + 1]),
       db.babies.get(babyId),
