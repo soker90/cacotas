@@ -12,38 +12,42 @@ export type UsageSource = 'OWN_STOCK' | 'EXTERNAL'
 
 export type Sex = 'male' | 'female'
 
+export interface Location {
+  id: UUID;
+  name: string;
+  reorderPoint: number;
+  createdAt: number;
+  updatedAt: number;
+  deviceId: string;
+}
+
 export interface Movement {
   id: UUID;
   babyId: UUID;
-  sizeId: number; // 0..7
-
+  sizeId: number;
+  locationId?: UUID;
   type: MovementType;
-  usageSource?: UsageSource; // required if type === 'USAGE'
-
-  quantity: number; // >= 0 — for statistics
-  delta: number; // stock effect — may be 0 or negative
-
-  undoesMovementId?: UUID; // required if type === 'UNDO'
+  usageSource?: UsageSource;
+  quantity: number;
+  delta: number;
+  undoesMovementId?: UUID;
   note?: string;
-
-  occurredAt: number; // epoch ms — when it happened
-  recordedAt: number; // epoch ms — when it was recorded
-
+  occurredAt: number;
+  recordedAt: number;
   deviceId: string;
-  /** 0 = pending upload. The server assigns the real seq on sync. */
   serverSeq: number;
 }
 
 export interface Baby {
   id: UUID;
   name: string;
-  birthDate?: string; // 'YYYY-MM-DD'
-  zoneId: string; // 'Europe/Madrid'
-  birthWeightKg?: number; // also recorded as the first WeightRecord (§8.8)
-  sex?: Sex; // weight-gain factor (§8.5)
-  gestationalWeeks?: number; // weeks of gestation; 40 (full term) assumed
+  birthDate?: string;
+  zoneId: string;
+  birthWeightKg?: number;
+  sex?: Sex;
+  gestationalWeeks?: number;
   createdAt: number;
-  updatedAt: number; // last-write-wins on sync
+  updatedAt: number;
   serverSeq: number;
 }
 
@@ -51,31 +55,26 @@ export interface WeightRecord {
   id: UUID;
   babyId: UUID;
   weightKg: number;
-  lengthCm?: number; // stored, unused in the MVP (§8.8)
+  lengthCm?: number;
   recordedAt: number;
   deviceId: string;
   serverSeq: number;
 }
 
 export interface DiaperSize {
-  id: number; // 0..7 = size number
-  name: string; // 'Talla 2'
+  id: number;
+  name: string;
   minWeightKg?: number;
   maxWeightKg?: number;
-  dailyDiapers?: number; // manufacturer average (cold start, §7.2)
-  typicalMonths?: number; // typical size duration (§8.4)
+  dailyDiapers?: number;
+  typicalMonths?: number;
 }
 
-/**
- * Manual signals that the current size is getting small (Dodot guide, §8.3).
- * Leaks are NOT a signal: Dodot describes them as a consequence of either a
- * too-small or a too-big diaper, so alone they distinguish nothing (§8.3).
- */
 export interface TransitionSignals {
-  tabsNotCentered: boolean; // tabs do not reach the middle of the waist
-  noTwoFingers: boolean; // two fingers do not fit under the closed waist
-  redMarks: boolean; // red marks on belly or thighs
-  uncoveredButtocks: boolean; // diaper does not fully cover the buttocks
-  frequentDermatitis: boolean; // frequent diaper dermatitis
-  pullsDiaper: boolean; // fussy or pulls at the diaper
+  tabsNotCentered: boolean;
+  noTwoFingers: boolean;
+  redMarks: boolean;
+  uncoveredButtocks: boolean;
+  frequentDermatitis: boolean;
+  pullsDiaper: boolean;
 }
