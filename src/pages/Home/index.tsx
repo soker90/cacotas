@@ -211,6 +211,8 @@ export const Home = ({ baby }: { baby: Baby }) => {
 const ForecastCard = ({
   forecast,
   sizeId,
+  purchaseNeeds,
+  nextSizeId,
 }: {
   forecast: Forecast
   sizeId: number
