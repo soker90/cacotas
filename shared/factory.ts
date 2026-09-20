@@ -52,6 +52,7 @@ export const createMovement = (
   assertCommon(common)
 
   const { note, ...rest } = common
+  let movementNote = note
   const base = {
     ...rest,
     serverSeq: 0, // pending upload until the sync confirms it
@@ -62,8 +63,6 @@ export const createMovement = (
   let delta = 0
   let usageSource: UsageSource | undefined
   let undoesMovementId: UUID | undefined
-  let movementNote = note
-
   switch (input.type) {
     case 'USAGE': {
       usageSource = input.usageSource
