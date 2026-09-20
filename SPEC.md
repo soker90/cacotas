@@ -222,10 +222,11 @@ Cualquier violación lanza excepción. No hay creación de movimientos fuera de 
 ```ts
 this.version(1).stores({
   movements: 'id, babyId, occurredAt, serverSeq, undoesMovementId, ' +
-             '[babyId+occurredAt], [babyId+type], [babyId+sizeId]',
+             '[babyId+occurredAt], [babyId+type], [babyId+sizeId], [babyId+locationId]',
   babies:    'id',
   weights:   'id, babyId, recordedAt, serverSeq',
-  sizes:     'id'
+  sizes:     'id',
+  locations: 'id, updatedAt'
 });
 ```
 
@@ -247,7 +248,25 @@ así que `version(2).upgrade()` debe:
 La migración se verifica sobre una **base v1 con datos** — movimientos, pesos, una talla con el
 rango editado — nunca sobre una base vacía (§15).
 
-### 4.5 Esquema D1 (`worker/schema.sql`)
+### 4.5 Ubicaciones de stock
+
+Una ubicación representa un lugar físico donde se guarda stock (por ejemplo, Casa o Abuelos).
+
+- Cada movimiento de stock puede llevar locationId.
+- La ubicación activa es local al dispositivo: cada móvil puede seleccionar una distinta.
+- Si solo existe una ubicación, Home no muestra selector.
+- Home muestra el selector arriba cuando hay dos o más ubicaciones.
+- El stock, el consumo y el Forecast de Home se calculan para la ubicación activa.
+- Cada ubicación tiene su propio reorderPoint, el umbral de stock que dispara BUY_NOW.
+- El punto de pedido no cambia el objetivo de cobertura; solo cuándo consideramos que toca reponer.
+- Las ubicaciones sí se sincronizan porque son un dato compartido del inventario.
+- Quedan preparadas para quedar bajo el futuro hogar de #16, sin introducir cuentas todavía.
+
+La migración crea Casa como ubicación por defecto y asigna a ella los movimientos históricos sin
+ubicación. El ID determinista es default:<babyId>, para que dos dispositivos que adopten el
+mismo bebé no creen dos ubicaciones Casa.
+
+### 4.6 Esquema Dexie (`worker/schema.sql`)
 
 ```sql
 CREATE TABLE movements (
@@ -1212,7 +1231,7 @@ Es la pantalla que se abre 10 veces al día. Prioridad absoluta al registro.
 └────────────────────────────┘
 ```
 
-- Un toque registra `USAGE` / `OWN_STOCK` de la talla actual
+- Un toque registra `USAGE` / `OWN_STOCK` de la talla actual en la ubicación activa
 - Confirmación efímera con **[ Deshacer ]** (5 s)
 - Si el "modo estancia" está activo, indicador visible y el botón registra `EXTERNAL`
 - Acceso secundario al registro múltiple
