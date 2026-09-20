@@ -146,18 +146,19 @@ export const importJSON = async (file: File): Promise<void> => {
   const movements = parseRows(parsed.movements, parseMovement)
   const weights = parseRows(parsed.weights, parseWeight)
   const sizes = parseRows(parsed.sizes, parseSize)
-  const locations = parsed.locations === undefined
-    ? (
-      babies?.map((baby) => ({
-        id: `default:${baby.id}`,
-        name: 'Casa',
-        reorderPoint: 40,
-        createdAt: baby.createdAt,
-        updatedAt: Date.now(),
-        deviceId: 'import',
-      })) ?? []
-    )
-    : parseRows(parsed.locations, parseLocation)
+  let locations: Location[] | null
+  if (parsed.locations === undefined) {
+    locations = babies?.map((baby) => ({
+      id: `default:${baby.id}`,
+      name: 'Casa',
+      reorderPoint: 40,
+      createdAt: baby.createdAt,
+      updatedAt: Date.now(),
+      deviceId: 'import',
+    })) ?? []
+  } else {
+    locations = parseRows(parsed.locations, parseLocation)
+  }
   if (
     !babies ||
     !movements ||
@@ -168,13 +169,13 @@ export const importJSON = async (file: File): Promise<void> => {
   ) {
     throw new Error('El archivo no tiene el formato esperado')
   }
-  const validMovements: Movement[] = movements.flatMap((m) =>
-    m === null ? [] : [
+  const validMovements: Movement[] = movements
+    .filter((m): m is Movement => m !== null)
+    .map((m) =>
       m.locationId === undefined
         ? { ...m, locationId: `default:${m.babyId}` }
-        : m,
-    ]
-  )
+        : m
+    )
 
   if (
     validMovements.some(
