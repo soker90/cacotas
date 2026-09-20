@@ -79,7 +79,7 @@ export const runSync = async (
         // 1. Remote rows first — bulkPut is idempotent by id.
         await db.movements.bulkPut(res.movements)
         await db.weights.bulkPut(res.weights)
-        for (const location of res.locations) {
+        for (const location of res.locations ?? []) {
           const mine = await db.locations.get(location.id)
           if (mine === undefined || location.updatedAt > mine.updatedAt) {
             await db.locations.put(location)
