@@ -107,10 +107,11 @@ const FirstLaunch = () => {
   // null; exercised by unit tests and wired up in phase 3.
   useEffect(() => {
     if (decision?.route !== 'HOME' || !decision.remote) return
-    const { baby, movements } = decision.remote
-    void db.transaction('rw', db.babies, db.movements, async () => {
+    const { baby, movements, locations } = decision.remote
+    void db.transaction('rw', db.babies, db.movements, db.locations, async () => {
       await db.babies.put(baby)
       await db.movements.bulkPut(movements)
+      await db.locations.bulkPut(locations)
     })
   }, [decision])
 
