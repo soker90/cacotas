@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router-dom'
 import type { Forecast } from '../../../shared/forecast.ts'
+import { estimatePurchaseNeeds, type PurchaseNeeds } from '../../../shared/needs.ts'
 import type { Baby } from '../../../shared/types.ts'
 import {
   useCurrentSize,
@@ -35,6 +36,10 @@ export const Home = ({ baby }: { baby: Baby }) => {
   const activeLocation = locations?.find((location) => location.id === selectedLocationId)
   const locationId = selectedLocationId
   const stocks = useStockBySize(baby.id, locationId)
+  const nextSize = useLiveQuery(
+    () => typeof sizeId === 'number' ? db.sizes.get(sizeId + 1) : undefined,
+    [sizeId]
+  )
   const { recordDiaper, undoLast, lastUsage } = useRecordMovement(baby.id, locationId)
   const forecast = useForecast(baby.id, sizeId, locationId)
   // Route changes remount this page, so the flag is read fresh each time
@@ -54,6 +59,18 @@ export const Home = ({ baby }: { baby: Baby }) => {
         reorderPoint: activeLocation.reorderPoint,
         daysRemaining: forecast?.daysRemaining ?? null,
         warningDays: getWarningDays(),
+      })
+      : null
+
+  const purchaseNeeds =
+    typeof sizeId === 'number' && forecast !== null && forecast !== undefined && nextSize !== undefined
+      ? estimatePurchaseNeeds({
+        currentStock: stocks?.get(sizeId) ?? 0,
+        nextStock: stocks?.get(nextSize.id) ?? 0,
+        currentDailyConsumption: forecast.dailyConsumption,
+        nextDailyConsumption: nextSize.dailyDiapers ?? null,
+        transitionDays: forecast.transition?.days ?? null,
+        horizonDays: getCoverageDays(),
       })
       : null
 
@@ -166,7 +183,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
       </section>
 
       {forecast !== null && forecast !== undefined && sizeId != null && (
-        <ForecastCard forecast={forecast} sizeId={sizeId} />
+        <ForecastCard forecast={forecast} sizeId={sizeId} purchaseNeeds={purchaseNeeds} nextSizeId={nextSize?.id ?? null} />
       )}
 
       {typeof sizeId === 'number' && <TransitionPrompt baby={baby} sizeId={sizeId} />}
@@ -194,9 +211,13 @@ export const Home = ({ baby }: { baby: Baby }) => {
 const ForecastCard = ({
   forecast,
   sizeId,
+  purchaseNeeds,
+  nextSizeId,
 }: {
   forecast: Forecast
   sizeId: number
+  purchaseNeeds: PurchaseNeeds | null
+  nextSizeId: number | null
 }) => {
   const confidence = confidenceLabel(forecast)
   const confidenceWidth =
@@ -220,6 +241,22 @@ const ForecastCard = ({
           {' '}
           {String(getCoverageDays())} días de colchón.
         </p>
+      )}
+      {purchaseNeeds !== null && purchaseNeeds.next > 0 && (
+        <div className='forecast-needs'>
+          <p className='forecast-buy'>🛒 Necesidades estimadas para los próximos {String(getCoverageDays())} días:</p>
+          {purchaseNeeds.current > 0 && (
+            <p className='muted small'>Talla {String(sizeId)}: ≈ {String(purchaseNeeds.current)} pañales</p>
+          )}
+          {purchaseNeeds.next > 0 && nextSizeId !== null && (
+            <p className='muted small'>Talla {String(nextSizeId)}: ≈ {String(purchaseNeeds.next)} pañales</p>
+          )}
+          {forecast.transition !== null && purchaseNeeds.nextDays > 0 && (
+            <p className='muted small'>
+              La previsión reparte la necesidad entre ambas tallas según el cambio estimado en ≈ {String(forecast.transition.days)} días.
+            </p>
+          )}
+        </div>
       )}
       {forecastCaveats(forecast).map((caveat) => (
         <p key={caveat} className='muted small'>
