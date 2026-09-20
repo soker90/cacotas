@@ -19,7 +19,8 @@ interface UseRecordMovementResult {
 }
 
 export const useRecordMovement = (
-  babyId: UUID
+  babyId: UUID,
+  locationId?: UUID
 ): UseRecordMovementResult => {
   const [lastUsage, setLastUsage] = useState<Movement | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -38,6 +39,7 @@ export const useRecordMovement = (
         id: uuid(),
         babyId,
         sizeId,
+        ...(locationId !== undefined ? { locationId } : {}),
         deviceId: getDeviceId(),
         occurredAt: now,
         recordedAt: now,
@@ -70,6 +72,7 @@ export const useRecordMovement = (
         id: uuid(),
         babyId: lastUsage.babyId,
         sizeId: lastUsage.sizeId,
+        ...(lastUsage.locationId !== undefined ? { locationId: lastUsage.locationId } : {}),
         deviceId: getDeviceId(),
         occurredAt: now,
         recordedAt: now,
