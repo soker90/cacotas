@@ -160,7 +160,11 @@ export const importJSON = async (file: File): Promise<void> => {
     throw new Error('El archivo no tiene el formato esperado')
   }
   const validMovements: Movement[] = movements.flatMap((m) =>
-    m === null ? [] : [m]
+    m === null ? [] : [
+      m.locationId === undefined
+        ? { ...m, locationId: `default:${m.babyId}` }
+        : m,
+    ]
   )
 
   if (
