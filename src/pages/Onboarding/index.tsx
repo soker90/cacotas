@@ -103,7 +103,7 @@ export const Onboarding = () => {
           babyId,
           sizeId,
           locationId,
-          deviceId:
+          deviceId,
           occurredAt: now,
           recordedAt: now,
         },
