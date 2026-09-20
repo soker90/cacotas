@@ -14,6 +14,7 @@ export interface CommonFields {
   id: UUID;
   babyId: UUID;
   sizeId: number;
+  locationId?: UUID;
   deviceId: string;
   /** When it happened. */
   occurredAt: number;
