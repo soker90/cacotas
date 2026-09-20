@@ -28,8 +28,11 @@ export const Home = ({ baby }: { baby: Baby }) => {
   const locations = useLiveQuery(() => db.locations.toArray())
   const fallbackLocationId = defaultLocationId(baby.id)
   const [activeLocationId, setActiveLocationIdState] = useState(() => getActiveLocationId(fallbackLocationId))
-  const activeLocation = locations?.find((location) => location.id === activeLocationId) ?? locations?.[0]
-  const locationId = activeLocation?.id ?? activeLocationId
+  const selectedLocationId = locations?.some((location) => location.id === activeLocationId)
+    ? activeLocationId
+    : locations?.[0]?.id ?? activeLocationId
+  const activeLocation = locations?.find((location) => location.id === selectedLocationId)
+  const locationId = selectedLocationId
   const stocks = useStockBySize(baby.id, locationId)
   const { recordDiaper, undoLast, lastUsage } = useRecordMovement(baby.id, locationId)
   const forecast = useForecast(baby.id, sizeId, locationId)
@@ -41,14 +44,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
     void ensureDefaultLocation(baby.id)
   }, [baby.id])
 
-  useEffect(() => {
-    if (locations === undefined || locations.length === 0) return
-    const selected = locations.some((location) => location.id === activeLocationId)
-      ? activeLocationId
-      : locations[0].id
-    if (selected !== activeLocationId) setActiveLocationIdState(selected)
-    setActiveLocationId(selected)
-  }, [locations, activeLocationId])
+
 
   const stock =
     typeof sizeId === 'number' ? (stocks?.get(sizeId) ?? 0) : null
@@ -68,7 +64,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
         {locations !== undefined && locations.length > 1 && (
           <label className='location-selector'>
             <select
-              value={locationId}
+              value={selectedLocationId}
               onChange={(event) => {
                 const next = event.target.value
                 setActiveLocationId(next)
