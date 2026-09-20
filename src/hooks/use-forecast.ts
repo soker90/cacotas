@@ -13,13 +13,14 @@ import { readSignals } from '../lib/transition-signals.ts'
  */
 export const useForecast = (
   babyId: UUID,
-  sizeId: number | null | undefined
+  sizeId: number | null | undefined,
+  locationId?: string
 ): Forecast | null | undefined =>
   useLiveQuery(async () => {
     if (typeof sizeId !== 'number') return null
     const [stocks, usage, sizeChange, sizes, baby, weights] = await Promise.all([
-      stockBySize(db, babyId),
-      liveUsage(db, babyId, 0),
+      stockBySize(db, babyId, locationId),
+      liveUsage(db, babyId, 0, locationId),
       lastSizeChange(db, babyId),
       db.sizes.bulkGet([sizeId, sizeId + 1]),
       db.babies.get(babyId),
@@ -48,4 +49,4 @@ export const useForecast = (
       warningDays: getWarningDays(),
       coverageDays: getCoverageDays(),
     })
-  }, [babyId, sizeId])
+  }, [babyId, sizeId, locationId])
