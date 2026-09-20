@@ -10,6 +10,7 @@ import {
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
+import { defaultLocationId, getActiveLocationId } from '../../lib/locations.ts'
 
 const SIZES = [0, 1, 2, 3, 4, 5, 6] as const
 
@@ -61,6 +62,8 @@ export const RecordMultiple = ({ baby }: { baby: Baby }) => {
   const navigate = useNavigate()
   const stocks = useStockBySize(baby.id)
   const currentSizeId = useCurrentSize(baby.id)
+
+  const locationId = getActiveLocationId(defaultLocationId(baby.id))
 
   const [quantity, setQuantity] = useState(1)
   const [sizeId, setSizeId] = useState<number | null>(null)
