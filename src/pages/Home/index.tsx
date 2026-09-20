@@ -44,8 +44,6 @@ export const Home = ({ baby }: { baby: Baby }) => {
     void ensureDefaultLocation(baby.id)
   }, [baby.id])
 
-
-
   const stock =
     typeof sizeId === 'number' ? (stocks?.get(sizeId) ?? 0) : null
 
