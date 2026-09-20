@@ -63,17 +63,21 @@ export class CacotasDB extends Dexie {
         const babies = await tx.table<Baby, UUID>('babies').toArray()
         const movements = tx.table<Movement, UUID>('movements')
         const locations = tx.table<Location, UUID>('locations')
-        for (const baby of babies) {
+        const babyIds = new Set(babies.map((baby) => baby.id))
+        for (const movement of await movements.toArray()) babyIds.add(movement.babyId)
+        for (const babyId of babyIds) {
+          const baby = babies.find((item) => item.id === babyId)
+          const oldMovements = await movements.where('babyId').equals(babyId).toArray()
+          const createdAt = baby?.createdAt ?? oldMovements[0]?.occurredAt ?? Date.now()
           const location: Location = {
-            id: `default:${baby.id}`,
+            id: `default:${babyId}`,
             name: 'Casa',
             reorderPoint: 40,
-            createdAt: baby.createdAt,
+            createdAt,
             updatedAt: Date.now(),
             deviceId: 'migration',
           }
           await locations.put(location)
-          const oldMovements = await movements.where('babyId').equals(baby.id).toArray()
           for (const movement of oldMovements) {
             if (movement.locationId === undefined) {
               await movements.update(movement.id, { locationId: location.id })
