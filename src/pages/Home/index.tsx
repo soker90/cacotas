@@ -122,17 +122,26 @@ export const Home = ({ baby }: { baby: Baby }) => {
               <p className='muted'>Sin talla actual</p>
               )
             : (
-              <p>
-                {activeLocation !== undefined && <><strong>{activeLocation.name}</strong> · </>}{stock} pañales
-                {typeof forecast?.dailyConsumption === 'number' &&
-                  ` · ≈ ${forecast.dailyConsumption.toFixed(1)}/día${forecast.seeded ? ' (estimación del fabricante)' : ''}`}
-                {typeof forecast?.daysRemaining === 'number' &&
-                  ` · quedan ≈ ${String(Math.round(forecast.daysRemaining))} días`}
-                {forecast?.exhaustionDate != null && ` · se acaban el ${formatLogicalDateEs(forecast.exhaustionDate)}`}
+              <div>
+                <p>
+                📍 <strong>{activeLocation?.name ?? 'Ubicación activa'}</strong>: {stock} pañales de talla {String(sizeId)}
+                {typeof forecast?.dailyConsumption === 'number' && (
+                  <p className='muted small'>
+                    👶 Consumo del bebé: ≈ {forecast.dailyConsumption.toFixed(1)} pañales/día
+                    {forecast.seeded ? ' (estimación del fabricante)' : ' · global, todas las ubicaciones'}
+                  </p>
+                )}
+                {typeof forecast?.daysRemaining === 'number' && (
+                  <p className='muted small'>
+                    ⏳ Esta ubicación cubre ≈ {String(Math.round(forecast.daysRemaining))} días
+                    {forecast?.exhaustionDate != null && ` · hasta el ${formatLogicalDateEs(forecast.exhaustionDate)}`}
+                  </p>
+                )}
                 {stock < 0 && (
                   <strong className='warn'> · revisa el inventario</strong>
                 )}
-              </p>
+                </p>
+              </div>
               )}
       </section>
 
@@ -182,6 +191,9 @@ const ForecastCard = ({
   return (
     <section className='forecast-card'>
       <p className='forecast-headline'>{forecastHeadline(forecast, sizeId)}</p>
+      <p className='muted small'>
+        La previsión usa el consumo global del bebé y el stock de la ubicación activa.
+      </p>
       {forecast.recommendedDiapers !== null && forecast.recommendedDiapers > 0 && (
         <p className='forecast-buy'>
           🛒 Te faltan ≈ {String(forecast.recommendedDiapers)} pañales para
