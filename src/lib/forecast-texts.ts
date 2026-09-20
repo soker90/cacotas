@@ -33,6 +33,9 @@ export const forecastCaveats = (forecast: Forecast): string[] => {
     )
   }
   if (forecast.confidence === 'LOW' && !forecast.seeded) { caveats.push('Predicción poco fiable todavía.') }
+  if (!forecast.seeded && forecast.daysCovered > 0 && forecast.daysCovered < 3) {
+    caveats.push(`Histórico corto: basado en ${String(forecast.daysCovered)} día${forecast.daysCovered === 1 ? '' : 's'} de consumo real.`)
+  }
   if (forecast.variabilityHigh) { caveats.push('El consumo es irregular.') }
   // SIZE_CHANGE_APPROACHING (SPEC.md §12): app-only notice. Skipped when
   // HOLD_SIZE_CHANGE / BUY_BOTH_SIZES already communicate the transition

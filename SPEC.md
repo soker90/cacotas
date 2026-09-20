@@ -1240,7 +1240,7 @@ Es la pantalla que se abre 10 veces al día. Prioridad absoluta al registro.
 - Acceso secundario al registro múltiple
 - Recordatorio suave (§8.8): si han pasado más de 30 días sin registrar peso,
   *"¿cuánto pesa ya?"*. Sin insistir, sin push
-- Si el consumo está semillado (§7.2), la cifra se etiqueta *"estimación del fabricante"*
+- Si el consumo está semillado (§7.2), la cifra se etiqueta *"estimación del fabricante"*. Con 1-2 días de consumo real, la Home muestra explícitamente que el histórico es corto y cuántos días sustentan la previsión.
 - La previsión de necesidades para el horizonte de cobertura descuenta el stock de la ubicación activa y, si hay transición estimada, reparte las unidades entre la talla actual y la siguiente. El consumo usado es siempre global del bebé.
 
 ### Registro múltiple

@@ -16,7 +16,7 @@ export interface PeriodComparison {
 /** Summarise complete calendar-day slots ending before today. */
 export const summarizePeriod = (
   byDay: Map<string, number>,
-  days: string[],
+  days: string[]
 ): PeriodSummary => {
   let total = 0
   let daysWithData = 0
@@ -32,32 +32,32 @@ export const summarizePeriod = (
     total,
     average: daysWithData > 0 ? total / daysWithData : null,
     daysWithData,
-    coverage: days.length > 0 ? daysWithData / days.length : 0,
+    coverage: days.length > 0 ? daysWithData / days.length : 0
   }
 }
 
 export const comparePeriods = (
   current: PeriodSummary,
-  previous: PeriodSummary,
+  previous: PeriodSummary
 ): PeriodComparison => ({
   current,
   previous,
   changePercent:
     previous.average !== null && previous.average !== 0 && current.average !== null
       ? ((current.average - previous.average) / previous.average) * 100
-      : null,
+      : null
 })
 
 /** Own-stock consumption by size. EXTERNAL usage is deliberately excluded. */
 export const usageBySize = (
-  usage: Movement[],
+  usage: Movement[]
 ): Map<number, number> => {
   const bySize = new Map<number, number>()
   for (const movement of usage) {
     if (movement.usageSource !== 'OWN_STOCK') continue
     bySize.set(
       movement.sizeId,
-      (bySize.get(movement.sizeId) ?? 0) + movement.quantity,
+      (bySize.get(movement.sizeId) ?? 0) + movement.quantity
     )
   }
   return bySize
