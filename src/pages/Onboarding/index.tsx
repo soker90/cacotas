@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createMovement } from '../../../shared/factory.ts'
 import { ZONE } from '../../../shared/time.ts'
-import type { Baby, Sex } from '../../../shared/types.ts'
+import type { Baby, Location, Sex } from '../../../shared/types.ts'
 import { db } from '../../db/index.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
@@ -70,6 +70,7 @@ export const Onboarding = () => {
     const now = Date.now()
     const babyId = uuid()
     const deviceId = getDeviceId()
+    const locationId = `default:${babyId}`
     const baby: Baby = {
       id: babyId,
       name: name.trim(),
@@ -89,7 +90,8 @@ export const Onboarding = () => {
           id: uuid(),
           babyId,
           sizeId,
-          deviceId,
+          locationId,
+          deviceId:
           occurredAt: now,
           recordedAt: now,
         },
@@ -100,7 +102,8 @@ export const Onboarding = () => {
           id: uuid(),
           babyId,
           sizeId,
-          deviceId,
+          locationId,
+          deviceId:
           occurredAt: now,
           recordedAt: now,
         },
@@ -119,8 +122,17 @@ export const Onboarding = () => {
             }
           : null
 
-      await db.transaction('rw', db.babies, db.movements, db.weights, async () => {
+      const location: Location = {
+        id: locationId,
+        name: 'Casa',
+        reorderPoint: 40,
+        createdAt: now,
+        updatedAt: now,
+        deviceId,
+      }
+      await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
         await db.babies.put(baby)
+        await db.locations.put(location)
         await db.movements.bulkAdd([initial, sizeChange])
         if (birthWeight !== null) await db.weights.add(birthWeight)
       })
