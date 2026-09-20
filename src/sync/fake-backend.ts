@@ -1,4 +1,4 @@
-import type { Baby, Movement, UUID } from '../../shared/types.ts'
+import type { Baby, Location, Movement, UUID } from '../../shared/types.ts'
 import type { SyncBackend } from './backend.ts'
 import type { SyncRequest, SyncResponse } from './types.ts'
 
@@ -11,6 +11,7 @@ export class FakeSyncBackend implements SyncBackend {
   readonly movements = new Map<UUID, Movement>()
   weights: unknown[] = []
   baby: Baby | undefined
+  locations = new Map<UUID, Location>()
   private nextSeq = 1
 
   /** Simulate another device having written directly into the server. */
@@ -24,6 +25,10 @@ export class FakeSyncBackend implements SyncBackend {
 
   sync (req: SyncRequest): Promise<SyncResponse> {
     const accepted: UUID[] = []
+    for (const location of req.locations) {
+      const current = this.locations.get(location.id)
+      if (current === undefined || location.updatedAt > current.updatedAt) this.locations.set(location.id, location)
+    }
     for (const m of req.movements) {
       // INSERT OR IGNORE semantics (D-17): duplicates are "accepted" too.
       if (!this.movements.has(m.id)) {
@@ -43,6 +48,7 @@ export class FakeSyncBackend implements SyncBackend {
       hasMore: fresh.length > 500,
       movements: page,
       weights: [],
+      locations: [...this.locations.values()],
       ...(this.baby !== undefined ? { baby: this.baby } : {}),
       accepted,
     })
