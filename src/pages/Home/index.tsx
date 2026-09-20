@@ -19,7 +19,7 @@ import { getCoverageDays } from '../../lib/settings.ts'
 import { isStayMode } from '../../lib/stay-mode.ts'
 import { lastSyncAt } from '../../sync/engine.ts'
 import { db } from '../../db/index.ts'
-import { defaultLocationId, getActiveLocationId, setActiveLocationId } from '../../lib/locations.ts'
+import { defaultLocationId, ensureDefaultLocation, getActiveLocationId, setActiveLocationId } from '../../lib/locations.ts'
 import { WeightForm, useWeightReminder } from '../../components/WeightForm.tsx'
 import { TransitionPrompt } from '../../components/TransitionPrompt.tsx'
 
@@ -38,11 +38,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
   const weightReminder = useWeightReminder(baby.id)
 
   useEffect(() => {
-    void (async () => {
-      await db.transaction('rw', db.locations, async () => {
-        await import('../../lib/locations.ts').then(({ ensureDefaultLocation }) => ensureDefaultLocation(baby.id))
-      })
-    })()
+    void ensureDefaultLocation(baby.id)
   }, [baby.id])
 
   useEffect(() => {
