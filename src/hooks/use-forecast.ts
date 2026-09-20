@@ -47,6 +47,7 @@ export const useForecast = (
       transition,
       currentSize,
       warningDays: getWarningDays(),
+      reorderPoint: (await db.locations.get(locationId ?? ''))?.reorderPoint,
       coverageDays: getCoverageDays(),
     })
   }, [babyId, sizeId, locationId])
