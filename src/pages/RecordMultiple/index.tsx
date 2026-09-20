@@ -60,10 +60,11 @@ const nowForInput = (): string => {
 
 export const RecordMultiple = ({ baby }: { baby: Baby }) => {
   const navigate = useNavigate()
-  const stocks = useStockBySize(baby.id)
+  const stocks = useStockBySize(baby.id, locationId)
   const currentSizeId = useCurrentSize(baby.id)
 
   const locationId = getActiveLocationId(defaultLocationId(baby.id))
+
 
   const [quantity, setQuantity] = useState(1)
   const [sizeId, setSizeId] = useState<number | null>(null)
