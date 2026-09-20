@@ -15,7 +15,8 @@ import {
   forecastHeadline,
 } from '../../lib/forecast-texts.ts'
 import { formatLogicalDateEs } from '../../lib/format-date.ts'
-import { getCoverageDays } from '../../lib/settings.ts'
+import { getCoverageDays, getWarningDays } from '../../lib/settings.ts'
+import { getReplenishmentAlerts } from '../../lib/replenishment.ts'
 import { isStayMode } from '../../lib/stay-mode.ts'
 import { lastSyncAt } from '../../sync/engine.ts'
 import { db } from '../../db/index.ts'
@@ -46,6 +47,15 @@ export const Home = ({ baby }: { baby: Baby }) => {
 
   const stock =
     typeof sizeId === 'number' ? (stocks?.get(sizeId) ?? 0) : null
+  const replenishment =
+    stock !== null && activeLocation !== undefined
+      ? getReplenishmentAlerts({
+        stock,
+        reorderPoint: activeLocation.reorderPoint,
+        daysRemaining: forecast?.daysRemaining ?? null,
+        warningDays: getWarningDays(),
+      })
+      : null
 
   const handleRecordDiaper = (): void => {
     if (typeof sizeId === 'number') void recordDiaper(sizeId)
@@ -139,6 +149,16 @@ export const Home = ({ baby }: { baby: Baby }) => {
                   <p className='muted small'>
                     ⏳ Esta ubicación cubre ≈ {String(Math.round(forecast.daysRemaining))} días
                     {forecast?.exhaustionDate != null && ` · hasta el ${formatLogicalDateEs(forecast.exhaustionDate)}`}
+                  </p>
+                )}
+                {replenishment?.lowStock && (
+                  <p className='forecast-buy' role='status'>
+                    🟠 Reponer en {activeLocation?.name ?? 'esta ubicación'}: quedan {stock} pañales y el punto de pedido es {activeLocation?.reorderPoint}.
+                  </p>
+                )}
+                {replenishment?.runningOutSoon && (
+                  <p className='warn small' role='status'>
+                    🔴 Se acaba pronto aquí: quedan ≈ {String(Math.max(0, Math.round(forecast?.daysRemaining ?? 0)))} días según el consumo global del bebé.
                   </p>
                 )}
               </div>
