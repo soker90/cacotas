@@ -1,8 +1,10 @@
 import Dexie, { type Table } from 'dexie'
 import { DODOT_SIZES } from '../../shared/transition.ts'
+import { defaultLocationId } from '../lib/locations.ts'
 import type {
   Baby,
   DiaperSize,
+  Location,
   Movement,
   UUID,
   WeightRecord,
@@ -11,10 +13,11 @@ import type {
 const STORES = {
   movements:
     'id, babyId, occurredAt, serverSeq, undoesMovementId, ' +
-    '[babyId+occurredAt], [babyId+type], [babyId+sizeId]',
+    '[babyId+occurredAt], [babyId+type], [babyId+sizeId], [babyId+locationId]',
   babies: 'id',
   weights: 'id, babyId, recordedAt, serverSeq',
   sizes: 'id',
+  locations: 'id, updatedAt',
 }
 
 export class CacotasDB extends Dexie {
@@ -22,6 +25,7 @@ export class CacotasDB extends Dexie {
   babies!: Table<Baby, UUID>
   weights!: Table<WeightRecord, UUID>
   sizes!: Table<DiaperSize, number>
+  locations!: Table<Location, UUID>
 
   constructor (name = 'cacotas') {
     super(name)
@@ -52,6 +56,30 @@ export class CacotasDB extends Dexie {
             patch.maxWeightKg = seed.maxWeightKg
           }
           await table.update(current.id, patch)
+        }
+      })
+    this.version(3)
+      .stores(STORES)
+      .upgrade(async (tx) => {
+        const babies = await tx.table<Baby, UUID>('babies').toArray()
+        const movements = tx.table<Movement, UUID>('movements')
+        const locations = tx.table<Location, UUID>('locations')
+        for (const baby of babies) {
+          const location: Location = {
+            id: defaultLocationId(baby.id),
+            name: 'Casa',
+            reorderPoint: 40,
+            createdAt: baby.createdAt,
+            updatedAt: Date.now(),
+            deviceId: 'migration',
+          }
+          await locations.put(location)
+          const oldMovements = await movements.where('babyId').equals(baby.id).toArray()
+          for (const movement of oldMovements) {
+            if (movement.locationId === undefined) {
+              await movements.update(movement.id, { locationId: location.id })
+            }
+          }
         }
       })
   }
