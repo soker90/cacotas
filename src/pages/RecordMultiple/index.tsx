@@ -10,6 +10,7 @@ import {
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
+import { defaultLocationId, getActiveLocationId } from '../../lib/locations.ts'
 
 const SIZES = [0, 1, 2, 3, 4, 5, 6] as const
 
@@ -59,7 +60,8 @@ const nowForInput = (): string => {
 
 export const RecordMultiple = ({ baby }: { baby: Baby }) => {
   const navigate = useNavigate()
-  const stocks = useStockBySize(baby.id)
+  const locationId = getActiveLocationId(defaultLocationId(baby.id))
+  const stocks = useStockBySize(baby.id, locationId)
   const currentSizeId = useCurrentSize(baby.id)
 
   const [quantity, setQuantity] = useState(1)
@@ -91,6 +93,7 @@ export const RecordMultiple = ({ baby }: { baby: Baby }) => {
         id: uuid(),
         babyId: baby.id,
         sizeId: effectiveSize,
+        locationId,
         deviceId: getDeviceId(),
         occurredAt,
         recordedAt: now,

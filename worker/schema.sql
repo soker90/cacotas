@@ -18,9 +18,11 @@ CREATE TABLE IF NOT EXISTS movements (
   note       TEXT,
   occurred_at INTEGER NOT NULL,
   recorded_at INTEGER NOT NULL,
-  device_id  TEXT NOT NULL
+  device_id  TEXT NOT NULL,
+  location_id TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_movements_seq ON movements(seq);
+CREATE INDEX IF NOT EXISTS idx_movements_baby_location ON movements(baby_id, location_id);
 
 CREATE TABLE IF NOT EXISTS weights (
   seq        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,6 +44,15 @@ CREATE TABLE IF NOT EXISTS babies (
   gestational_weeks INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS locations (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  reorder_point INTEGER NOT NULL DEFAULT 40,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  device_id TEXT NOT NULL
 );
 
 -- Used by phase 5 (Web Push)

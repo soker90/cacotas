@@ -3,6 +3,7 @@ import { DODOT_SIZES } from '../../shared/transition.ts'
 import type {
   Baby,
   DiaperSize,
+  Location,
   Movement,
   UUID,
   WeightRecord,
@@ -11,10 +12,11 @@ import type {
 const STORES = {
   movements:
     'id, babyId, occurredAt, serverSeq, undoesMovementId, ' +
-    '[babyId+occurredAt], [babyId+type], [babyId+sizeId]',
+    '[babyId+occurredAt], [babyId+type], [babyId+sizeId], [babyId+locationId]',
   babies: 'id',
   weights: 'id, babyId, recordedAt, serverSeq',
   sizes: 'id',
+  locations: 'id, updatedAt',
 }
 
 export class CacotasDB extends Dexie {
@@ -22,6 +24,7 @@ export class CacotasDB extends Dexie {
   babies!: Table<Baby, UUID>
   weights!: Table<WeightRecord, UUID>
   sizes!: Table<DiaperSize, number>
+  locations!: Table<Location, UUID>
 
   constructor (name = 'cacotas') {
     super(name)
@@ -52,6 +55,34 @@ export class CacotasDB extends Dexie {
             patch.maxWeightKg = seed.maxWeightKg
           }
           await table.update(current.id, patch)
+        }
+      })
+    this.version(3)
+      .stores(STORES)
+      .upgrade(async (tx) => {
+        const babies = await tx.table<Baby, UUID>('babies').toArray()
+        const movements = tx.table<Movement, UUID>('movements')
+        const locations = tx.table<Location, UUID>('locations')
+        const babyIds = new Set(babies.map((baby) => baby.id))
+        for (const movement of await movements.toArray()) babyIds.add(movement.babyId)
+        for (const babyId of babyIds) {
+          const baby = babies.find((item) => item.id === babyId)
+          const oldMovements = await movements.where('babyId').equals(babyId).toArray()
+          const createdAt = baby?.createdAt ?? oldMovements[0]?.occurredAt ?? Date.now()
+          const location: Location = {
+            id: `default:${babyId}`,
+            name: 'Casa',
+            reorderPoint: 40,
+            createdAt,
+            updatedAt: Date.now(),
+            deviceId: 'migration',
+          }
+          await locations.put(location)
+          for (const movement of oldMovements) {
+            if (movement.locationId === undefined) {
+              await movements.update(movement.id, { locationId: location.id })
+            }
+          }
         }
       })
   }

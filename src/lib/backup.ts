@@ -1,6 +1,7 @@
 import type {
   Baby,
   DiaperSize,
+  Location,
   Movement,
   MovementType,
   UsageSource,
@@ -17,6 +18,7 @@ export const exportJSON = async (): Promise<void> => {
     movements: await db.movements.toArray(),
     weights: await db.weights.toArray(),
     sizes: await db.sizes.toArray(),
+    locations: await db.locations.toArray(),
   }
 
   const blob = new Blob([JSON.stringify(backup, null, 2)], {
@@ -46,6 +48,15 @@ const TYPES: readonly MovementType[] = [
 ]
 const SOURCES: readonly UsageSource[] = ['OWN_STOCK', 'EXTERNAL']
 
+const parseLocation = (r: Record<string, unknown>): Location => ({
+  id: isStr(r.id) ? r.id : '',
+  name: isStr(r.name) ? r.name : '',
+  reorderPoint: isNum(r.reorderPoint) ? r.reorderPoint : 0,
+  createdAt: isNum(r.createdAt) ? r.createdAt : NaN,
+  updatedAt: isNum(r.updatedAt) ? r.updatedAt : NaN,
+  deviceId: isStr(r.deviceId) ? r.deviceId : '',
+})
+
 const parseMovement = (
   r: Record<string, unknown>
 ): Movement | null => {
@@ -59,6 +70,7 @@ const parseMovement = (
     id: isStr(r.id) ? r.id : '',
     babyId: isStr(r.babyId) ? r.babyId : '',
     sizeId: isNum(r.sizeId) ? r.sizeId : -1,
+    ...(isStr(r.locationId) ? { locationId: r.locationId } : {}),
     type: r.type as MovementType,
     ...(isStr(r.usageSource)
       ? { usageSource: r.usageSource as UsageSource }
@@ -134,18 +146,36 @@ export const importJSON = async (file: File): Promise<void> => {
   const movements = parseRows(parsed.movements, parseMovement)
   const weights = parseRows(parsed.weights, parseWeight)
   const sizes = parseRows(parsed.sizes, parseSize)
+  let locations: Location[] | null
+  if (parsed.locations === undefined) {
+    locations = babies?.map((baby) => ({
+      id: `default:${baby.id}`,
+      name: 'Casa',
+      reorderPoint: 40,
+      createdAt: baby.createdAt,
+      updatedAt: Date.now(),
+      deviceId: 'import',
+    })) ?? []
+  } else {
+    locations = parseRows(parsed.locations, parseLocation)
+  }
   if (
     !babies ||
     !movements ||
     !weights ||
     !sizes ||
+    !locations ||
     movements.some((m) => m === null)
   ) {
     throw new Error('El archivo no tiene el formato esperado')
   }
-  const validMovements: Movement[] = movements.flatMap((m) =>
-    m === null ? [] : [m]
-  )
+  const validMovements: Movement[] = movements
+    .filter((m): m is Movement => m !== null)
+    .map((m) =>
+      m.locationId === undefined
+        ? { ...m, locationId: `default:${m.babyId}` }
+        : m
+    )
 
   if (
     validMovements.some(
@@ -161,17 +191,20 @@ export const importJSON = async (file: File): Promise<void> => {
     db.movements,
     db.weights,
     db.sizes,
+    db.locations,
     async () => {
       await Promise.all([
         db.babies.clear(),
         db.movements.clear(),
         db.weights.clear(),
         db.sizes.clear(),
+        db.locations.clear(),
       ])
       await db.babies.bulkPut(babies)
       await db.movements.bulkPut(validMovements)
       await db.weights.bulkPut(weights)
       await db.sizes.bulkPut(sizes)
+      await db.locations.bulkPut(locations)
     }
   )
 }

@@ -10,12 +10,14 @@ import {
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
+import { defaultLocationId, getActiveLocationId } from '../../lib/locations.ts'
 
 /** Quick inventory correction: ±1 as an ADJUSTMENT difference. */
 const quickAdjust = async (
   babyId: string,
   sizeId: number,
-  delta: number
+  delta: number,
+  locationId?: string
 ): Promise<void> => {
   const now = Date.now()
   const movement = createMovement(
@@ -23,6 +25,7 @@ const quickAdjust = async (
       id: uuid(),
       babyId,
       sizeId,
+      ...(locationId !== undefined ? { locationId } : {}),
       deviceId: getDeviceId(),
       occurredAt: now,
       recordedAt: now,
@@ -35,8 +38,11 @@ const quickAdjust = async (
 
 export const Inventory = ({ baby }: { baby: Baby }) => {
   const sizes = useLiveQuery(() => db.sizes.toArray())
-  const stocks = useStockBySize(baby.id)
+  const locations = useLiveQuery(() => db.locations.toArray())
+  const locationId = getActiveLocationId(defaultLocationId(baby.id))
+  const stocks = useStockBySize(baby.id, locationId)
   const currentSizeId = useCurrentSize(baby.id)
+  const activeLocation = locations?.find((location) => location.id === locationId)
 
   if (sizes === undefined || stocks === undefined) {
     return <main className='loading'>…</main>
@@ -45,6 +51,7 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
   return (
     <main className='page'>
       <h1>Inventario</h1>
+      {activeLocation !== undefined && <p className='muted'>📍 {activeLocation.name}</p>}
 
       {currentSizeId !== null && currentSizeId !== undefined && (
         <p className='muted'>
@@ -79,7 +86,7 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
                   type='button'
                   aria-label={`Quitar uno de ${size.name}`}
                   onClick={() => {
-                    void quickAdjust(baby.id, size.id, -1)
+                    void quickAdjust(baby.id, size.id, -1, locationId)
                   }}
                 >
                   −
@@ -89,7 +96,7 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
                   type='button'
                   aria-label={`Añadir uno a ${size.name}`}
                   onClick={() => {
-                    void quickAdjust(baby.id, size.id, +1)
+                    void quickAdjust(baby.id, size.id, +1, locationId)
                   }}
                 >
                   +

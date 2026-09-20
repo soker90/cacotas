@@ -16,6 +16,9 @@ import {
   type PushSupport,
 } from '../../lib/push-subscription.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '../../db/index.ts'
+import { createLocation } from '../../lib/locations.ts'
 
 export const Settings = () => {
   const [stayMode, setStayModeState] = useState(() => isStayMode())
@@ -28,6 +31,9 @@ export const Settings = () => {
   const [error, setError] = useState<string | null>(null)
   const [pushSupport, setPushSupport] = useState<PushSupport | null>(null)
   const [resyncStatus, setResyncStatus] = useState<string>('idle')
+  const locations = useLiveQuery(() => db.locations.toArray())
+  const [newLocationName, setNewLocationName] = useState('')
+  const [newLocationPoint, setNewLocationPoint] = useState('10')
 
   useEffect(() => {
     void pushState().then(async (state) => {
@@ -157,6 +163,58 @@ export const Settings = () => {
         >
           Guardar
         </button>
+      </section>
+
+      <section className='card'>
+        <h2>Ubicaciones</h2>
+        <p className='muted small'>Cada ubicación tiene su propio punto de pedido. La ubicación activa se elige arriba en Home.</p>
+        {locations?.map((location) => (
+          <div className='form-row' key={location.id}>
+            <label htmlFor={`location-name-${location.id}`}>Nombre</label>
+            <input
+              id={`location-name-${location.id}`}
+              value={location.name}
+              onChange={(e) => {
+                void db.locations.update(location.id, { name: e.target.value, updatedAt: Date.now(), deviceId: getDeviceId() }).then(() => notifyWrite())
+              }}
+            />
+            <label htmlFor={`location-point-${location.id}`}>Punto de pedido</label>
+            <input
+              id={`location-point-${location.id}`}
+              inputMode='numeric'
+              value={String(location.reorderPoint)}
+              onChange={(e) => {
+                const value = Number.parseInt(e.target.value, 10)
+                if (!Number.isInteger(value) || value < 0) return
+                void db.locations.update(location.id, { reorderPoint: value, updatedAt: Date.now(), deviceId: getDeviceId() }).then(() => notifyWrite())
+              }}
+            />
+          </div>
+        ))}
+        <div className='form-row'>
+          <label htmlFor='new-location-name'>Nueva ubicación</label>
+          <input id='new-location-name' value={newLocationName} onChange={(e) => setNewLocationName(e.target.value)} placeholder='Abuelos' />
+          <label htmlFor='new-location-point'>Punto de pedido</label>
+          <input id='new-location-point' inputMode='numeric' value={newLocationPoint} onChange={(e) => setNewLocationPoint(e.target.value)} />
+          <button
+            type='button'
+            onClick={() => {
+              const point = Number.parseInt(newLocationPoint, 10)
+              if (newLocationName.trim() === '' || !Number.isInteger(point) || point < 0) {
+                setError('Nombre y punto de pedido válidos')
+                return
+              }
+              void createLocation(newLocationName, point).then(() => {
+                notifyWrite()
+                setNewLocationName('')
+                setNewLocationPoint('10')
+                setError(null)
+              })
+            }}
+          >
+            Añadir ubicación
+          </button>
+        </div>
       </section>
 
       <section className='card'>

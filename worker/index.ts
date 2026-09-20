@@ -1,6 +1,6 @@
 import { createMovement } from '../shared/factory.ts'
 import { madridNow, runNotifications } from './notify.ts'
-import type { MovementType } from '../shared/types.ts'
+import type { Location, MovementType } from '../shared/types.ts'
 
 /**
  * Cacotas sync worker (SPEC.md §9). Append-only ledger on D1 (D-02):
@@ -30,6 +30,16 @@ interface MovementRow {
   note: string | null
   occurred_at: number
   recorded_at: number
+  device_id: string
+  location_id: string | null
+}
+
+interface LocationRow {
+  id: string
+  name: string
+  reorder_point: number
+  created_at: number
+  updated_at: number
   device_id: string
 }
 
@@ -82,6 +92,7 @@ interface WireMovement {
   occurredAt: number
   recordedAt: number
   deviceId: string
+  locationId?: string
 }
 
 const isValidWireMovement = (m: unknown): m is WireMovement => {
@@ -92,6 +103,7 @@ const isValidWireMovement = (m: unknown): m is WireMovement => {
     typeof v === 'number' && Number.isInteger(v)
 
   if (!str(r.id) || !str(r.babyId) || !str(r.deviceId)) return false
+  if (r.locationId !== undefined && !str(r.locationId)) return false
   if (!int(r.sizeId) || r.sizeId < 0 || r.sizeId > 7) return false
   if (!int(r.quantity) || r.quantity < 0) return false
   if (!int(r.delta)) return false
@@ -138,7 +150,17 @@ const rowToMovement = (row: MovementRow) => ({
   occurredAt: row.occurred_at,
   recordedAt: row.recorded_at,
   deviceId: row.device_id,
+  ...(row.location_id !== null ? { locationId: row.location_id } : {}),
   serverSeq: row.seq,
+})
+
+const rowToLocation = (row: LocationRow): Location => ({
+  id: row.id,
+  name: row.name,
+  reorderPoint: row.reorder_point,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+  deviceId: row.device_id,
 })
 
 const rowToWeight = (row: WeightRow) => ({
@@ -185,6 +207,25 @@ const handleSync = async (
 
   const incomingMovements = Array.isArray(req.movements) ? req.movements : []
   const incomingWeights = Array.isArray(req.weights) ? req.weights : []
+  const incomingLocations = Array.isArray(req.locations) ? req.locations : []
+
+  for (const location of incomingLocations) {
+    if (typeof location !== 'object' || location === null) return json({ error: 'invalid location' }, 400)
+    const r = location as Record<string, unknown>
+    if (typeof r.id !== 'string' || typeof r.name !== 'string' || r.name.trim() === '' ||
+        !Number.isInteger(r.reorderPoint) || r.reorderPoint < 0 ||
+        typeof r.createdAt !== 'number' || typeof r.updatedAt !== 'number' || typeof r.deviceId !== 'string') {
+      return json({ error: 'invalid location' }, 400)
+    }
+    await env.DB.prepare(
+      `INSERT INTO locations (id, name, reorder_point, created_at, updated_at, device_id)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name, reorder_point = excluded.reorder_point,
+         updated_at = excluded.updated_at, device_id = excluded.device_id
+       WHERE excluded.updated_at > locations.updated_at`
+    ).bind(r.id, r.name.trim(), r.reorderPoint, r.createdAt, r.updatedAt, r.deviceId).run()
+  }
 
   // ── Upload ────────────────────────────────────────────
   const validMovements: WireMovement[] = []
@@ -201,8 +242,8 @@ const handleSync = async (
       env.DB.prepare(
         `INSERT INTO movements
            (id, baby_id, size_id, type, usage_source, quantity, delta,
-            undoes_movement_id, note, occurred_at, recorded_at, device_id)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+            undoes_movement_id, note, occurred_at, recorded_at, device_id, location_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
          ON CONFLICT(id) DO NOTHING`
       )
         .bind(
@@ -217,7 +258,8 @@ const handleSync = async (
           m.note ?? null,
           m.occurredAt,
           m.recordedAt,
-          m.deviceId
+          m.deviceId,
+          m.locationId ?? null
         )
     )
     await env.DB.batch(statements)
@@ -325,6 +367,8 @@ const handleSync = async (
   const cursor =
     serverSeqs.length > 0 ? Math.max(...serverSeqs) : since
 
+  const locationRows = await env.DB.prepare('SELECT * FROM locations ORDER BY created_at, id').all<LocationRow>()
+
   const babyRows = await env.DB.prepare(
     'SELECT * FROM babies LIMIT 1'
   ).all<BabyRow>()
@@ -338,6 +382,7 @@ const handleSync = async (
     hasMore,
     movements: (movementRows.results ?? []).map(rowToMovement),
     weights: (weightRows.results ?? []).map(rowToWeight),
+    locations: (locationRows.results ?? []).map(rowToLocation),
     ...(baby !== undefined ? { baby } : {}),
     accepted,
   })
