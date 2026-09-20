@@ -242,7 +242,7 @@ const ForecastCard = ({
           {String(getCoverageDays())} días de colchón.
         </p>
       )}
-      {purchaseNeeds !== null && purchaseNeeds.total > 0 && (
+      {purchaseNeeds !== null && purchaseNeeds.next > 0 && (
         <div className='forecast-needs'>
           <p className='forecast-buy'>🛒 Necesidades estimadas para los próximos {String(getCoverageDays())} días:</p>
           {purchaseNeeds.current > 0 && (
