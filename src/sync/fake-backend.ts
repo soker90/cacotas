@@ -25,7 +25,7 @@ export class FakeSyncBackend implements SyncBackend {
 
   sync (req: SyncRequest): Promise<SyncResponse> {
     const accepted: UUID[] = []
-    for (const location of req.locations) {
+    for (const location of req.locations ?? []) {
       const current = this.locations.get(location.id)
       if (current === undefined || location.updatedAt > current.updatedAt) this.locations.set(location.id, location)
     }
