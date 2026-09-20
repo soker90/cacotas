@@ -31,6 +31,7 @@ interface MovementRow {
   occurred_at: number
   recorded_at: number
   device_id: string
+  location_id: string | null
 }
 
 interface LocationRow {
@@ -149,6 +150,7 @@ const rowToMovement = (row: MovementRow) => ({
   occurredAt: row.occurred_at,
   recordedAt: row.recorded_at,
   deviceId: row.device_id,
+  ...(row.location_id !== null ? { locationId: row.location_id } : {}),
   serverSeq: row.seq,
 })
 
