@@ -5,11 +5,13 @@ import type { CacotasDB } from './index.ts'
 /** Stock per size = sum of deltas. */
 export const stockBySize = async (
   database: CacotasDB,
-  babyId: UUID
+  babyId: UUID,
+  locationId?: UUID
 ): Promise<Map<number, number>> => {
   const movs = await database.movements.where('babyId').equals(babyId).toArray()
   const out = new Map<number, number>()
   for (const m of movs) {
+    if (locationId !== undefined && m.locationId !== locationId) continue
     out.set(m.sizeId, (out.get(m.sizeId) ?? 0) + m.delta)
   }
   return out
@@ -68,7 +70,8 @@ export const sizeDurations = async (
 export const liveUsage = async (
   database: CacotasDB,
   babyId: UUID,
-  from: number
+  from: number,
+  locationId?: UUID
 ): Promise<Movement[]> => {
   const all = await database.movements.where('babyId').equals(babyId).toArray()
   const undone = new Set(
@@ -76,6 +79,8 @@ export const liveUsage = async (
   )
   return all.filter(
     (m) =>
-      m.type === 'USAGE' && m.occurredAt >= from && !undone.has(m.id)
+      m.type === 'USAGE' && m.occurredAt >= from &&
+      (locationId === undefined || m.locationId === locationId) &&
+      !undone.has(m.id)
   )
 }
