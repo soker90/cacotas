@@ -5,6 +5,7 @@ import { db } from '../db/index.ts'
 
 /** undefined = still loading. */
 export const useStockBySize = (
-  babyId: UUID
+  babyId: UUID,
+  locationId?: UUID
 ): Map<number, number> | undefined =>
-  useLiveQuery(() => stockBySize(db, babyId), [babyId])
+  useLiveQuery(() => stockBySize(db, babyId, locationId), [babyId, locationId])
