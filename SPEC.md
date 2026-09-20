@@ -256,7 +256,9 @@ Una ubicación representa un lugar físico donde se guarda stock (por ejemplo, C
 - La ubicación activa es local al dispositivo: cada móvil puede seleccionar una distinta.
 - Si solo existe una ubicación, Home no muestra selector.
 - Home muestra el selector arriba cuando hay dos o más ubicaciones.
-- El stock, el consumo y el Forecast de Home se calculan para la ubicación activa.
+- El stock de Home se calcula para la ubicación activa.
+- El consumo y el Forecast se calculan globalmente para el bebé, independientemente de la ubicación.
+- El Forecast combina ese consumo global con el stock de la ubicación activa.
 - Cada ubicación tiene su propio reorderPoint, el umbral de stock que dispara BUY_NOW.
 - El punto de pedido no cambia el objetivo de cobertura; solo cuándo consideramos que toca reponer.
 - Las ubicaciones sí se sincronizan porque son un dato compartido del inventario.
