@@ -1241,6 +1241,7 @@ Es la pantalla que se abre 10 veces al día. Prioridad absoluta al registro.
 - Recordatorio suave (§8.8): si han pasado más de 30 días sin registrar peso,
   *"¿cuánto pesa ya?"*. Sin insistir, sin push
 - Si el consumo está semillado (§7.2), la cifra se etiqueta *"estimación del fabricante"*
+- La previsión de necesidades para el horizonte de cobertura descuenta el stock de la ubicación activa y, si hay transición estimada, reparte las unidades entre la talla actual y la siguiente. El consumo usado es siempre global del bebé.
 
 ### Registro múltiple
 
@@ -1449,6 +1450,7 @@ separado. Lo que aportaba va **dentro de la propia app** (issue #9 reconvertido)
 | solo pañales `EXTERNAL` | consumo semillado (`seeded: true`) — sin días propios no hay dato real (D-05) |
 | 3 días de historial | dato real, `seeded: false` |
 | `seeded` + cambio de talla próximo | **no** bloquea la compra |
+| cambio de talla dentro del horizonte | reparte las necesidades entre talla actual y siguiente, descontando stock local |
 | días sin registro intercalados | no hunden la media |
 | un día con 1 registro entre días de 7 | la mediana lo absorbe |
 | registros de dos tallas | se agregan juntos (D-12) |
