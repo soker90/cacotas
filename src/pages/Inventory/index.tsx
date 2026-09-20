@@ -33,12 +33,13 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
   const [transferTo, setTransferTo] = useState('')
   const [transferError, setTransferError] = useState<string | null>(null)
   const [transferStatus, setTransferStatus] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const destinationLocations = locations?.filter((location) => location.id !== locationId) ?? []
 
   const submitTransfer = (): void => {
-    if (locationId === undefined || transferSizeId === null) return
-    const quantity = Number.parseInt(transferQuantity, 10)
+    if (locationId === undefined || transferSizeId === null || isSubmitting) return
+    const quantity = Number(transferQuantity)
     if (!Number.isInteger(quantity) || quantity < 1) {
       setTransferError('La cantidad debe ser un entero ≥ 1')
       return
@@ -49,6 +50,7 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
     }
     setTransferError(null)
     setTransferStatus(null)
+    setIsSubmitting(true)
     void transferStock(baby.id, transferSizeId, quantity, locationId, transferTo)
       .then(() => {
         setTransferSizeId(null)
@@ -58,6 +60,9 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
       })
       .catch((error: unknown) => {
         setTransferError(error instanceof Error ? error.message : 'No se pudo transferir')
+      })
+      .finally(() => {
+        setIsSubmitting(false)
       })
   }
 
@@ -79,34 +84,50 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
           </p>
           <div className='form-row'>
             <label htmlFor='transfer-size'>Talla</label>
-            <select id='transfer-size' value={transferSizeId === null ? '' : String(transferSizeId)}
+            <select
+              id='transfer-size'
+              value={transferSizeId === null ? '' : String(transferSizeId)}
               onChange={(event) => {
                 const value = Number.parseInt(event.target.value, 10)
                 setTransferSizeId(Number.isInteger(value) ? value : null)
                 setTransferError(null)
                 setTransferStatus(null)
-              }}>
+              }}
+            >
               <option value=''>Selecciona una talla</option>
               {sizes.map((size) => <option key={size.id} value={size.id}>{size.name}</option>)}
             </select>
 
             <label htmlFor='transfer-quantity'>Cantidad</label>
-            <input id='transfer-quantity' inputMode='numeric' min='1' value={transferQuantity}
-              onChange={(event) => setTransferQuantity(event.target.value)} />
+            <input
+              id='transfer-quantity'
+              inputMode='numeric'
+              min='1'
+              value={transferQuantity}
+              onChange={(event) => setTransferQuantity(event.target.value)}
+            />
 
             <label htmlFor='transfer-to'>Destino</label>
-            <select id='transfer-to' value={transferTo}
+            <select
+              id='transfer-to'
+              value={transferTo}
               onChange={(event) => {
                 setTransferTo(event.target.value)
                 setTransferError(null)
                 setTransferStatus(null)
-              }}>
+              }}
+            >
               <option value=''>Selecciona destino</option>
               {destinationLocations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
             </select>
 
-            <button type='button' className='primary' disabled={transferSizeId === null || transferTo === ''} onClick={submitTransfer}>
-              Mover pañales
+            <button
+              type='button'
+              className='primary'
+              disabled={isSubmitting || transferSizeId === null || transferTo === ''}
+              onClick={submitTransfer}
+            >
+              {isSubmitting ? 'Moviendo…' : 'Mover pañales'}
             </button>
             {transferError !== null && <p className='warn' role='alert'>{transferError}</p>}
             {transferStatus !== null && <p className='muted' role='status'>{transferStatus}</p>}
