@@ -1,6 +1,5 @@
 import Dexie, { type Table } from 'dexie'
 import { DODOT_SIZES } from '../../shared/transition.ts'
-import { defaultLocationId } from '../lib/locations.ts'
 import type {
   Baby,
   DiaperSize,
@@ -66,7 +65,7 @@ export class CacotasDB extends Dexie {
         const locations = tx.table<Location, UUID>('locations')
         for (const baby of babies) {
           const location: Location = {
-            id: defaultLocationId(baby.id),
+            id: `default:${baby.id}`,
             name: 'Casa',
             reorderPoint: 40,
             createdAt: baby.createdAt,
