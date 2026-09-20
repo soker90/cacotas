@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router-dom'
 import type { Forecast } from '../../../shared/forecast.ts'
 import type { Baby } from '../../../shared/types.ts'
@@ -17,17 +18,41 @@ import { formatLogicalDateEs } from '../../lib/format-date.ts'
 import { getCoverageDays } from '../../lib/settings.ts'
 import { isStayMode } from '../../lib/stay-mode.ts'
 import { lastSyncAt } from '../../sync/engine.ts'
+import { db } from '../../db/index.ts'
+import { defaultLocationId, getActiveLocationId, setActiveLocationId } from '../../lib/locations.ts'
 import { WeightForm, useWeightReminder } from '../../components/WeightForm.tsx'
 import { TransitionPrompt } from '../../components/TransitionPrompt.tsx'
 
 export const Home = ({ baby }: { baby: Baby }) => {
   const sizeId = useCurrentSize(baby.id)
-  const stocks = useStockBySize(baby.id)
-  const { recordDiaper, undoLast, lastUsage } = useRecordMovement(baby.id)
-  const forecast = useForecast(baby.id, sizeId)
+  const locations = useLiveQuery(() => db.locations.toArray())
+  const fallbackLocationId = defaultLocationId(baby.id)
+  const [activeLocationId, setActiveLocationIdState] = useState(() => getActiveLocationId(fallbackLocationId))
+  const activeLocation = locations?.find((location) => location.id === activeLocationId) ?? locations?.[0]
+  const locationId = activeLocation?.id ?? activeLocationId
+  const stocks = useStockBySize(baby.id, locationId)
+  const { recordDiaper, undoLast, lastUsage } = useRecordMovement(baby.id, locationId)
+  const forecast = useForecast(baby.id, sizeId, locationId)
   // Route changes remount this page, so the flag is read fresh each time
   const [stayMode] = useState(() => isStayMode())
   const weightReminder = useWeightReminder(baby.id)
+
+  useEffect(() => {
+    void (async () => {
+      await db.transaction('rw', db.locations, async () => {
+        await import('../../lib/locations.ts').then(({ ensureDefaultLocation }) => ensureDefaultLocation(baby.id))
+      })
+    })()
+  }, [baby.id])
+
+  useEffect(() => {
+    if (locations === undefined || locations.length === 0) return
+    const selected = locations.some((location) => location.id === activeLocationId)
+      ? activeLocationId
+      : locations[0].id
+    if (selected !== activeLocationId) setActiveLocationIdState(selected)
+    setActiveLocationId(selected)
+  }, [locations, activeLocationId])
 
   const stock =
     typeof sizeId === 'number' ? (stocks?.get(sizeId) ?? 0) : null
@@ -44,6 +69,24 @@ export const Home = ({ baby }: { baby: Baby }) => {
           {baby.name}
           {typeof sizeId === 'number' ? ` · Talla ${String(sizeId)}` : ''}
         </h1>
+        {locations !== undefined && locations.length > 1 && (
+          <label className='location-selector'>
+            <span className='sr-only'>Ubicación activa</span>
+            <select
+              value={locationId}
+              onChange={(event) => {
+                const next = event.target.value
+                setActiveLocationId(next)
+                setActiveLocationIdState(next)
+              }}
+              aria-label='Ubicación activa'
+            >
+              {locations.map((location) => (
+                <option key={location.id} value={location.id}>{location.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <Link to='/settings' aria-label='Ajustes' className='header-link'>
           ⚙️
         </Link>
@@ -90,7 +133,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
               )
             : (
               <p>
-                {stock} pañales
+                {activeLocation !== undefined && <><strong>{activeLocation.name}</strong> · </>}{stock} pañales
                 {typeof forecast?.dailyConsumption === 'number' &&
                   ` · ≈ ${forecast.dailyConsumption.toFixed(1)}/día${forecast.seeded ? ' (estimación del fabricante)' : ''}`}
                 {typeof forecast?.daysRemaining === 'number' &&
