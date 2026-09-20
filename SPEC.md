@@ -1289,8 +1289,20 @@ deshechos y sus `UNDO`. Acción de deshacer por fila.
 
 ### `/stats`
 
-Hoy, ayer, 7/14/30 días con su media. Gráfica de consumo diario (calculada, nunca almacenada).
-Marcar los días sin registro para saber dónde no fiarse.
+Estadísticas globales por bebé, independientemente de la ubicación:
+
+- Hoy y ayer.
+- Media de consumo de los últimos 7/14/30 días completos. La media usa solo los días con
+  registros; los días sin datos no se convierten en ceros.
+- Comparación de cada periodo con el periodo anterior equivalente, cuando existe histórico.
+- Gráfica de consumo diario de los últimos 30 días con media móvil de 7 días.
+- Cobertura visible: cuántos de los últimos 30 días tienen datos, para indicar cuándo una
+  tendencia debe tomarse con cautela.
+- Consumo por talla de los últimos 30 días, contando solo OWN_STOCK; EXTERNAL no altera
+  las estadísticas propias.
+- Duración real de cada talla derivada de los SIZE_CHANGE.
+
+Los datos se calculan desde el ledger y no se almacenan como estadísticas persistidas.
 
 ### `/settings`
 
