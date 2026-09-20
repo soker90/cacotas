@@ -67,7 +67,6 @@ export const Home = ({ baby }: { baby: Baby }) => {
         </h1>
         {locations !== undefined && locations.length > 1 && (
           <label className='location-selector'>
-            <span className='sr-only'>Ubicación activa</span>
             <select
               value={locationId}
               onChange={(event) => {
@@ -81,6 +80,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
                 <option key={location.id} value={location.id}>{location.name}</option>
               ))}
             </select>
+            <span aria-hidden='true'>📍</span>
           </label>
         )}
         <Link to='/settings' aria-label='Ajustes' className='header-link'>
