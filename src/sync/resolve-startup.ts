@@ -37,6 +37,7 @@ export const resolveStartup = async (
       since: 0,
       movements: [],
       weights: [],
+      locations: [],
     })
     if (res.baby) {
       return {
