@@ -64,7 +64,6 @@ export const RecordMultiple = ({ baby }: { baby: Baby }) => {
   const stocks = useStockBySize(baby.id, locationId)
   const currentSizeId = useCurrentSize(baby.id)
 
-
   const [quantity, setQuantity] = useState(1)
   const [sizeId, setSizeId] = useState<number | null>(null)
   const [when, setWhen] = useState(() => nowForInput())
@@ -94,6 +93,7 @@ export const RecordMultiple = ({ baby }: { baby: Baby }) => {
         id: uuid(),
         babyId: baby.id,
         sizeId: effectiveSize,
+        locationId,
         deviceId: getDeviceId(),
         occurredAt,
         recordedAt: now,
