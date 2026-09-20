@@ -47,12 +47,14 @@ export const runSync = async (
       .equals(0)
       .toArray()
     const localBaby = (await db.babies.toArray()).at(0)
+    const localLocations = await db.locations.toArray()
 
     const res = await backend.sync({
       deviceId,
       since,
       movements: pendingMovements,
       weights: pendingWeights,
+      locations: localLocations,
       ...(localBaby !== undefined ? { baby: localBaby } : {}),
     })
 
@@ -72,10 +74,17 @@ export const runSync = async (
       db.movements,
       db.weights,
       db.babies,
+      db.locations,
       async () => {
         // 1. Remote rows first — bulkPut is idempotent by id.
         await db.movements.bulkPut(res.movements)
         await db.weights.bulkPut(res.weights)
+        for (const location of res.locations) {
+          const mine = await db.locations.get(location.id)
+          if (mine === undefined || location.updatedAt > mine.updatedAt) {
+            await db.locations.put(location)
+          }
+        }
 
         // Baby LWW client-side mirror of §9.2.
         if (res.baby !== undefined) {
