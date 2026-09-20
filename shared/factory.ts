@@ -55,13 +55,14 @@ export const createMovement = (
   const base = {
     ...rest,
     serverSeq: 0, // pending upload until the sync confirms it
-    ...(note !== undefined ? { note } : {}),
+    ...(movementNote !== undefined ? { note: movementNote } : {}),
   }
 
   let quantity = 0
   let delta = 0
   let usageSource: UsageSource | undefined
   let undoesMovementId: UUID | undefined
+  let movementNote = note
 
   switch (input.type) {
     case 'USAGE': {
@@ -122,6 +123,7 @@ export const createMovement = (
       }
       quantity = 0
       delta = 0
+      movementNote = input.signal
       break
     }
 
