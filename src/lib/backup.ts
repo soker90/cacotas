@@ -146,7 +146,9 @@ export const importJSON = async (file: File): Promise<void> => {
   const movements = parseRows(parsed.movements, parseMovement)
   const weights = parseRows(parsed.weights, parseWeight)
   const sizes = parseRows(parsed.sizes, parseSize)
-  const locations = parseRows(parsed.locations, parseLocation)
+  const locations = parsed.locations === undefined
+    ? babies?.map((baby) => ({ id: `default:${baby.id}`, name: 'Casa', reorderPoint: 40, createdAt: baby.createdAt, updatedAt: Date.now(), deviceId: 'import' })) ?? []
+    : parseRows(parsed.locations, parseLocation)
   if (
     !babies ||
     !movements ||
