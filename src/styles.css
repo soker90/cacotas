@@ -303,6 +303,24 @@ main.home {
   padding: 0.5rem 0;
 }
 
+.location-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+.location-selector select {
+  max-width: 9rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  font: inherit;
+}
+.header-link {
+  margin-left: 0.4rem;
+}
+
 /* h1 kept visually identical to the old span header */
 .home-title {
   font-size: inherit;
