@@ -30,6 +30,8 @@ export type MovementInput =
   | { type: 'ADJUSTMENT'; delta: number }
   | { type: 'UNDO'; original: Movement }
   | { type: 'SIZE_CHANGE' }
+  | { type: 'SIGNAL'; signal: string }
+  | { type: 'SNOOZE' }
 
 const fail = (rule: string): never => {
   throw new Error(`Invalid movement (${rule})`)
@@ -109,6 +111,21 @@ export const createMovement = (
     }
 
     case 'SIZE_CHANGE': {
+      quantity = 0
+      delta = 0
+      break
+    }
+
+    case 'SIGNAL': {
+      if (!['tabsNotCentered', 'noTwoFingers', 'redMarks', 'uncoveredButtocks', 'frequentDermatitis', 'pullsDiaper'].includes(input.signal)) {
+        fail('SIGNAL requires a valid signal key')
+      }
+      quantity = 0
+      delta = 0
+      break
+    }
+
+    case 'SNOOZE': {
       quantity = 0
       delta = 0
       break
