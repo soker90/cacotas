@@ -5,13 +5,22 @@ import { lastSizeChange, liveUsage, sizeDurations } from '../../db/derive.ts'
 import { db } from '../../db/index.ts'
 import { useBaby } from '../../hooks'
 import { formatLogicalDateEs } from '../../lib/format-date.ts'
+import { comparePeriods, summarizePeriod, usageBySize } from '../../lib/statistics.ts'
 
 interface StatsData {
   today: number
   yesterday: number | null
   averages: Array<{ windowDays: number; average: number | null }>
+  comparisons: Array<{
+    windowDays: number
+    current: ReturnType<typeof summarizePeriod>
+    previous: ReturnType<typeof summarizePeriod>
+    changePercent: number | null
+  }>
   /** Last 30 logical days, oldest first — null = day without data. */
   chart: Array<{ day: string; value: number | null }>
+  /** Own-stock consumption by size over the visible 30-day chart. */
+  bySize: Map<number, number>
   /** Real days per size from the SIZE_CHANGE ledger (§14). */
   durations: Map<number, number>
   /** The size still open, if any. */
@@ -23,26 +32,27 @@ const WINDOWS = [7, 14, 30] as const
 const computeStats = async (babyId: string): Promise<StatsData> => {
   const now = Date.now()
   // liveUsage excludes undone movements and their UNDO records (§6)
-  const byDay = usageByDay(await liveUsage(db, babyId, 0))
+  const usage = await liveUsage(db, babyId, 0)
+  const byDay = usageByDay(usage)
 
   const today = byDay.get(logicalDate(now)) ?? 0
   const yesterday = byDay.get(logicalDate(now - 86_400_000)) ?? null
 
-  const averages = WINDOWS.map((windowDays) => {
-    let total = 0
-    let counted = 0
-    for (let i = 1; i <= windowDays; i++) {
-      const value = byDay.get(logicalDate(now - i * 86_400_000))
-      if (value !== undefined) {
-        total += value
-        counted++
-      }
-    }
-    return {
-      windowDays,
-      average: counted > 0 ? total / windowDays : null,
-    }
+  const periodDays = (startOffset: number, length: number): string[] =>
+    Array.from({ length }, (_, index) =>
+      logicalDate(now - (startOffset + index) * 86_400_000)
+    )
+
+  const summaries = WINDOWS.map((windowDays) => {
+    const current = summarizePeriod(byDay, periodDays(1, windowDays))
+    const previous = summarizePeriod(byDay, periodDays(windowDays + 1, windowDays))
+    return { windowDays, ...comparePeriods(current, previous) }
   })
+
+  const averages = summaries.map(({ windowDays, current }) => ({
+    windowDays,
+    average: current.average,
+  }))
 
   const chart: Array<{ day: string; value: number | null }> = []
   for (let i = 29; i >= 0; i--) {
@@ -50,12 +60,26 @@ const computeStats = async (babyId: string): Promise<StatsData> => {
     chart.push({ day, value: byDay.get(day) ?? null })
   }
 
+  const chartDaySet = new Set(chart.map((point) => point.day))
+  const bySize = usageBySize(
+    usage.filter((movement) => chartDaySet.has(logicalDate(movement.occurredAt)))
+  )
+
   const [durations, open] = await Promise.all([
     sizeDurations(db, babyId, now),
     lastSizeChange(db, babyId),
   ])
 
-  return { today, yesterday, averages, chart, durations, openSizeId: open?.sizeId ?? null }
+  return {
+    today,
+    yesterday,
+    averages,
+    comparisons: summaries,
+    chart,
+    bySize,
+    durations,
+    openSizeId: open?.sizeId ?? null,
+  }
 }
 
 /** 7-day moving average over the chart (D-21). Absent days contribute
@@ -135,15 +159,71 @@ export const Stats = () => {
       </section>
 
       <section className='card'>
+        <h2>Comparación del consumo</h2>
+        <p className='muted small'>
+          Comparamos días completos para no contar el día de hoy a medias.
+        </p>
+        {data.comparisons.map((row) => (
+          <div key={row.windowDays} className='stat-row'>
+            <span>Últimos {String(row.windowDays)} días</span>
+            <strong>
+              {row.changePercent === null
+                ? <span className='muted'>sin periodo anterior</span>
+                : `${row.changePercent >= 0 ? '+' : ''}${row.changePercent.toFixed(0)}%`}
+            </strong>
+          </div>
+        ))}
+      </section>
+
+      <section className='card'>
         <h2>Consumo diario (30 días)</h2>
         <p className='muted small'>
           Los días sin registro se muestran vacíos: son dato ausente, no cero
           (D-13). La línea es la media móvil de 7 días (D-21): muestra la
           tendencia aunque algún día falte registro.
         </p>
+        <p className='muted small'>
+          {String(data.comparisons.find((row) => row.windowDays === 30)?.current.daysWithData ?? 0)}
+          /30 días con datos. La media solo usa los días que sí tienen registros.
+        </p>
         <Chart chart={data.chart} maxValue={maxValue} />
         <p className='muted small'>
-          De {formatLogicalDateEs(logicalDate(now - 29 * 86_400_000))} a hoy
+          De {formatLogicalDateEs(logicalDate(now - 29 * 86_400_000))} a hoy.
+          Los datos son globales para este bebé, sin importar la ubicación.
+        </p>
+      </section>
+
+      <section className='card'>
+        <h2>Consumo por talla (30 días)</h2>
+        {data.bySize.size === 0
+          ? (
+            <p className='muted'>No hay consumo registrado en este periodo.</p>
+            )
+          : (
+              [...data.bySize.entries()]
+                .sort(([a], [b]) => a - b)
+                .map(([sizeId, total]) => {
+                  const max = Math.max(...data.bySize.values())
+                  const percent = max > 0 ? (total / max) * 100 : 0
+                  return (
+                    <div key={sizeId} className='size-stat'>
+                      <div className='stat-row'>
+                        <span>Talla {String(sizeId)}</span>
+                        <strong>{String(total)}</strong>
+                      </div>
+                      <div
+                        className='size-stat-bar'
+                        role='img'
+                        aria-label={`${String(total)} pañales de la talla ${String(sizeId)}`}
+                      >
+                        <span style={{ width: `${String(percent)}%` }} />
+                      </div>
+                    </div>
+                  )
+                })
+            )}
+        <p className='muted small'>
+          Solo cuenta el consumo de pañales propios; las estancias externas no entran en estas cifras.
         </p>
       </section>
 
