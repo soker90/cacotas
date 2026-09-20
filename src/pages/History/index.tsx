@@ -19,6 +19,9 @@ const TYPE_LABELS: Record<Movement['type'], string> = {
   SIZE_CHANGE: 'Cambio talla',
 }
 
+const isTransfer = (m: Movement): boolean =>
+  m.type === 'ADJUSTMENT' && m.note?.startsWith('Transferencia ') === true
+
 const detailFor = (m: Movement): string => {
   switch (m.type) {
     case 'USAGE':
@@ -50,6 +53,7 @@ const undoMovement = async (original: Movement): Promise<void> => {
       id: uuid(),
       babyId: original.babyId,
       sizeId: original.sizeId,
+      ...(original.locationId !== undefined ? { locationId: original.locationId } : {}),
       deviceId: getDeviceId(),
       occurredAt: now,
       recordedAt: now,
@@ -75,14 +79,9 @@ export const History = ({ baby }: { baby: Baby }) => {
     return [...byDay.entries()].sort(([a], [b]) => b.localeCompare(a))
   }, [movements])
 
-  // §10: loading is its own state — never flash the empty message
-  if (!movements) {
-    return <main className='loading'>…</main>
-  }
+  if (!movements) return <main className='loading'>…</main>
 
   const handleUndo = async (movement: Movement): Promise<void> => {
-    // Guard against double undo: the second attempt must not re-apply
-    // the inverse delta (issue #3 test).
     const all = await db.movements.where('babyId').equals(baby.id).toArray()
     if (hasBeenUndone(all, movement.id)) return
     await undoMovement(movement)
@@ -91,11 +90,7 @@ export const History = ({ baby }: { baby: Baby }) => {
   return (
     <main className='page'>
       <h1>Historial</h1>
-
-      {groups.length === 0 && (
-        <p className='muted'>Todavía no hay movimientos.</p>
-      )}
-
+      {groups.length === 0 && <p className='muted'>Todavía no hay movimientos.</p>}
       {groups.map(([day, items]) => (
         <section key={day} className='history-day'>
           <h2 title={day}>
@@ -107,32 +102,28 @@ export const History = ({ baby }: { baby: Baby }) => {
             }).format(new Date(`${day}T12:00:00Z`))}
           </h2>
           <ul className='history-list'>
-            {items.map((m) => (
-              <li key={m.id} className='history-row'>
-                <div>
-                  <span
-                    className={`badge badge-${m.type}${m.usageSource === 'EXTERNAL' ? ' is-external' : ''}`}
-                  >
-                    {m.usageSource === 'EXTERNAL'
-                      ? `${TYPE_LABELS[m.type]} 🏥`
-                      : TYPE_LABELS[m.type]}
-                  </span>{' '}
-                  <span>{detailFor(m)}</span>
-                  {m.note && <em className='muted'> — {m.note}</em>}
-                </div>
-                <div className='history-actions'>
-                  <span className='muted'>{formatTime(m.occurredAt)}</span>
-                  <button
-                    type='button'
-                    onClick={() => {
-                      void handleUndo(m)
-                    }}
-                  >
-                    {undoLabel(m)}
-                  </button>
-                </div>
-              </li>
-            ))}
+            {items.map((m) => {
+              const transfer = isTransfer(m)
+              return (
+                <li key={m.id} className='history-row'>
+                  <div>
+                    <span className={`badge badge-${m.type}${m.usageSource === 'EXTERNAL' ? ' is-external' : ''}`}>
+                      {transfer ? 'Transferencia' : m.usageSource === 'EXTERNAL' ? `${TYPE_LABELS[m.type]} 🏥` : TYPE_LABELS[m.type]}
+                    </span>{' '}
+                    <span>{detailFor(m)}</span>
+                    {m.note && !transfer && <em className='muted'> — {m.note}</em>}
+                  </div>
+                  <div className='history-actions'>
+                    <span className='muted'>{formatTime(m.occurredAt)}</span>
+                    {!transfer && (
+                      <button type='button' onClick={() => { void handleUndo(m) }}>
+                        {undoLabel(m)}
+                      </button>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         </section>
       ))}
