@@ -122,7 +122,8 @@ export const Home = ({ baby }: { baby: Baby }) => {
               <p className='muted'>Sin talla actual</p>
               )
             : (
-              <p>
+              <div>
+                <p>
                 📍 <strong>{activeLocation?.name ?? 'Ubicación activa'}</strong>: {stock} pañales de talla {String(sizeId)}
                 {typeof forecast?.dailyConsumption === 'number' && (
                   <p className='muted small'>
@@ -139,7 +140,8 @@ export const Home = ({ baby }: { baby: Baby }) => {
                 {stock < 0 && (
                   <strong className='warn'> · revisa el inventario</strong>
                 )}
-              </p>
+                </p>
+              </div>
               )}
       </section>
 
