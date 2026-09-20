@@ -43,7 +43,7 @@ export const resolveStartup = async (
     if (res.baby) {
       return {
         route: 'HOME',
-        remote: { baby: res.baby, movements: res.movements, locations: res.locations },
+        remote: { baby: res.baby, movements: res.movements, locations: res.locations ?? [] },
       }
     }
     return { route: 'ONBOARDING' }
