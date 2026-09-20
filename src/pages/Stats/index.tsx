@@ -32,7 +32,8 @@ const WINDOWS = [7, 14, 30] as const
 const computeStats = async (babyId: string): Promise<StatsData> => {
   const now = Date.now()
   // liveUsage excludes undone movements and their UNDO records (§6)
-  const byDay = usageByDay(await liveUsage(db, babyId, 0))
+  const usage = await liveUsage(db, babyId, 0)
+  const byDay = usageByDay(usage)
 
   const today = byDay.get(logicalDate(now)) ?? 0
   const yesterday = byDay.get(logicalDate(now - 86_400_000)) ?? null
@@ -60,7 +61,6 @@ const computeStats = async (babyId: string): Promise<StatsData> => {
   }
 
   const chartDaySet = new Set(chart.map((point) => point.day))
-  const usage = await liveUsage(db, babyId, 0)
   const bySize = usageBySize(
     usage.filter((movement) => chartDaySet.has(logicalDate(movement.occurredAt)))
   )
