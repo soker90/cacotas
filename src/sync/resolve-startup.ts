@@ -1,4 +1,4 @@
-import type { Baby, Movement } from '../../shared/types.ts'
+import type { Baby, Location, Movement } from '../../shared/types.ts'
 import type { SyncBackend } from './backend.ts'
 
 export type StartupRoute = 'HOME' | 'ONBOARDING' | 'JOIN_RETRY'
@@ -13,6 +13,7 @@ export interface StartupDecision {
   remote?: {
     baby: Baby
     movements: Movement[]
+    locations: Location[]
   }
   /** Failure detail for JOIN_RETRY — shown discreetly to aid diagnosis. */
   reason?: string
@@ -42,7 +43,7 @@ export const resolveStartup = async (
     if (res.baby) {
       return {
         route: 'HOME',
-        remote: { baby: res.baby, movements: res.movements },
+        remote: { baby: res.baby, movements: res.movements, locations: res.locations },
       }
     }
     return { route: 'ONBOARDING' }
