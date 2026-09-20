@@ -259,7 +259,8 @@ Una ubicación representa un lugar físico donde se guarda stock (por ejemplo, C
 - El stock de Home se calcula para la ubicación activa.
 - El consumo y el Forecast se calculan globalmente para el bebé, independientemente de la ubicación.
 - El Forecast combina ese consumo global con el stock de la ubicación activa.
-- Cada ubicación tiene su propio reorderPoint, el umbral de stock que dispara BUY_NOW.
+- Cada ubicación tiene su propio reorderPoint, que dispara la alerta física «Reponer» cuando el stock de la talla actual llega a ese umbral.
+- La alerta «Se acaba pronto» es independiente: usa el consumo global del bebé y aparece cuando los días restantes de la ubicación activa entran en `warningDays`. Ambas alertas pueden aparecer a la vez.
 - El punto de pedido no cambia el objetivo de cobertura; solo cuándo consideramos que toca reponer.
 - Las ubicaciones sí se sincronizan porque son un dato compartido del inventario.
 - Quedan preparadas para quedar bajo el futuro hogar de #16, sin introducir cuentas todavía.
