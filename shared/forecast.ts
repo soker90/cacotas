@@ -16,6 +16,8 @@ export interface ForecastInput {
   /** The size being forecast — seeds the cold start (§7.2). */
   currentSize: DiaperSize | null
   warningDays: number // 7
+  /** Per-location stock threshold; when set it replaces warningDays for low-stock status. */
+  reorderPoint?: number
   coverageDays: number // 21
   diapersPerPackage?: number
 }
@@ -122,6 +124,7 @@ export const computeForecast = (input: ForecastInput): Forecast => {
     transition,
     currentSize,
     warningDays,
+    reorderPoint,
     coverageDays,
     diapersPerPackage,
   } = input
@@ -161,7 +164,7 @@ export const computeForecast = (input: ForecastInput): Forecast => {
     }
 
     const seededDaysRemaining = Math.floor(stock / seed)
-    const seededLowStock = stock <= seed * warningDays
+    const seededLowStock = stock <= (reorderPoint ?? seed * warningDays)
     // §7.5: the seeded forecast is LOW and NEVER holds a purchase — the
     // seeded canHold clause is what closes that path for good (§7.2.1).
     const seededTransitionFirst =
@@ -230,7 +233,7 @@ export const computeForecast = (input: ForecastInput): Forecast => {
     now + daysRemaining * 86_400_000
   )
 
-  const lowStock = stock <= daily * warningDays
+  const lowStock = stock <= (reorderPoint ?? daily * warningDays)
   const transitionFirst =
     transition !== null && transition.days < daysRemaining
 
