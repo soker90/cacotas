@@ -124,7 +124,11 @@ export const Home = ({ baby }: { baby: Baby }) => {
             : (
               <div>
                 <p>
-                📍 <strong>{activeLocation?.name ?? 'Ubicación activa'}</strong>: {stock} pañales de talla {String(sizeId)}
+                  📍 <strong>{activeLocation?.name ?? 'Ubicación activa'}</strong>: {stock} pañales de talla {String(sizeId)}
+                  {stock < 0 && (
+                    <strong className='warn'> · revisa el inventario</strong>
+                  )}
+                </p>
                 {typeof forecast?.dailyConsumption === 'number' && (
                   <p className='muted small'>
                     👶 Consumo del bebé: ≈ {forecast.dailyConsumption.toFixed(1)} pañales/día
@@ -137,10 +141,6 @@ export const Home = ({ baby }: { baby: Baby }) => {
                     {forecast?.exhaustionDate != null && ` · hasta el ${formatLogicalDateEs(forecast.exhaustionDate)}`}
                   </p>
                 )}
-                {stock < 0 && (
-                  <strong className='warn'> · revisa el inventario</strong>
-                )}
-                </p>
               </div>
               )}
       </section>
