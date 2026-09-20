@@ -15,7 +15,7 @@ export interface SyncRequest {
   /** Movements pending upload (serverSeq === 0). */
   movements: Movement[];
   weights: WeightRecord[];
-  locations: Location[];
+  locations?: Location[];
   baby?: Baby;
 }
 
@@ -26,7 +26,7 @@ export interface SyncResponse {
   hasMore: boolean;
   movements: Movement[];
   weights: WeightRecord[];
-  locations: Location[];
+  locations?: Location[];
   baby?: Baby;
   /** Ids the server confirms having — including ones it ignored as duplicates (D-17). */
   accepted: UUID[];
