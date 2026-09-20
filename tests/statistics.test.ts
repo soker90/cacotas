@@ -5,9 +5,9 @@ describe('statistics helpers', () => {
   it('averages only days with data, not missing days as zero', () => {
     const summary = summarizePeriod(
       new Map([
-        ['2026-09-01', 6]
+        ['2026-09-01', 6],
         ['2026-09-03', 8]
-      ])
+      ]),
       ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04']
     )
 
@@ -19,11 +19,11 @@ describe('statistics helpers', () => {
 
   it('compares the current average with the previous period', () => {
     const current = summarizePeriod(
-      new Map([['2026-09-03', 8], ['2026-09-04', 10]])
+      new Map([['2026-09-03', 8], ['2026-09-04', 10]]),
       ['2026-09-03', '2026-09-04']
     )
     const previous = summarizePeriod(
-      new Map([['2026-09-01', 5], ['2026-09-02', 5]])
+      new Map([['2026-09-01', 5], ['2026-09-02', 5]]),
       ['2026-09-01', '2026-09-02']
     )
 
@@ -32,7 +32,7 @@ describe('statistics helpers', () => {
 
   it('does not invent a comparison without a previous average', () => {
     const current = summarizePeriod(
-      new Map([['2026-09-03', 8]])
+      new Map([['2026-09-03', 8]]),
       ['2026-09-03']
     )
     const previous = summarizePeriod(new Map(), ['2026-09-02'])
@@ -43,36 +43,36 @@ describe('statistics helpers', () => {
   it('groups only own-stock usage by diaper size', () => {
     const usage = [
       {
-        id: 'u1'
-        babyId: 'b1'
-        type: 'USAGE'
-        sizeId: 3
-        quantity: 4
-        delta: -4
-        usageSource: 'OWN_STOCK'
-        occurredAt: 1
+        id: 'u1',
+        babyId: 'b1',
+        type: 'USAGE',
+        sizeId: 3,
+        quantity: 4,
+        delta: -4,
+        usageSource: 'OWN_STOCK',
+        occurredAt: 1,
         recordedAt: 1
-      }
+      },
       {
-        id: 'u2'
-        babyId: 'b1'
-        type: 'USAGE'
-        sizeId: 3
-        quantity: 2
-        delta: 0
-        usageSource: 'EXTERNAL'
-        occurredAt: 2
+        id: 'u2',
+        babyId: 'b1',
+        type: 'USAGE',
+        sizeId: 3,
+        quantity: 2,
+        delta: 0,
+        usageSource: 'EXTERNAL',
+        occurredAt: 2,
         recordedAt: 2
-      }
+      },
       {
-        id: 'u3'
-        babyId: 'b1'
-        type: 'USAGE'
-        sizeId: 4
-        quantity: 3
-        delta: -3
-        usageSource: 'OWN_STOCK'
-        occurredAt: 3
+        id: 'u3',
+        babyId: 'b1',
+        type: 'USAGE',
+        sizeId: 4,
+        quantity: 3,
+        delta: -3,
+        usageSource: 'OWN_STOCK',
+        occurredAt: 3,
         recordedAt: 3
       }
     ] as never[]
