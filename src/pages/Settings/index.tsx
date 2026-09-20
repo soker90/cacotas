@@ -165,7 +165,6 @@ export const Settings = () => {
         </button>
       </section>
 
-
       <section className='card'>
         <h2>Ubicaciones</h2>
         <p className='muted small'>Cada ubicación tiene su propio punto de pedido. La ubicación activa se elige arriba en Home.</p>
