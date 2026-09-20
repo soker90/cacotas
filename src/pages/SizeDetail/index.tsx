@@ -34,6 +34,7 @@ import { notifyWrite } from '../../sync/scheduler.ts'
 import { WeightForm } from '../../components/WeightForm.tsx'
 import { FitGuide } from '../../components/FitGuide.tsx'
 import { TransitionPrompt } from '../../components/TransitionPrompt.tsx'
+import { defaultLocationId, getActiveLocationId } from '../../lib/locations.ts'
 
 const parsePositive = (text: string): number | null => {
   const value = Number.parseInt(text, 10)
@@ -45,9 +46,10 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
   const navigate = useNavigate()
   const sizeId = Number.parseInt(rawSizeId ?? '', 10)
 
-  const stocks = useStockBySize(baby.id)
+  const locationId = getActiveLocationId(defaultLocationId(baby.id))
+  const stocks = useStockBySize(baby.id, locationId)
   const currentSizeId = useCurrentSize(baby.id)
-  const forecast = useForecast(baby.id, Number.isInteger(sizeId) ? sizeId : null)
+  const forecast = useForecast(baby.id, Number.isInteger(sizeId) ? sizeId : null, locationId)
   const [signals, setSignals] = useState<TransitionSignals>(() =>
     readSignals(baby.id, sizeId)
   )
@@ -84,6 +86,7 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
         id: uuid(),
         babyId: baby.id,
         sizeId,
+        locationId,
         deviceId: getDeviceId(),
         occurredAt: now,
         recordedAt: now,
