@@ -199,7 +199,6 @@ describe('SIZE_CHANGE', () => {
   })
 })
 
-
 describe('SIGNAL and SNOOZE', () => {
   it('SIGNAL is neutral and stores the signal key in note', () => {
     const m = createMovement(base, { type: 'SIGNAL', signal: 'redMarks' })
