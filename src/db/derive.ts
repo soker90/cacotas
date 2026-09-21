@@ -85,7 +85,6 @@ export const liveUsage = async (
   )
 }
 
-
 const TRANSITION_SIGNAL_KEYS = [
   'tabsNotCentered',
   'noTwoFingers',
