@@ -137,16 +137,16 @@ export const Home = ({ baby }: { baby: Baby }) => {
 
         {lastUsage && (
           <p className='toast' role='status'>
-          Registrado.{' '}
-          <button
-            type='button'
-            onClick={() => {
-              navigator.vibrate?.(15)
-              void undoLast()
-            }}
-          >
-            Deshacer
-          </button>
+            Registrado.{' '}
+            <button
+              type='button'
+              onClick={() => {
+                navigator.vibrate?.(15)
+                void undoLast()
+              }}
+            >
+              Deshacer
+            </button>
           </p>
         )}
       </section>
@@ -163,11 +163,11 @@ export const Home = ({ baby }: { baby: Baby }) => {
         {sizeId === undefined
           ? (
             <p className='muted'>Cargando…</p>
-            )
+          )
           : stock === null
             ? (
               <p className='muted'>Sin talla actual</p>
-              )
+            )
             : (
               <div>
                 <p>
