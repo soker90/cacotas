@@ -29,7 +29,7 @@ export const forecastCaveats = (forecast: Forecast): string[] => {
   // §7.2.1: the seeded figure is always labelled — never a bare number
   if (forecast.seeded && forecast.dailyConsumption !== null) {
     caveats.push(
-      `Estimación del fabricante: ≈ ${forecast.dailyConsumption.toLocaleString('es-ES')} pañales al día.`
+      `Estimación de Dodot: ≈ ${forecast.dailyConsumption.toLocaleString('es-ES')} pañales al día.`
     )
   }
   if (forecast.confidence === 'LOW' && !forecast.seeded) { caveats.push('Predicción poco fiable todavía.') }
