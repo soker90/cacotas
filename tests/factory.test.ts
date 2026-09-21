@@ -175,10 +175,43 @@ describe('UNDO', () => {
   })
 })
 
+describe('SIGNAL / SNOOZE', () => {
+  it('SIGNAL stores the key in note and does not affect stock', () => {
+    const m = createMovement(base, { type: 'SIGNAL', signal: 'redMarks' })
+    expect(m.note).toBe('redMarks')
+    expect(m.quantity).toBe(0)
+    expect(m.delta).toBe(0)
+  })
+
+  it('SNOOZE is neutral', () => {
+    const m = createMovement(base, { type: 'SNOOZE' })
+    expect(m.quantity).toBe(0)
+    expect(m.delta).toBe(0)
+    expect(m.note).toBeUndefined()
+  })
+})
+
 describe('SIZE_CHANGE', () => {
   it('is neutral: quantity = 0, delta = 0', () => {
     const m = createMovement(base, { type: 'SIZE_CHANGE' })
     expect(m.quantity).toBe(0)
     expect(m.delta).toBe(0)
+  })
+})
+
+
+describe('SIGNAL and SNOOZE', () => {
+  it('SIGNAL is neutral and stores the signal key in note', () => {
+    const m = createMovement(base, { type: 'SIGNAL', signal: 'redMarks' })
+    expect(m.quantity).toBe(0)
+    expect(m.delta).toBe(0)
+    expect(m.note).toBe('redMarks')
+  })
+
+  it('SNOOZE is neutral and has no note', () => {
+    const m = createMovement(base, { type: 'SNOOZE' })
+    expect(m.quantity).toBe(0)
+    expect(m.delta).toBe(0)
+    expect(m.note).toBeUndefined()
   })
 })
