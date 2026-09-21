@@ -52,7 +52,7 @@ describe('purchase timing', () => {
     expect(result?.confidenceLimited).toBe(true)
   })
 
-  it('keeps a low-confidence forecast at WAIT when there is plenty of stock', () => {
+  it('keeps a low-confidence forecast conservative before the warning window', () => {
     const result = getPurchaseTiming({
       ...defaults,
       confidence: 'LOW',
