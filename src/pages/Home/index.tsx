@@ -129,71 +129,78 @@ export const Home = ({ baby }: { baby: Baby }) => {
         </p>
       )}
 
-      <button
-        type='button'
-        className='big-button'
-        disabled={typeof sizeId !== 'number'}
-        onClick={handleRecordDiaper}
-      >
-        🧷 PAÑAL GASTADO
-      </button>
+      <section className='home-action'>
+        <p className='section-kicker'>Registro rápido</p>
+        <button type='button' className='big-button' disabled={typeof sizeId !== 'number'} onClick={handleRecordDiaper}>
+          🧷 PAÑAL GASTADO
+        </button>
 
-      {lastUsage && (
-        <p className='toast' role='status'>
-          Registrado.{' '}
-          <button
-            type='button'
-            onClick={() => {
-              navigator.vibrate?.(15)
-              void undoLast()
-            }}
-          >
-            Deshacer
-          </button>
-        </p>
-      )}
+        {lastUsage && (
+          <p className='toast' role='status'>
+            Registrado.{' '}
+            <button
+              type='button'
+              onClick={() => {
+                navigator.vibrate?.(15)
+                void undoLast()
+              }}
+            >
+              Deshacer
+            </button>
+          </p>
+        )}
+      </section>
 
-      <section className='stock'>
-        {sizeId === undefined
-          ? (
-            <p className='muted'>Cargando…</p>
-            )
-          : stock === null
+      <section className='stock-card'>
+        <div className='section-heading'>
+          <div>
+            <p className='section-kicker'>Inventario</p>
+            <h2>Lo que tienes ahora</h2>
+          </div>
+          <Link to='/inventory' className='section-link'>Ver todo →</Link>
+        </div>
+        <div className='stock'>
+          {sizeId === undefined
             ? (
-              <p className='muted'>Sin talla actual</p>
+              <p className='muted'>Cargando…</p>
               )
-            : (
-              <div>
-                <p>
-                  📍 <strong>{activeLocation?.name ?? 'Ubicación activa'}</strong>: {stock} pañales de talla {String(sizeId)}
-                  {stock < 0 && (
-                    <strong className='warn'> · revisa el inventario</strong>
+            : stock === null
+              ? (
+                <p className='muted'>Sin talla actual</p>
+                )
+              : (
+                <div>
+                  <p>
+                    📍 <strong>{activeLocation?.name ?? 'Ubicación activa'}</strong>: {stock} pañales de talla {String(sizeId)}
+                    {stock < 0 && (
+                      <strong className='warn'> · revisa el inventario</strong>
+                    )}
+                  </p>
+                  {typeof forecast?.dailyConsumption === 'number' && (
+                    <p className='muted small'>
+                      👶 Consumo del bebé: ≈ {forecast.dailyConsumption.toFixed(1)} pañales/día
+                      {forecast.seeded ? ' (estimación del fabricante)' : ' · global, todas las ubicaciones'}
+                    </p>
                   )}
-                </p>
-                {typeof forecast?.dailyConsumption === 'number' && (
-                  <p className='muted small'>
-                    👶 Consumo del bebé: ≈ {forecast.dailyConsumption.toFixed(1)} pañales/día
-                    {forecast.seeded ? ' (estimación del fabricante)' : ' · global, todas las ubicaciones'}
-                  </p>
+                  {typeof forecast?.daysRemaining === 'number' && (
+                    <p className='muted small'>
+                      ⏳ Esta ubicación cubre ≈ {String(Math.round(forecast.daysRemaining))} días
+                      {forecast?.exhaustionDate != null && ` · hasta el ${formatLogicalDateEs(forecast.exhaustionDate)}`}
+                    </p>
+                  )}
+                  {replenishment?.lowStock && (
+                    <p className='forecast-buy' role='status'>
+                      🟠 Reponer en {activeLocation?.name ?? 'esta ubicación'}: quedan {stock} pañales y el punto de pedido es {activeLocation?.reorderPoint}.
+                    </p>
+                  )}
+                  {replenishment?.runningOutSoon && (
+                    <p className='warn small' role='status'>
+                      🔴 Se acaba pronto aquí: quedan ≈ {String(Math.max(0, Math.round(forecast?.daysRemaining ?? 0)))} días según el consumo global del bebé.
+                    </p>
+                  )}
+                </div>
                 )}
-                {typeof forecast?.daysRemaining === 'number' && (
-                  <p className='muted small'>
-                    ⏳ Esta ubicación cubre ≈ {String(Math.round(forecast.daysRemaining))} días
-                    {forecast?.exhaustionDate != null && ` · hasta el ${formatLogicalDateEs(forecast.exhaustionDate)}`}
-                  </p>
-                )}
-                {replenishment?.lowStock && (
-                  <p className='forecast-buy' role='status'>
-                    🟠 Reponer en {activeLocation?.name ?? 'esta ubicación'}: quedan {stock} pañales y el punto de pedido es {activeLocation?.reorderPoint}.
-                  </p>
-                )}
-                {replenishment?.runningOutSoon && (
-                  <p className='warn small' role='status'>
-                    🔴 Se acaba pronto aquí: quedan ≈ {String(Math.max(0, Math.round(forecast?.daysRemaining ?? 0)))} días según el consumo global del bebé.
-                  </p>
-                )}
-              </div>
-              )}
+        </div>
       </section>
 
       {forecast !== null && forecast !== undefined && sizeId != null && (
@@ -247,9 +254,16 @@ const ForecastCard = ({
 
   return (
     <section className='forecast-card'>
+      <div className='section-heading'>
+        <div>
+          <p className='section-kicker'>Previsión</p>
+          <h2>¿Qué viene después?</h2>
+        </div>
+        <span className='confidence-pill'>{confidence ?? 'Sin datos'}</span>
+      </div>
       <p className='forecast-headline'>{forecastHeadline(forecast, sizeId)}</p>
       <p className='muted small'>
-        La previsión usa el consumo global del bebé y el stock de la ubicación activa.
+        Estimación según el consumo del bebé y el stock de la ubicación activa.
       </p>
       {purchaseTiming !== null && (
         <div className='forecast-buy' role='status'>
