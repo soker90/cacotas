@@ -18,6 +18,8 @@ import {
 import { formatLogicalDateEs } from '../../lib/format-date.ts'
 import { getCoverageDays, getWarningDays } from '../../lib/settings.ts'
 import { getReplenishmentAlerts } from '../../lib/replenishment.ts'
+import { getPurchaseTiming } from '../../../shared/purchase-timing.ts'
+import { purchaseTimingDetail, purchaseTimingHeadline } from '../../lib/purchase-timing-texts.ts'
 import { isStayMode } from '../../lib/stay-mode.ts'
 import { lastSyncAt } from '../../sync/engine.ts'
 import { db } from '../../db/index.ts'
@@ -52,6 +54,16 @@ export const Home = ({ baby }: { baby: Baby }) => {
 
   const stock =
     typeof sizeId === 'number' ? (stocks?.get(sizeId) ?? 0) : null
+  const purchaseTiming =
+    forecast !== null && forecast !== undefined
+      ? getPurchaseTiming({
+        daysRemaining: forecast.daysRemaining,
+        transitionDays: forecast.transition?.days ?? null,
+        warningDays: getWarningDays(),
+        watchDays: getWarningDays() * 2,
+      })
+      : null
+
   const replenishment =
     stock !== null && activeLocation !== undefined
       ? getReplenishmentAlerts({
@@ -183,7 +195,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
       </section>
 
       {forecast !== null && forecast !== undefined && sizeId != null && (
-        <ForecastCard forecast={forecast} sizeId={sizeId} purchaseNeeds={purchaseNeeds} nextSizeId={nextSize?.id ?? null} />
+        <ForecastCard forecast={forecast} sizeId={sizeId} purchaseNeeds={purchaseNeeds} nextSizeId={nextSize?.id ?? null} purchaseTiming={purchaseTiming} />
       )}
 
       {typeof sizeId === 'number' && <TransitionPrompt baby={baby} sizeId={sizeId} />}
@@ -218,6 +230,7 @@ const ForecastCard = ({
   sizeId: number
   purchaseNeeds: PurchaseNeeds | null
   nextSizeId: number | null
+  purchaseTiming: ReturnType<typeof getPurchaseTiming>
 }) => {
   const confidence = confidenceLabel(forecast)
   const confidenceWidth =
@@ -235,6 +248,13 @@ const ForecastCard = ({
       <p className='muted small'>
         La previsión usa el consumo global del bebé y el stock de la ubicación activa.
       </p>
+      {purchaseTiming !== null && (
+        <div className='forecast-buy' role='status'>
+          <p><strong>🛒 Plan de acopio</strong></p>
+          <p>{purchaseTimingHeadline(purchaseTiming, sizeId)}</p>
+          <p>{purchaseTimingDetail(purchaseTiming)}</p>
+        </div>
+      )}
       {forecast.recommendedDiapers !== null && forecast.recommendedDiapers > 0 && (
         <p className='forecast-buy'>
           🛒 Te faltan ≈ {String(forecast.recommendedDiapers)} pañales para
