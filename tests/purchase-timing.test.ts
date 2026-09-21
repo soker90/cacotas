@@ -5,6 +5,8 @@ describe('purchase timing', () => {
   const defaults = {
     warningDays: 7,
     watchDays: 14,
+    confidence: 'HIGH' as const,
+    seeded: false,
   }
 
   it('waits when there is plenty of stock', () => {
@@ -39,7 +41,68 @@ describe('purchase timing', () => {
     expect(result?.transitionBeforeStockRunsOut).toBe(true)
   })
 
+  it('caps a low-confidence BUY_NOW at WATCH_OFFER when stock is not critical', () => {
+    const result = getPurchaseTiming({
+      ...defaults,
+      confidence: 'LOW',
+      daysRemaining: 7,
+      transitionDays: 40,
+    })
+    expect(result?.status).toBe('WATCH_OFFER')
+    expect(result?.confidenceLimited).toBe(true)
+  })
+
+  it('keeps a low-confidence forecast at WAIT when there is plenty of stock', () => {
+    const result = getPurchaseTiming({
+      ...defaults,
+      confidence: 'LOW',
+      daysRemaining: 12,
+      transitionDays: 40,
+    })
+    expect(result?.status).toBe('WATCH_OFFER')
+    expect(result?.confidenceLimited).toBe(false)
+  })
+
+  it('still says BUY_NOW when low-confidence stock is genuinely critical', () => {
+    const result = getPurchaseTiming({
+      ...defaults,
+      confidence: 'LOW',
+      daysRemaining: 3,
+      transitionDays: 40,
+    })
+    expect(result?.status).toBe('BUY_NOW')
+    expect(result?.confidenceLimited).toBe(false)
+  })
+
+  it('treats the Dodot cold-start estimate as low confidence', () => {
+    const result = getPurchaseTiming({
+      ...defaults,
+      confidence: 'LOW',
+      seeded: true,
+      daysRemaining: 7,
+      transitionDays: 40,
+    })
+    expect(result?.status).toBe('WATCH_OFFER')
+    expect(result?.seeded).toBe(true)
+    expect(result?.confidenceLimited).toBe(true)
+  })
+
+  it('does not accumulate the current size when a low-confidence transition comes first', () => {
+    const result = getPurchaseTiming({
+      ...defaults,
+      confidence: 'LOW',
+      daysRemaining: 20,
+      transitionDays: 8,
+    })
+    expect(result?.status).toBe('WAIT')
+    expect(result?.transitionBeforeStockRunsOut).toBe(true)
+  })
+
   it('returns null without a usable forecast', () => {
-    expect(getPurchaseTiming({ ...defaults, daysRemaining: null, transitionDays: null })).toBeNull()
+    expect(getPurchaseTiming({
+      ...defaults,
+      daysRemaining: null,
+      transitionDays: null,
+    })).toBeNull()
   })
 })
