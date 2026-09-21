@@ -99,7 +99,7 @@ export const migrateTransitionLocalState = async (
   const pending = []
   const storageKeys = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i))
 
-  for (const storageKey of storageKeys)
+  for (const storageKey of storageKeys) {
     const prefix = `${KEY_PREFIX}.${babyId}.`
     if (storageKey === null || !storageKey.startsWith(prefix)) continue
 
