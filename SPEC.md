@@ -1575,8 +1575,11 @@ Cacotas no decide qué paquetes comprar ni sigue precios u ofertas. La primera v
 - El **consumo** es global por bebé y usa el mismo forecast que Home.
 - El **stock para esta decisión** es exclusivamente el de la ubicación activa. El stock de otras ubicaciones no se agrega porque puede no estar disponible cuando se necesita.
 - El **cambio de talla** es global por bebé y modifica la recomendación: si el cambio estimado llega antes de que se agote el stock de la ubicación activa, Cacotas no recomienda acumular más de la talla actual.
-- Con stock por encima del doble del punto de aviso (`warningDays * 2`), el estado es `WAIT`: se puede esperar a una oferta.
+- Con stock por encima del doble del punto de aviso (`warningDays * 2` días), el estado es `WAIT`: se puede esperar a una oferta.
 - Entre `warningDays * 2` y `warningDays` días de stock, el estado es `WATCH_OFFER`: empieza a tener sentido buscar una oferta.
-- Con `warningDays` días o menos, el estado es `BUY_NOW`: no conviene esperar a una oferta, salvo que el cambio de talla llegue antes de agotar el stock.
-- La recomendación reutiliza la transparencia del forecast: si el consumo tiene poco histórico o procede de una estimación del fabricante, la UI debe mantener ese contexto.
+- Con `warningDays` días o menos, el estado base es `BUY_NOW`: no conviene esperar a una oferta, salvo que el cambio de talla llegue antes de agotar el stock.
+- La recomendación **nunca debe sonar más segura que el forecast**. Con confianza `LOW`, un `BUY_NOW` se limita a `WATCH_OFFER` salvo stock realmente crítico (la mitad de `warningDays`, redondeada hacia abajo, como mínimo 1 día).
+- El forecast semillado de los primeros días es siempre la **estimación de Dodot**, tiene confianza `LOW` y sigue la misma limitación conservadora.
+- Si el stock es realmente crítico, la falta de pañales prevalece sobre la incertidumbre: `BUY_NOW` sigue mostrándose aunque la confianza sea `LOW`.
+- La recomendación reutiliza la transparencia del forecast: si el consumo tiene poco histórico o procede de la estimación de Dodot, la UI debe mantener ese contexto.
 - Esta versión no modela marcas, tiendas, precios, paquetes ni cantidades de compra.

@@ -61,6 +61,8 @@ export const Home = ({ baby }: { baby: Baby }) => {
         transitionDays: forecast.transition?.days ?? null,
         warningDays: getWarningDays(),
         watchDays: getWarningDays() * 2,
+        confidence: forecast.confidence,
+        seeded: forecast.seeded,
       })
       : null
 

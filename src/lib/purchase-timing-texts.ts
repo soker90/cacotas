@@ -24,6 +24,12 @@ export const purchaseTimingDetail = (timing: PurchaseTiming): string => {
   }
 
   const days = Math.max(0, Math.round(timing.daysRemaining ?? 0))
+  if (timing.confidenceLimited) {
+    return timing.seeded
+      ? `Te quedan ~${String(days)} días de stock según la estimación de Dodot. Como todavía no hay consumo real, puedes esperar a una oferta salvo que el stock sea crítico.`
+      : `Te quedan ~${String(days)} días de stock, pero hay poco histórico real. Por prudencia, empieza a buscar una oferta en vez de comprar ya.`
+  }
+
   switch (timing.status) {
     case 'WAIT':
       return `Tienes stock para ~${String(days)} días. Puedes esperar a que aparezca una buena oferta.`
