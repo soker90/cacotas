@@ -93,7 +93,7 @@ export const RecordMultiple = ({ baby }: { baby: Baby }) => {
     setSaving(true)
     setError(null)
     try {
-    const movement = createMovement(
+      const movement = createMovement(
       {
         id: uuid(),
         babyId: baby.id,
@@ -105,9 +105,9 @@ export const RecordMultiple = ({ baby }: { baby: Baby }) => {
       },
       { type: 'USAGE', usageSource, quantity }
     )
-    await db.movements.add(movement)
-    notifyWrite()
-    void navigate('/')
+      await db.movements.add(movement)
+      notifyWrite()
+      void navigate('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo registrar')
     } finally {
