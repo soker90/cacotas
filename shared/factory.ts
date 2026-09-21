@@ -140,6 +140,7 @@ export const createMovement = (
     type: input.type,
     ...(usageSource !== undefined ? { usageSource } : {}),
     ...(undoesMovementId !== undefined ? { undoesMovementId } : {}),
+    ...(movementNote !== undefined ? { note: movementNote } : {}),
     quantity,
     delta,
   }
