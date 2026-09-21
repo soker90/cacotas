@@ -301,7 +301,6 @@ describe('liveUsage', () => {
   })
 })
 
-
 describe('transition signals and snooze', () => {
   it('derives active signals, ignores UNDOs, and resets after SIZE_CHANGE', async () => {
     const t0 = Date.now()
@@ -339,7 +338,6 @@ describe('transition signals and snooze', () => {
   })
 })
 
-
 describe('transition signals and snooze derived from the ledger', () => {
   it('SIGNAL activates, duplicate marks do not duplicate, and UNDO removes it', async () => {
     const db = makeDb()
@@ -350,18 +348,32 @@ describe('transition signals and snooze derived from the ledger', () => {
 
     const latest = await latestActiveSignal(db, BABY, 2, 'redMarks')
     expect(latest).not.toBeNull()
-    await db.movements.add(createMovement({
-      id: uid(), babyId: BABY, sizeId: 2, deviceId: 'test',
-      occurredAt: Date.now(), recordedAt: Date.now(),
-    }, { type: 'UNDO', original: latest! }))
+    await db.movements.add(createMovement(
+      {
+        id: uid(),
+        babyId: BABY,
+        sizeId: 2,
+        deviceId: 'test',
+        occurredAt: Date.now(),
+        recordedAt: Date.now(),
+      },
+      { type: 'UNDO', original: latest! }
+    ))
     expect([...await activeSignals(db, BABY, 2)]).toEqual(['redMarks'])
 
     const remaining = await latestActiveSignal(db, BABY, 2, 'redMarks')
     expect(remaining).not.toBeNull()
-    await db.movements.add(createMovement({
-      id: uid(), babyId: BABY, sizeId: 2, deviceId: 'test',
-      occurredAt: Date.now(), recordedAt: Date.now(),
-    }, { type: 'UNDO', original: remaining! }))
+    await db.movements.add(createMovement(
+      {
+        id: uid(),
+        babyId: BABY,
+        sizeId: 2,
+        deviceId: 'test',
+        occurredAt: Date.now(),
+        recordedAt: Date.now(),
+      },
+      { type: 'UNDO', original: remaining! }
+    ))
     expect([...await activeSignals(db, BABY, 2)]).toEqual([])
   })
 
@@ -375,18 +387,32 @@ describe('transition signals and snooze derived from the ledger', () => {
   it('SNOOZE lasts 14 days and can be undone', async () => {
     const db = makeDb()
     const now = Date.now()
-    const snooze = createMovement({
-      id: uid(), babyId: BABY, sizeId: 2, deviceId: 'test',
-      occurredAt: now - 13 * 86_400_000, recordedAt: now - 13 * 86_400_000,
-    }, { type: 'SNOOZE' })
+    const snooze = createMovement(
+      {
+        id: uid(),
+        babyId: BABY,
+        sizeId: 2,
+        deviceId: 'test',
+        occurredAt: now - 13 * 86_400_000,
+        recordedAt: now - 13 * 86_400_000,
+      },
+      { type: 'SNOOZE' }
+    )
     await db.movements.add(snooze)
     expect(await snoozeActive(db, BABY, now)).toBe(true)
     expect(await snoozeActive(db, BABY, now + 2 * 86_400_000)).toBe(false)
 
-    await db.movements.add(createMovement({
-      id: uid(), babyId: BABY, sizeId: 2, deviceId: 'test',
-      occurredAt: now, recordedAt: now,
-    }, { type: 'UNDO', original: snooze }))
+    await db.movements.add(createMovement(
+      {
+        id: uid(),
+        babyId: BABY,
+        sizeId: 2,
+        deviceId: 'test',
+        occurredAt: now,
+        recordedAt: now,
+      },
+      { type: 'UNDO', original: snooze }
+    ))
     expect(await snoozeActive(db, BABY, now)).toBe(false)
   })
 })
