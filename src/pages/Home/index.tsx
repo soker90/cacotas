@@ -225,6 +225,7 @@ const ForecastCard = ({
   sizeId,
   purchaseNeeds,
   nextSizeId,
+  purchaseTiming,
 }: {
   forecast: Forecast
   sizeId: number
