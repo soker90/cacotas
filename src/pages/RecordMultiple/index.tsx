@@ -69,10 +69,12 @@ export const RecordMultiple = ({ baby }: { baby: Baby }) => {
   const [when, setWhen] = useState(() => nowForInput())
   const [external, setExternal] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const effectiveSize = sizeId ?? (typeof currentSizeId === 'number' ? currentSizeId : null)
 
   const register = async (): Promise<void> => {
+    if (saving) return
     if (effectiveSize === null) {
       setError('No hay talla seleccionada')
       return
@@ -88,21 +90,29 @@ export const RecordMultiple = ({ baby }: { baby: Baby }) => {
       return
     }
     const usageSource: UsageSource = external ? 'EXTERNAL' : 'OWN_STOCK'
-    const movement = createMovement(
-      {
-        id: uuid(),
-        babyId: baby.id,
-        sizeId: effectiveSize,
-        locationId,
-        deviceId: getDeviceId(),
-        occurredAt,
-        recordedAt: now,
-      },
-      { type: 'USAGE', usageSource, quantity }
-    )
-    await db.movements.add(movement)
-    notifyWrite()
-    void navigate('/')
+    setSaving(true)
+    setError(null)
+    try {
+      const movement = createMovement(
+        {
+          id: uuid(),
+          babyId: baby.id,
+          sizeId: effectiveSize,
+          locationId,
+          deviceId: getDeviceId(),
+          occurredAt,
+          recordedAt: now,
+        },
+        { type: 'USAGE', usageSource, quantity }
+      )
+      await db.movements.add(movement)
+      notifyWrite()
+      void navigate('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo registrar')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -188,12 +198,12 @@ export const RecordMultiple = ({ baby }: { baby: Baby }) => {
       <button
         type='button'
         className='primary big-action'
-        disabled={effectiveSize === null || stocks === undefined}
+        disabled={effectiveSize === null || stocks === undefined || saving}
         onClick={() => {
           void register()
         }}
       >
-        Registrar
+        {saving ? 'Registrando…' : 'Registrar'}
       </button>
     </main>
   )
