@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Link,
   Navigate,
@@ -10,18 +10,14 @@ import { createMovement } from '../../../shared/factory.ts'
 import { usageByDay } from '../../../shared/forecast.ts'
 import { logicalDate } from '../../../shared/time.ts'
 import type { Baby, TransitionSignals } from '../../../shared/types.ts'
-import { liveUsage } from '../../db/derive.ts'
+import { activeSignals, liveUsage, latestActiveSignal } from '../../db/derive.ts'
 import { db } from '../../db/index.ts'
 import {
   useCurrentSize,
   useForecast,
   useStockBySize,
 } from '../../hooks'
-import {
-  clearSignals,
-  readSignals,
-  writeSignal,
-} from '../../lib/transition-signals.ts'
+import { migrateTransitionLocalState } from '../../lib/transition-signals.ts'
 import { confidenceLabel } from '../../lib/forecast-texts.ts'
 import {
   transitionCaveats,
@@ -50,9 +46,22 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
   const stocks = useStockBySize(baby.id, locationId)
   const currentSizeId = useCurrentSize(baby.id)
   const forecast = useForecast(baby.id, Number.isInteger(sizeId) ? sizeId : null, locationId)
-  const [signals, setSignals] = useState<TransitionSignals>(() =>
-    readSignals(baby.id, sizeId)
+  const signalSet = useLiveQuery(
+    () => Number.isInteger(sizeId) ? activeSignals(db, baby.id, sizeId) : new Set<string>(),
+    [baby.id, sizeId]
   )
+  const signals: TransitionSignals = {
+    tabsNotCentered: signalSet?.has('tabsNotCentered') ?? false,
+    noTwoFingers: signalSet?.has('noTwoFingers') ?? false,
+    redMarks: signalSet?.has('redMarks') ?? false,
+    uncoveredButtocks: signalSet?.has('uncoveredButtocks') ?? false,
+    frequentDermatitis: signalSet?.has('frequentDermatitis') ?? false,
+    pullsDiaper: signalSet?.has('pullsDiaper') ?? false,
+  }
+
+  useEffect(() => {
+    void migrateTransitionLocalState(db, baby.id)
+  }, [baby.id])
 
   const [packagesText, setPackagesText] = useState('1')
   const [perPackageText, setPerPackageText] = useState('30')
@@ -157,8 +166,8 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
       { type: 'SIZE_CHANGE' }
     )
     await db.movements.add(movement)
-    // The signals described the old size — clear them (§8)
-    clearSignals(baby.id, currentSizeId)
+    // Signals remain in the append-only ledger; activeSignals() scopes them
+    // to the latest SIZE_CHANGE, so no destructive cleanup is needed.
     notifyWrite()
     void navigate('/inventory')
   }
@@ -332,8 +341,42 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
               type='checkbox'
               checked={signals[key]}
               onChange={(e) => {
-                writeSignal(baby.id, sizeId, key, e.target.checked)
-                setSignals(readSignals(baby.id, sizeId))
+                void (async () => {
+                  const now = Date.now()
+                  if (e.target.checked) {
+                    await db.movements.add(
+                      createMovement(
+                        {
+                          id: uuid(),
+                          babyId: baby.id,
+                          sizeId,
+                          deviceId: getDeviceId(),
+                          occurredAt: now,
+                          recordedAt: now,
+                        },
+                        { type: 'SIGNAL', signal: key }
+                      )
+                    )
+                  } else {
+                    const original = await latestActiveSignal(db, baby.id, sizeId, key)
+                    if (original !== null) {
+                      await db.movements.add(
+                        createMovement(
+                          {
+                            id: uuid(),
+                            babyId: baby.id,
+                            sizeId,
+                            deviceId: getDeviceId(),
+                            occurredAt: now,
+                            recordedAt: now,
+                          },
+                          { type: 'UNDO', original }
+                        )
+                      )
+                    }
+                  }
+                  notifyWrite()
+                })()
               }}
             />
             {label}
