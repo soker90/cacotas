@@ -1566,3 +1566,17 @@ integrada · escáner de códigos de barras · IA · reconocimiento de imágenes
 tiendas · curvas pediátricas · recomendaciones médicas.
 
 > La *extrapolación de talla por peso* estaba aquí y sale de la lista: la rescata D-24 (§8).
+
+
+## 14. Plan de acopio / momento de compra
+
+Cacotas no decide qué paquetes comprar ni sigue precios u ofertas. La primera versión responde si el usuario puede esperar a una oferta o debería comprar ahora.
+
+- El **consumo** es global por bebé y usa el mismo forecast que Home.
+- El **stock para esta decisión** es exclusivamente el de la ubicación activa. El stock de otras ubicaciones no se agrega porque puede no estar disponible cuando se necesita.
+- El **cambio de talla** es global por bebé y modifica la recomendación: si el cambio estimado llega antes de que se agote el stock de la ubicación activa, Cacotas no recomienda acumular más de la talla actual.
+- Con stock por encima del doble del punto de aviso (`warningDays * 2`), el estado es `WAIT`: se puede esperar a una oferta.
+- Entre `warningDays * 2` y `warningDays` días de stock, el estado es `WATCH_OFFER`: empieza a tener sentido buscar una oferta.
+- Con `warningDays` días o menos, el estado es `BUY_NOW`: no conviene esperar a una oferta, salvo que el cambio de talla llegue antes de agotar el stock.
+- La recomendación reutiliza la transparencia del forecast: si el consumo tiene poco histórico o procede de una estimación del fabricante, la UI debe mantener ese contexto.
+- Esta versión no modela marcas, tiendas, precios, paquetes ni cantidades de compra.
