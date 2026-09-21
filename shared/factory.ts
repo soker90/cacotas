@@ -1,4 +1,4 @@
-import type { Movement, UUID, UsageSource } from './types.ts'
+import type { Movement, TransitionSignals, UUID, UsageSource } from './types.ts'
 
 /**
  * Single creation point for movements. Every movement in the system — client,
@@ -30,6 +30,8 @@ export type MovementInput =
   | { type: 'ADJUSTMENT'; delta: number }
   | { type: 'UNDO'; original: Movement }
   | { type: 'SIZE_CHANGE' }
+  | { type: 'SIGNAL'; signal: keyof TransitionSignals }
+  | { type: 'SNOOZE' }
 
 const fail = (rule: string): never => {
   throw new Error(`Invalid movement (${rule})`)
@@ -50,10 +52,11 @@ export const createMovement = (
   assertCommon(common)
 
   const { note, ...rest } = common
+  let movementNote = note
   const base = {
     ...rest,
     serverSeq: 0, // pending upload until the sync confirms it
-    ...(note !== undefined ? { note } : {}),
+    ...(movementNote !== undefined ? { note: movementNote } : {}),
   }
 
   let quantity = 0
@@ -109,6 +112,20 @@ export const createMovement = (
     }
 
     case 'SIZE_CHANGE': {
+      quantity = 0
+      delta = 0
+      break
+    }
+
+    case 'SIGNAL': {
+      if (!input.signal) fail('SIGNAL requires signal')
+      movementNote = input.signal
+      quantity = 0
+      delta = 0
+      break
+    }
+
+    case 'SNOOZE': {
       quantity = 0
       delta = 0
       break
