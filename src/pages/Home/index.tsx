@@ -163,11 +163,11 @@ export const Home = ({ baby }: { baby: Baby }) => {
           {sizeId === undefined
             ? (
               <p className='muted'>Cargando…</p>
-            )
+              )
             : stock === null
               ? (
                 <p className='muted'>Sin talla actual</p>
-              )
+                )
               : (
                 <div>
                   <p>
