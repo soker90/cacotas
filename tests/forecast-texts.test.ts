@@ -33,13 +33,13 @@ describe('forecast text', () => {
     )
   })
 
-  it('keeps the manufacturer label for a cold-start forecast', () => {
+  it('keeps the Dodot label for a cold-start forecast', () => {
     const caveats = forecastCaveats(forecast({
       seeded: true,
       daysCovered: 0,
       dailyConsumption: 9,
     }))
-    expect(caveats).toContain('Estimación del fabricante: ≈ 9 pañales al día.')
+    expect(caveats).toContain('Estimación de Dodot: ≈ 9 pañales al día.')
     expect(caveats.some((caveat) => caveat.startsWith('Histórico corto:'))).toBe(false)
   })
 
