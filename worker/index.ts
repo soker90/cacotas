@@ -130,6 +130,15 @@ const isValidWireMovement = (m: unknown): m is WireMovement => {
       return str(r.undoesMovementId)
     case 'SIZE_CHANGE':
       return r.quantity === 0 && r.delta === 0
+    case 'SIGNAL':
+      return (
+        r.quantity === 0 &&
+        r.delta === 0 &&
+        typeof r.note === 'string' &&
+        ['tabsNotCentered', 'noTwoFingers', 'redMarks', 'uncoveredButtocks', 'frequentDermatitis', 'pullsDiaper'].includes(r.note)
+      )
+    case 'SNOOZE':
+      return r.quantity === 0 && r.delta === 0 && r.note === undefined
     default:
       return false
   }
