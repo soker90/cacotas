@@ -115,7 +115,7 @@ const activeSignalMovements = async (
         m.note !== undefined &&
         (TRANSITION_SIGNAL_KEYS as readonly string[]).includes(m.note) &&
         !undone.has(m.id) &&
-        (sizeChange === null || m.occurredAt >= sizeChange.occurredAt)
+        (sizeChange === null || m.occurredAt > sizeChange.occurredAt)
     )
     .sort((a, b) => a.occurredAt - b.occurredAt)
 }
