@@ -17,7 +17,6 @@ import {
 } from '../../lib/forecast-texts.ts'
 import { formatLogicalDateEs } from '../../lib/format-date.ts'
 import { getCoverageDays, getWarningDays } from '../../lib/settings.ts'
-import { getReplenishmentAlerts } from '../../lib/replenishment.ts'
 import { getPurchaseTiming } from '../../../shared/purchase-timing.ts'
 import { purchaseTimingDetail, purchaseTimingHeadline } from '../../lib/purchase-timing-texts.ts'
 import { isStayMode } from '../../lib/stay-mode.ts'
@@ -63,16 +62,6 @@ export const Home = ({ baby }: { baby: Baby }) => {
         watchDays: getWarningDays() * 2,
         confidence: forecast.confidence,
         seeded: forecast.seeded,
-      })
-      : null
-
-  const replenishment =
-    stock !== null && activeLocation !== undefined
-      ? getReplenishmentAlerts({
-        stock,
-        reorderPoint: activeLocation.reorderPoint,
-        daysRemaining: forecast?.daysRemaining ?? null,
-        warningDays: getWarningDays(),
       })
       : null
 
@@ -159,46 +148,18 @@ export const Home = ({ baby }: { baby: Baby }) => {
           </div>
           <Link to='/inventory' className='section-link'>Ver todo →</Link>
         </div>
-        <div className='stock'>
+        <div className='stock-summary'>
           {sizeId === undefined
-            ? (
-              <p className='muted'>Cargando…</p>
-              )
+            ? <p className='muted'>Cargando…</p>
             : stock === null
-              ? (
-                <p className='muted'>Sin talla actual</p>
-                )
+              ? <p className='muted'>Sin talla actual</p>
               : (
-                <div>
-                  <p>
-                    📍 <strong>{activeLocation?.name ?? 'Ubicación activa'}</strong>: {stock} pañales de talla {String(sizeId)}
-                    {stock < 0 && (
-                      <strong className='warn'> · revisa el inventario</strong>
-                    )}
-                  </p>
-                  {typeof forecast?.dailyConsumption === 'number' && (
-                    <p className='muted small'>
-                      👶 Consumo del bebé: ≈ {forecast.dailyConsumption.toFixed(1)} pañales/día
-                      {forecast.seeded ? ' (estimación del fabricante)' : ' · global, todas las ubicaciones'}
-                    </p>
-                  )}
-                  {typeof forecast?.daysRemaining === 'number' && (
-                    <p className='muted small'>
-                      ⏳ Esta ubicación cubre ≈ {String(Math.round(forecast.daysRemaining))} días
-                      {forecast?.exhaustionDate != null && ` · hasta el ${formatLogicalDateEs(forecast.exhaustionDate)}`}
-                    </p>
-                  )}
-                  {replenishment?.lowStock && (
-                    <p className='forecast-buy' role='status'>
-                      🟠 Reponer en {activeLocation?.name ?? 'esta ubicación'}: quedan {stock} pañales y el punto de pedido es {activeLocation?.reorderPoint}.
-                    </p>
-                  )}
-                  {replenishment?.runningOutSoon && (
-                    <p className='warn small' role='status'>
-                      🔴 Se acaba pronto aquí: quedan ≈ {String(Math.max(0, Math.round(forecast?.daysRemaining ?? 0)))} días según el consumo global del bebé.
-                    </p>
-                  )}
-                </div>
+                <>
+                  <div className='stock-number'>{stock}</div>
+                  <div className='stock-label'>pañales de talla {String(sizeId)}</div>
+                  <div className='stock-location'>📍 {activeLocation?.name ?? 'Ubicación activa'}</div>
+                  {stock < 0 && <p className='warn small'>Revisa el inventario.</p>}
+                </>
                 )}
         </div>
       </section>
@@ -262,9 +223,27 @@ const ForecastCard = ({
         <span className='confidence-pill'>{confidence ?? 'Sin datos'}</span>
       </div>
       <p className='forecast-headline'>{forecastHeadline(forecast, sizeId)}</p>
-      <p className='muted small'>
-        Estimación según el consumo del bebé y el stock de la ubicación activa.
-      </p>
+      <div className='forecast-metrics'>
+        <div>
+          <strong>{typeof forecast.daysRemaining === 'number' ? Math.max(0, Math.round(forecast.daysRemaining)) : '—'}</strong>
+          <span>días de stock</span>
+        </div>
+        <div>
+          <strong>{typeof forecast.dailyConsumption === 'number' ? forecast.dailyConsumption.toFixed(1) : '—'}</strong>
+          <span>pañales/día</span>
+        </div>
+        {forecast.transition !== null && (
+          <div>
+            <strong>≈ {String(forecast.transition.days)}</strong>
+            <span>días hasta talla {String(nextSizeId ?? 'siguiente')}</span>
+          </div>
+        )}
+      </div>
+      {forecast.exhaustionDate != null && (
+        <p className='muted small forecast-date'>
+          El stock actual cubriría hasta el {formatLogicalDateEs(forecast.exhaustionDate)}.
+        </p>
+      )}
       {purchaseTiming !== null && (
         <div className='forecast-buy' role='status'>
           <p><strong>🛒 Plan de acopio</strong></p>
