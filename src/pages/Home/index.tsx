@@ -41,7 +41,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
     () => typeof sizeId === 'number' ? db.sizes.get(sizeId + 1) : undefined,
     [sizeId]
   )
-  const { recordDiaper, undoLast, lastUsage } = useRecordMovement(baby.id, locationId)
+  const { recordDiaper, undoLast, lastUsage, isRecording } = useRecordMovement(baby.id, locationId)
   const forecast = useForecast(baby.id, sizeId, locationId)
   // Route changes remount this page, so the flag is read fresh each time
   const [stayMode] = useState(() => isStayMode())
@@ -120,8 +120,8 @@ export const Home = ({ baby }: { baby: Baby }) => {
 
       <section className='home-action'>
         <p className='section-kicker'>Registro rápido</p>
-        <button type='button' className='big-button' disabled={typeof sizeId !== 'number'} onClick={handleRecordDiaper}>
-          🧷 PAÑAL GASTADO
+        <button type='button' className='big-button' disabled={typeof sizeId !== 'number' || isRecording} onClick={handleRecordDiaper}>
+          {isRecording ? 'Registrando…' : '🧷 PAÑAL GASTADO'}
         </button>
 
         {lastUsage && (
