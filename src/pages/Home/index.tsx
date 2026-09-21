@@ -160,7 +160,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
                   <div className='stock-location'>📍 {activeLocation?.name ?? 'Ubicación activa'}</div>
                   {stock < 0 && <p className='warn small'>Revisa el inventario.</p>}
                 </>
-              )}
+                )}
         </div>
       </section>
 
