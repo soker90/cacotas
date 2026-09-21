@@ -45,6 +45,8 @@ const TYPES: readonly MovementType[] = [
   'ADJUSTMENT',
   'UNDO',
   'SIZE_CHANGE',
+  'SIGNAL',
+  'SNOOZE',
 ]
 const SOURCES: readonly UsageSource[] = ['OWN_STOCK', 'EXTERNAL']
 
