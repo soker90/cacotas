@@ -84,3 +84,79 @@ export const liveUsage = async (
       !undone.has(m.id)
   )
 }
+
+
+const TRANSITION_SIGNAL_KEYS = [
+  'tabsNotCentered',
+  'noTwoFingers',
+  'redMarks',
+  'uncoveredButtocks',
+  'frequentDermatitis',
+  'pullsDiaper',
+] as const
+
+/** Active SIGNAL movements for a baby/size, ignoring SIGNALs cancelled by UNDO. */
+const activeSignalMovements = async (
+  database: CacotasDB,
+  babyId: UUID,
+  sizeId: number
+): Promise<Movement[]> => {
+  const all = await database.movements.where('babyId').equals(babyId).toArray()
+  const undone = new Set(
+    all
+      .filter((m) => m.type === 'UNDO')
+      .map((m) => m.undoesMovementId ?? '')
+  )
+  const sizeChange = await lastSizeChange(database, babyId)
+  return all
+    .filter(
+      (m) =>
+        m.type === 'SIGNAL' &&
+        m.sizeId === sizeId &&
+        m.note !== undefined &&
+        (TRANSITION_SIGNAL_KEYS as readonly string[]).includes(m.note) &&
+        !undone.has(m.id) &&
+        (sizeChange === null || m.occurredAt >= sizeChange.occurredAt)
+    )
+    .sort((a, b) => a.occurredAt - b.occurredAt)
+}
+
+/** Active transition signal keys after the latest SIZE_CHANGE. */
+export const activeSignals = async (
+  database: CacotasDB,
+  babyId: UUID,
+  sizeId: number
+): Promise<Set<string>> => {
+  const movements = await activeSignalMovements(database, babyId, sizeId)
+  return new Set(movements.map((movement) => movement.note as string))
+}
+
+/** Latest active SIGNAL for a key, used to append its UNDO. */
+export const latestActiveSignal = async (
+  database: CacotasDB,
+  babyId: UUID,
+  sizeId: number,
+  signal: string
+): Promise<Movement | null> => {
+  const movements = await activeSignalMovements(database, babyId, sizeId)
+  return movements.filter((movement) => movement.note === signal).at(-1) ?? null
+}
+
+/** True while the latest non-undone SNOOZE is less than 14 days old. */
+export const snoozeActive = async (
+  database: CacotasDB,
+  babyId: UUID,
+  now: number = Date.now()
+): Promise<boolean> => {
+  const all = await database.movements.where('babyId').equals(babyId).toArray()
+  const undone = new Set(
+    all
+      .filter((m) => m.type === 'UNDO')
+      .map((m) => m.undoesMovementId ?? '')
+  )
+  const latest = all
+    .filter((m) => m.type === 'SNOOZE' && !undone.has(m.id))
+    .sort((a, b) => a.occurredAt - b.occurredAt)
+    .at(-1)
+  return latest !== undefined && now - latest.occurredAt < 14 * 86_400_000
+}
