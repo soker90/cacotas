@@ -17,6 +17,8 @@ const TYPE_LABELS: Record<Movement['type'], string> = {
   ADJUSTMENT: 'Ajuste',
   UNDO: 'Deshacer',
   SIZE_CHANGE: 'Cambio talla',
+  SIGNAL: 'Señal de transición',
+  SNOOZE: 'Aviso pospuesto',
 }
 
 const isTransfer = (m: Movement): boolean =>
