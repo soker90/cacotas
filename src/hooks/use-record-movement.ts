@@ -24,6 +24,7 @@ export const useRecordMovement = (
 ): UseRecordMovementResult => {
   const [lastUsage, setLastUsage] = useState<Movement | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const recording = useRef(false)
 
   useEffect(
     () => () => {
@@ -33,34 +34,41 @@ export const useRecordMovement = (
   )
 
   const recordDiaper = async (sizeId: number): Promise<void> => {
-    const now = Date.now()
-    const movement = createMovement(
-      {
-        id: uuid(),
-        babyId,
-        sizeId,
-        ...(locationId !== undefined ? { locationId } : {}),
-        deviceId: getDeviceId(),
-        occurredAt: now,
-        recordedAt: now,
-      },
-      {
-        type: 'USAGE',
-        // Stay mode: hospital/grandparents diapers count in history but not
-        // in stock (D-05)
-        usageSource: isStayMode() ? 'EXTERNAL' : 'OWN_STOCK',
-        quantity: 1
-      }
-    )
-    await db.movements.add(movement)
-    notifyWrite()
-    navigator.vibrate?.(30)
+    if (recording.current) return
+    recording.current = true
 
-    setLastUsage(movement)
-    if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => {
-      setLastUsage(null)
-    }, UNDO_WINDOW_MS)
+    try {
+      const now = Date.now()
+      const movement = createMovement(
+        {
+          id: uuid(),
+          babyId,
+          sizeId,
+          ...(locationId !== undefined ? { locationId } : {}),
+          deviceId: getDeviceId(),
+          occurredAt: now,
+          recordedAt: now,
+        },
+        {
+          type: 'USAGE',
+          // Stay mode: hospital/grandparents diapers count in history but not
+          // in stock (D-05)
+          usageSource: isStayMode() ? 'EXTERNAL' : 'OWN_STOCK',
+          quantity: 1
+        }
+      )
+      await db.movements.add(movement)
+      notifyWrite()
+      navigator.vibrate?.(30)
+
+      setLastUsage(movement)
+      if (timer.current) clearTimeout(timer.current)
+      timer.current = setTimeout(() => {
+        setLastUsage(null)
+      }, UNDO_WINDOW_MS)
+    } finally {
+      recording.current = false
+    }
   }
 
   const undoLast = async (): Promise<void> => {
