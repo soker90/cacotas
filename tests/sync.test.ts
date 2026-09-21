@@ -180,10 +180,17 @@ describe('sincronización (issue #4)', () => {
   })
 
   it('a SIGNAL created on device A reaches device B and derives the same active state', async () => {
-    const signal = createMovement({
-      id: uid(), babyId: 'baby-shared', sizeId: 2, deviceId: 'device-a',
-      occurredAt: Date.now(), recordedAt: Date.now() + 1,
-    }, { type: 'SIGNAL', signal: 'redMarks' })
+    const signal = createMovement(
+      {
+        id: uid(),
+        babyId: 'baby-shared',
+        sizeId: 2,
+        deviceId: 'device-a',
+        occurredAt: Date.now(),
+        recordedAt: Date.now() + 1,
+      },
+      { type: 'SIGNAL', signal: 'redMarks' }
+    )
     await dbA.movements.add(signal)
     await runSync(dbA, backend, 'device-a')
     await runSync(dbB, backend, 'device-b')
