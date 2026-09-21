@@ -129,17 +129,14 @@ export const Home = ({ baby }: { baby: Baby }) => {
         </p>
       )}
 
-      <button
-        type='button'
-        className='big-button'
-        disabled={typeof sizeId !== 'number'}
-        onClick={handleRecordDiaper}
-      >
-        🧷 PAÑAL GASTADO
-      </button>
+      <section className='home-action'>
+        <p className='section-kicker'>Registro rápido</p>
+        <button type='button' className='big-button' disabled={typeof sizeId !== 'number'} onClick={handleRecordDiaper}>
+          🧷 PAÑAL GASTADO
+        </button>
 
-      {lastUsage && (
-        <p className='toast' role='status'>
+        {lastUsage && (
+          <p className='toast' role='status'>
           Registrado.{' '}
           <button
             type='button'
@@ -150,10 +147,19 @@ export const Home = ({ baby }: { baby: Baby }) => {
           >
             Deshacer
           </button>
-        </p>
-      )}
+          </p>
+        )}
+      </section>
 
-      <section className='stock'>
+      <section className='stock-card'>
+        <div className='section-heading'>
+          <div>
+            <p className='section-kicker'>Inventario</p>
+            <h2>Lo que tienes ahora</h2>
+          </div>
+          <Link to='/inventory' className='section-link'>Ver todo →</Link>
+        </div>
+        <div className='stock'>
         {sizeId === undefined
           ? (
             <p className='muted'>Cargando…</p>
@@ -194,6 +200,7 @@ export const Home = ({ baby }: { baby: Baby }) => {
                 )}
               </div>
               )}
+        </div>
       </section>
 
       {forecast !== null && forecast !== undefined && sizeId != null && (
@@ -247,9 +254,16 @@ const ForecastCard = ({
 
   return (
     <section className='forecast-card'>
+      <div className='section-heading'>
+        <div>
+          <p className='section-kicker'>Previsión</p>
+          <h2>¿Qué viene después?</h2>
+        </div>
+        <span className='confidence-pill'>{confidence ?? 'Sin datos'}</span>
+      </div>
       <p className='forecast-headline'>{forecastHeadline(forecast, sizeId)}</p>
       <p className='muted small'>
-        La previsión usa el consumo global del bebé y el stock de la ubicación activa.
+        Estimación según el consumo del bebé y el stock de la ubicación activa.
       </p>
       {purchaseTiming !== null && (
         <div className='forecast-buy' role='status'>
