@@ -7,6 +7,8 @@ export type MovementType =
   | 'ADJUSTMENT'
   | 'UNDO'
   | 'SIZE_CHANGE'
+  | 'SIGNAL'
+  | 'SNOOZE'
 
 export type UsageSource = 'OWN_STOCK' | 'EXTERNAL'
 
