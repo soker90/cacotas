@@ -111,7 +111,7 @@ export type UUID = string;
 
 export type MovementType =
   | 'INITIAL' | 'PURCHASE' | 'USAGE'
-  | 'ADJUSTMENT' | 'UNDO' | 'SIZE_CHANGE';
+  | 'ADJUSTMENT' | 'UNDO' | 'SIZE_CHANGE' | 'SIGNAL' | 'SNOOZE';
 
 export type UsageSource = 'OWN_STOCK' | 'EXTERNAL';
 
@@ -209,6 +209,8 @@ type=ADJUSTMENT   quantity = abs(delta), delta ≠ 0
 type=UNDO         undoesMovementId definido, delta = -original.delta,
                   quantity = original.quantity
 type=SIZE_CHANGE  quantity = 0, delta = 0
+type=SIGNAL       quantity = 0, delta = 0, note ∈ {tabsNotCentered, noTwoFingers, redMarks, uncoveredButtocks, frequentDermatitis, pullsDiaper}
+type=SNOOZE        quantity = 0, delta = 0, note = null
 ```
 
 Cualquier violación lanza excepción. No hay creación de movimientos fuera de la factory.
@@ -680,8 +682,10 @@ Hay escapes frecuentes → ¿le quedan marcas o cuesta cerrarlo?
 **Señal inversa, para completar:** si las cintas **se superponen**, el pañal es demasiado
 grande. Útil si alguien sube de talla antes de tiempo.
 
-Las señales se guardan por `(babyId, sizeId)` en `localStorage` y se limpian al cambiar de
-talla. No se sincronizan (§17).
+Las señales son movimientos `SIGNAL` del ledger, ligados a `(babyId, sizeId)`. Una señal activa
+es un `SIGNAL` no deshecho, posterior al último `SIZE_CHANGE` de esa talla. Retirarla escribe un
+`UNDO`. Al actualizar desde versiones anteriores, el estado de `localStorage` se migra una sola
+vez al ledger y después se elimina.
 
 ### 8.4 Estimador por tiempo en la talla
 
@@ -896,8 +900,9 @@ Lleva 7 semanas con la talla 2 y su peso estimado es ≈ 6,8 kg.
 - **"Todavía no"** → silencia el aviso 14 días
 
 Máximo una vez cada 14 días, y solo si `transition.days <= 7`. El prompt vive en el detalle de
-talla (§10). El snooze se guarda en `localStorage`, como las señales: **no se sincroniza**,
-así que cada padre ve y silencia el aviso por su lado (§17).
+talla (§10). "Todavía no" escribe un movimiento `SNOOZE` neutral; está activo si el último
+`SNOOZE` no deshecho tiene menos de 14 días. Retirarlo es un `UNDO`, que reactiva el aviso.
+Como es un evento del ledger, el snooze se sincroniza en ambos móviles.
 
 ### 8.8 Parámetros que se piden al usuario
 
@@ -1274,7 +1279,7 @@ cuatro comprobaciones (§8.9).
 
 Prompt de confirmación (§8.7) cuando `transition.days <= 7`: *"¿le queda pequeño?"* →
 **[ Sí, cambiar ]** registra el `SIZE_CHANGE`; **[ Todavía no ]** silencia el aviso 14 días
-(en `localStorage`, sin sincronizar — §17).
+que se sincroniza y queda activo durante 14 días. Retirarlo es un `UNDO` del `SNOOZE`.
 
 Acciones: añadir compra, ajustar inventario, **cambiar a esta talla**.
 
@@ -1552,8 +1557,8 @@ las descubra por sorpresa.
 | Limitación | Consecuencia | Por qué se acepta |
 |---|---|---|
 | Las tallas no se sincronizan | Editar un rango de peso o una media de talla en un móvil no llega al otro | Datos casi estáticos, sembrados igual en ambos con `DODOT_SIZES`. Sincronizarlos añadiría conflictos por un caso marginal |
-| Las señales de transición no se sincronizan | Cada padre ve las suyas | Viven en `localStorage`. Sincronizarlas exigiría un tipo de evento nuevo |
-| El snooze de "Todavía no" (§8.7) no se sincroniza | Cada padre ve el aviso de transición por separado y lo silencia solo en su móvil | Vive en `localStorage`, como las señales. Sincronizarlo exigiría un evento nuevo; el coste es bajo — un aviso de más, nunca una compra de más |
+| Las señales de transición son eventos del ledger | Se sincronizan entre móviles | `SIGNAL` + `UNDO` mantiene el estado derivado y evita estado local divergente |
+| El snooze de "Todavía no" (§8.7) es un evento del ledger | Ambos móviles ven el mismo estado | `SNOOZE` + `UNDO`, derivado de `occurredAt + 14 días`, evita divergencias entre dispositivos |
 | El secreto es público | Ver §9.8 | Sin datos sensibles |
 | Desfase de reloj entre móviles | Ver §9.9 | Ambos con hora automática de red |
 | Sin resolución de conflictos para `Baby` | Editar el nombre a la vez en ambos: gana el último | Last-write-wins sobre `updated_at`. Se edita casi nunca |

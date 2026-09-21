@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createMovement } from '../shared/factory.ts'
 import { DODOT_SIZES } from '../shared/transition.ts'
 import type { DiaperSize, Movement, WeightRecord } from '../shared/types.ts'
-import { currentSize, lastSizeChange, liveUsage, sizeDurations, stockBySize } from '../src/db/derive.ts'
+import { activeSignals, currentSize, lastSizeChange, latestActiveSignal, liveUsage, sizeDurations, snoozeActive, stockBySize } from '../src/db/derive.ts'
 import { CacotasDB, seedSizes } from '../src/db/index.ts'
 
 let n = 0
@@ -23,6 +23,7 @@ interface MovOptions {
   usageSource?: Movement['usageSource'];
   occurredAt?: number;
   original?: Movement;
+  signal?: 'redMarks' | 'pullsDiaper';
 }
 
 const mov = (opts: MovOptions): Movement => {
@@ -47,7 +48,11 @@ const mov = (opts: MovOptions): Movement => {
           ? { type: 'INITIAL', quantity: opts.quantity ?? 50 }
           : opts.type === 'UNDO'
             ? { type: 'UNDO', original: opts.original as Movement }
-            : { type: 'SIZE_CHANGE' }
+            : opts.type === 'SIGNAL'
+              ? { type: 'SIGNAL', signal: opts.signal ?? 'redMarks' }
+              : opts.type === 'SNOOZE'
+                ? { type: 'SNOOZE' }
+                : { type: 'SIZE_CHANGE' }
   )
 }
 
@@ -293,5 +298,121 @@ describe('liveUsage', () => {
 
     const usage = await liveUsage(db, BABY, 0)
     expect(usage.map((m) => m.id)).toEqual([kept.id])
+  })
+})
+
+describe('transition signals and snooze', () => {
+  it('derives active signals, ignores UNDOs, and resets after SIZE_CHANGE', async () => {
+    const t0 = Date.now()
+    const signal = mov({ type: 'SIGNAL', signal: 'redMarks', sizeId: 2, occurredAt: t0 })
+    await db.movements.add(
+      mov({ type: 'SIZE_CHANGE', sizeId: 2, occurredAt: t0 - 1000 })
+    )
+    await db.movements.add(signal)
+
+    let active = await (await import('../src/db/derive.ts')).activeSignals(db, BABY, 2)
+    expect(active).toEqual(new Set(['redMarks']))
+
+    await db.movements.add(mov({ type: 'UNDO', original: signal }))
+    active = await (await import('../src/db/derive.ts')).activeSignals(db, BABY, 2)
+    expect(active).toEqual(new Set())
+
+    const oldSignal = mov({ type: 'SIGNAL', signal: 'pullsDiaper', sizeId: 2, occurredAt: t0 - 500 })
+    await db.movements.bulkAdd([
+      oldSignal,
+      mov({ type: 'SIZE_CHANGE', sizeId: 3, occurredAt: t0 + 1000 }),
+    ])
+    expect(await (await import('../src/db/derive.ts')).activeSignals(db, BABY, 2)).toEqual(new Set())
+  })
+
+  it('snooze expires after 14 days and an UNDO reactivates the prompt', async () => {
+    const now = Date.UTC(2026, 0, 20)
+    const snooze = mov({ type: 'SNOOZE', sizeId: 2, occurredAt: now - 13 * 86_400_000 })
+    await db.movements.add(snooze)
+    const { snoozeActive } = await import('../src/db/derive.ts')
+    expect(await snoozeActive(db, BABY, now)).toBe(true)
+    expect(await snoozeActive(db, BABY, now + 2 * 86_400_000)).toBe(false)
+
+    await db.movements.add(mov({ type: 'UNDO', original: snooze, occurredAt: now + 1 }))
+    expect(await snoozeActive(db, BABY, now)).toBe(false)
+  })
+})
+
+describe('transition signals and snooze derived from the ledger', () => {
+  it('SIGNAL activates, duplicate marks do not duplicate, and UNDO removes it', async () => {
+    const db = makeDb()
+    const first = mov({ type: 'SIGNAL', sizeId: 2, signal: 'redMarks' })
+    await db.movements.add(first)
+    await db.movements.add(mov({ type: 'SIGNAL', sizeId: 2, signal: 'redMarks' }))
+    expect([...await activeSignals(db, BABY, 2)]).toEqual(['redMarks'])
+
+    const latest = await latestActiveSignal(db, BABY, 2, 'redMarks')
+    expect(latest).not.toBeNull()
+    await db.movements.add(createMovement(
+      {
+        id: uid(),
+        babyId: BABY,
+        sizeId: 2,
+        deviceId: 'test',
+        occurredAt: Date.now(),
+        recordedAt: Date.now(),
+      },
+      { type: 'UNDO', original: latest! }
+    ))
+    expect([...await activeSignals(db, BABY, 2)]).toEqual(['redMarks'])
+
+    const remaining = await latestActiveSignal(db, BABY, 2, 'redMarks')
+    expect(remaining).not.toBeNull()
+    await db.movements.add(createMovement(
+      {
+        id: uid(),
+        babyId: BABY,
+        sizeId: 2,
+        deviceId: 'test',
+        occurredAt: Date.now(),
+        recordedAt: Date.now(),
+      },
+      { type: 'UNDO', original: remaining! }
+    ))
+    expect([...await activeSignals(db, BABY, 2)]).toEqual([])
+  })
+
+  it('SIZE_CHANGE makes previous signals inactive', async () => {
+    const db = makeDb()
+    await db.movements.add(mov({ type: 'SIGNAL', sizeId: 2, signal: 'redMarks' }))
+    await db.movements.add(mov({ type: 'SIZE_CHANGE', sizeId: 3 }))
+    expect([...await activeSignals(db, BABY, 2)]).toEqual([])
+  })
+
+  it('SNOOZE lasts 14 days and can be undone', async () => {
+    const db = makeDb()
+    const now = Date.now()
+    const snooze = createMovement(
+      {
+        id: uid(),
+        babyId: BABY,
+        sizeId: 2,
+        deviceId: 'test',
+        occurredAt: now - 13 * 86_400_000,
+        recordedAt: now - 13 * 86_400_000,
+      },
+      { type: 'SNOOZE' }
+    )
+    await db.movements.add(snooze)
+    expect(await snoozeActive(db, BABY, now)).toBe(true)
+    expect(await snoozeActive(db, BABY, now + 2 * 86_400_000)).toBe(false)
+
+    await db.movements.add(createMovement(
+      {
+        id: uid(),
+        babyId: BABY,
+        sizeId: 2,
+        deviceId: 'test',
+        occurredAt: now,
+        recordedAt: now,
+      },
+      { type: 'UNDO', original: snooze }
+    ))
+    expect(await snoozeActive(db, BABY, now)).toBe(false)
   })
 })

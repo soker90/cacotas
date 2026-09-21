@@ -179,6 +179,26 @@ describe('sincronización (issue #4)', () => {
     expect(seqs.at(-1)).toBe(600)
   })
 
+  it('a SIGNAL created on device A reaches device B and derives the same active state', async () => {
+    const signal = createMovement(
+      {
+        id: uid(),
+        babyId: 'baby-shared',
+        sizeId: 2,
+        deviceId: 'device-a',
+        occurredAt: Date.now(),
+        recordedAt: Date.now() + 1,
+      },
+      { type: 'SIGNAL', signal: 'redMarks' }
+    )
+    await dbA.movements.add(signal)
+    await runSync(dbA, backend, 'device-a')
+    await runSync(dbB, backend, 'device-b')
+
+    const { activeSignals } = await import('../src/db/derive.ts')
+    expect([...await activeSignals(dbB, 'baby-shared', 2)]).toEqual(['redMarks'])
+  })
+
   it('an UNDO arriving before its original ends with correct stock', async () => {
     const originalId = uid()
     // The server receives the UNDO first…
