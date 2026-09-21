@@ -94,17 +94,17 @@ export const RecordMultiple = ({ baby }: { baby: Baby }) => {
     setError(null)
     try {
       const movement = createMovement(
-      {
-        id: uuid(),
-        babyId: baby.id,
-        sizeId: effectiveSize,
-        locationId,
-        deviceId: getDeviceId(),
-        occurredAt,
-        recordedAt: now,
-      },
-      { type: 'USAGE', usageSource, quantity }
-    )
+        {
+          id: uuid(),
+          babyId: baby.id,
+          sizeId: effectiveSize,
+          locationId,
+          deviceId: getDeviceId(),
+          occurredAt,
+          recordedAt: now,
+        },
+        { type: 'USAGE', usageSource, quantity }
+      )
       await db.movements.add(movement)
       notifyWrite()
       void navigate('/')
