@@ -70,16 +70,14 @@ export const getPurchaseTiming = ({
         ? 'WATCH_OFFER'
         : 'WAIT'
 
-  const confidenceLimited =
-    confidence === 'LOW' && rawStatus === 'BUY_NOW'
-
   // With little evidence, don't turn a forecast into a strong purchase
   // instruction. A truly critical stock position still wins.
   const criticalDays = Math.max(1, Math.floor(warningDays / 2))
-  const status =
-    confidenceLimited && daysRemaining > criticalDays
-      ? 'WATCH_OFFER'
-      : rawStatus
+  const confidenceLimited =
+    confidence === 'LOW' &&
+    rawStatus === 'BUY_NOW' &&
+    daysRemaining > criticalDays
+  const status = confidenceLimited ? 'WATCH_OFFER' : rawStatus
 
   return {
     status,
