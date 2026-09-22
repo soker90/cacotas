@@ -274,10 +274,11 @@ export const Settings = () => {
             ) {
               return
             }
-            void db.movements
-              .filter((movement) => movement.serverSeq === 0)
-              .count()
-              .then(async (pending) => {
+            void Promise.all([
+              db.movements.filter((movement) => movement.serverSeq === 0).count(),
+              db.weights.filter((weight) => weight.serverSeq === 0).count(),
+            ]).then(async ([pendingMovements, pendingWeights]) => {
+              const pending = pendingMovements + pendingWeights
                 if (pending > 0) {
                   setError(
                     'Hay cambios pendientes. Sincronízalos o exporta una copia antes de abandonar el hogar.',
