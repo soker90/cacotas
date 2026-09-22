@@ -29,6 +29,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Worker typecheck
+        run: pnpm typecheck:worker
+
       - name: Tests
         run: pnpm test
 
