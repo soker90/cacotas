@@ -53,6 +53,7 @@ const AppRoutes = () => {
   const localBaby = useBaby()
   const [, rerender] = useState(0)
   const backend = createBackend()
+  const sessionToken = getSessionToken()
 
   if (sessionToken === null) {
     return <Login onLogin={() => { rerender((value) => value + 1) }} />
@@ -62,7 +63,7 @@ const AppRoutes = () => {
     return <main className='loading'>…</main>
   }
   if (!localBaby) {
-    return <FirstLaunch />
+    return <FirstLaunch backend={backend} />
   }
 
   return (
@@ -96,7 +97,7 @@ const SyncLoop = () => {
 }
 
 /** Startup flow of §9.7 when there is no local Baby. */
-const FirstLaunch = () => {
+const FirstLaunch = ({ backend }: { backend: HttpSyncBackend | null }) => {
   const [entry, setEntry] = useState(true)
   const [decision, setDecision] = useState<StartupDecision | null>(null)
 
@@ -111,8 +112,6 @@ const FirstLaunch = () => {
     }
   }, [entry])
 
-  if (entry) return <HouseholdEntry onDone={() => { setEntry(false) }} />
-
   // Adoption path: a remote baby was found, persist it and go straight to
   // Home, skipping the onboarding entirely. Unreachable while backend is
   // null; exercised by unit tests and wired up in phase 3.
@@ -125,6 +124,8 @@ const FirstLaunch = () => {
       await db.locations.bulkPut(locations)
     })
   }, [decision])
+
+  if (entry) return <HouseholdEntry onDone={() => { setEntry(false) }} />
 
   if (decision === null) {
     return <main className='loading'>…</main>
