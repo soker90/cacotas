@@ -396,7 +396,8 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
     if (!isValidWireMovement(m)) return json({ error: 'invalid movement' }, 400)
     const owned = await env.DB.prepare('SELECT id FROM babies WHERE id=?1 AND household_id=?2').bind(m.babyId, householdId).first()
     if (owned === null) return json({ error: 'forbidden baby' }, 403)
-    const existing = await env.DB.prepare('SELECT id FROM movements WHERE id=?1 AND household_id=?2').bind(m.id, householdId).first()
+    const existing = await env.DB.prepare('SELECT id, household_id FROM movements WHERE id=?1').bind(m.id).first<{ id: string; household_id: string }>()
+    if (existing !== null && existing.household_id !== householdId) return json({ error: 'forbidden movement' }, 403)
     if (existing === null) {
       await env.DB.batch([
         env.DB.prepare(
@@ -433,7 +434,8 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
     if (typeof r.id !== 'string' || typeof r.babyId !== 'string' || typeof r.weightKg !== 'number' || typeof r.recordedAt !== 'number' || typeof r.deviceId !== 'string') return json({ error: 'invalid weight' }, 400)
     const owned = await env.DB.prepare('SELECT id FROM babies WHERE id=?1 AND household_id=?2').bind(r.babyId, householdId).first()
     if (owned === null) return json({ error: 'forbidden baby' }, 403)
-    const existing = await env.DB.prepare('SELECT id FROM weights WHERE id=?1 AND household_id=?2').bind(r.id, householdId).first()
+    const existing = await env.DB.prepare('SELECT id, household_id FROM weights WHERE id=?1').bind(r.id).first<{ id: string; household_id: string }>()
+    if (existing !== null && existing.household_id !== householdId) return json({ error: 'forbidden weight' }, 403)
     if (existing === null) {
       await env.DB.batch([
         env.DB.prepare(
@@ -459,7 +461,8 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
   if (typeof req.baby === 'object' && req.baby !== null) {
     const b = req.baby as Record<string, unknown>
     if (typeof b.id !== 'string' || typeof b.name !== 'string' || typeof b.zoneId !== 'string' || typeof b.createdAt !== 'number' || typeof b.updatedAt !== 'number') return json({ error: 'invalid baby' }, 400)
-    const existing = await env.DB.prepare('SELECT id FROM babies WHERE id=?1 AND household_id=?2').bind(b.id, householdId).first()
+    const existing = await env.DB.prepare('SELECT id, household_id FROM babies WHERE id=?1').bind(b.id).first<{ id: string; household_id: string }>()
+    if (existing !== null && existing.household_id !== householdId) return json({ error: 'forbidden baby' }, 403)
     if (existing === null) {
       await env.DB.prepare('INSERT INTO babies (id, household_id, name, birth_date, zone_id, birth_weight_kg, sex, gestational_weeks, created_at, updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)').bind(b.id, householdId, b.name, typeof b.birthDate === 'string' ? b.birthDate : null, b.zoneId, typeof b.birthWeightKg === 'number' ? b.birthWeightKg : null, typeof b.sex === 'string' ? b.sex : null, typeof b.gestationalWeeks === 'number' ? b.gestationalWeeks : null, b.createdAt, b.updatedAt).run()
     } else {
