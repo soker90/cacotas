@@ -138,7 +138,7 @@ describe('sincronización (issue #4)', () => {
     class HalfBackend extends FakeSyncBackend {
       override async sync (req: Parameters<FakeSyncBackend['sync']>[0]) {
         const res = await super.sync(req)
-        return { ...res, movements: [], hasMore: false }
+        return { ...res, movements: [], hasMore: {} }
       }
     }
     const half = new HalfBackend()
