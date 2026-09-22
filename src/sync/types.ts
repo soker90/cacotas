@@ -6,12 +6,14 @@ import type {
   WeightRecord,
 } from '../../shared/types.ts'
 
-/** Contract of SPEC.md §9.1. Implemented by HttpSyncBackend (phase 3)
- *  and FakeSyncBackend (tests). */
+/** Cursor is independent for every baby. */
+export type BabyCursors = Record<UUID, number>
+export type BabyHasMore = Record<UUID, boolean>
+
 export interface SyncRequest {
   deviceId: string;
-  /** Highest serverSeq known locally; 0 = everything. */
-  since: number;
+  /** Highest baby_seq known locally, keyed by baby id. */
+  cursors: BabyCursors;
   /** Movements pending upload (serverSeq === 0). */
   movements: Movement[];
   weights: WeightRecord[];
@@ -20,14 +22,16 @@ export interface SyncRequest {
 }
 
 export interface SyncResponse {
-  /** Max seq returned in THIS response (never the global max, D-16). */
-  cursor: number;
-  /** True if more rows remain to download. */
-  hasMore: boolean;
+  babies: Baby[];
+  /** Highest baby_seq returned for each baby in THIS response. */
+  cursors: BabyCursors;
+  /** True when another page remains for that baby. */
+  hasMore: BabyHasMore;
   movements: Movement[];
   weights: WeightRecord[];
   locations?: Location[];
+  /** Kept during the transition until multi-baby download is implemented. */
   baby?: Baby;
-  /** Ids the server confirms having — including ones it ignored as duplicates (D-17). */
+  /** Ids the server confirms having — including duplicates. */
   accepted: UUID[];
 }
