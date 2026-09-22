@@ -35,6 +35,12 @@ CREATE TABLE invites (
 CREATE INDEX idx_invites_email ON invites(email);
 CREATE INDEX idx_invites_household ON invites(household_id);
 
+CREATE TABLE invite_attempts (
+  ip TEXT NOT NULL,
+  attempted_at INTEGER NOT NULL
+);
+CREATE INDEX idx_invite_attempts_ip_time ON invite_attempts(ip, attempted_at);
+
 CREATE TABLE sessions (
   token_hash TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id),
