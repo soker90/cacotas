@@ -51,6 +51,11 @@ CREATE TABLE sessions (
 );
 CREATE UNIQUE INDEX idx_sessions_user_device ON sessions(user_id, device_id);
 
+CREATE TABLE baby_sequences (
+  baby_id TEXT PRIMARY KEY REFERENCES babies(id),
+  next_seq INTEGER NOT NULL
+);
+
 CREATE TABLE movements (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
   id TEXT NOT NULL UNIQUE,
