@@ -443,14 +443,28 @@ const handleInvite = async (request: Request, env: Env): Promise<Response> => {
   return json({status:'sent'})
 }
 
+const inviteIp = (request: Request): string => request.headers.get('CF-Connecting-IP') ?? 'unknown'
+
+const inviteRateLimited = async (request: Request, env: Env): Promise<boolean> => {
+  const ip = inviteIp(request)
+  const cutoff = Date.now() - 60 * 60 * 1000
+  const row = await env.DB.prepare('SELECT COUNT(*) AS count FROM invite_attempts WHERE ip=?1 AND attempted_at>?2').bind(ip,cutoff).first<{count:number}>()
+  return (row?.count ?? 0) >= 10
+}
+
+const recordInviteFailure = async (request: Request, env: Env): Promise<void> => {
+  await env.DB.prepare('INSERT INTO invite_attempts (ip,attempted_at) VALUES (?1,?2)').bind(inviteIp(request),Date.now()).run()
+}
+
 const handleAcceptInvite = async (request: Request, env: Env): Promise<Response> => {
   const auth=await authenticate(request,env); if(auth instanceof Response)return auth
   if(auth.user.household_id!==null)return json({error:'already in household'},409)
+  if(await inviteRateLimited(request,env)) return json({error:'invalid invitation'},400)
   let body:unknown; try{body=await request.json()}catch{return json({error:'invalid JSON'},400)}
   if(typeof body!=='object'||body===null)return json({error:'invalid payload'},400)
   const code=typeof (body as Record<string,unknown>).code==='string'?String((body as Record<string,unknown>).code):''
   const invite=await env.DB.prepare('SELECT code,household_id,email FROM invites WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?2').bind(code,Date.now()).first<{code:string,household_id:string,email:string}>()
-  if(!invite||invite.email!==normalizeEmail(auth.user.email??''))return json({error:'invalid invitation'},400)
+  if(!invite||invite.email!==normalizeEmail(auth.user.email??'')){await recordInviteFailure(request,env);return json({error:'invalid invitation'},400)}
   const count=await env.DB.prepare('SELECT COUNT(*) AS count FROM users WHERE household_id=?1').bind(invite.household_id).first<{count:number}>()
   if((count?.count??0)>=2)return json({error:'household full'},409)
   const result=await env.DB.prepare('UPDATE users SET household_id=?1 WHERE id=?2 AND household_id IS NULL').bind(invite.household_id,auth.user.id).run()
