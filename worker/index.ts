@@ -153,7 +153,7 @@ const verifyGoogleIdToken = async (token: string, clientId: string): Promise<Goo
   try {
     const keysResponse = await fetch('https://www.googleapis.com/oauth2/v3/certs')
     if (!keysResponse.ok) return null
-    const keys = await keysResponse.json() as { keys?: Array<JsonWebKey & { kid?: string }> }
+    const keys = JSON.parse(await keysResponse.text()) as { keys?: Array<JsonWebKey & { kid?: string }> }
     const key = keys.keys?.find((candidate) => candidate.kid === header.kid)
     if (!key) return null
     const cryptoKey = await crypto.subtle.importKey('jwk', key, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'])
