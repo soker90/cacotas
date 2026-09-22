@@ -398,10 +398,30 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
     if (owned === null) return json({ error: 'forbidden baby' }, 403)
     const existing = await env.DB.prepare('SELECT id FROM movements WHERE id=?1 AND household_id=?2').bind(m.id, householdId).first()
     if (existing === null) {
-      await env.DB.prepare(
-        `INSERT INTO movements (id, household_id, baby_id, baby_seq, size_id, type, usage_source, quantity, delta, undoes_movement_id, note, occurred_at, recorded_at, device_id, location_id)
-         VALUES (?1, ?2, ?3, (SELECT COALESCE(MAX(baby_seq),0)+1 FROM (SELECT baby_seq FROM movements WHERE baby_id=?3 UNION ALL SELECT baby_seq FROM weights WHERE baby_id=?3)), ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`
-      ).bind(m.id, householdId, m.babyId, m.sizeId, m.type, m.usageSource ?? null, m.quantity, m.delta, m.undoesMovementId ?? null, m.note ?? null, m.occurredAt, m.recordedAt, m.deviceId, m.locationId ?? null).run()
+      await env.DB.batch([
+        env.DB.prepare(
+          'INSERT INTO baby_sequences (baby_id, next_seq) VALUES (?1, 2) ON CONFLICT(baby_id) DO UPDATE SET next_seq = next_seq + 1',
+        ).bind(m.babyId),
+        env.DB.prepare(
+          `INSERT INTO movements (id, household_id, baby_id, baby_seq, size_id, type, usage_source, quantity, delta, undoes_movement_id, note, occurred_at, recorded_at, device_id, location_id)
+           VALUES (?1, ?2, ?3, (SELECT next_seq - 1 FROM baby_sequences WHERE baby_id=?3), ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`,
+        ).bind(
+          m.id,
+          householdId,
+          m.babyId,
+          m.sizeId,
+          m.type,
+          m.usageSource ?? null,
+          m.quantity,
+          m.delta,
+          m.undoesMovementId ?? null,
+          m.note ?? null,
+          m.occurredAt,
+          m.recordedAt,
+          m.deviceId,
+          m.locationId ?? null,
+        ),
+      ])
     }
     accepted.push(m.id)
   }
@@ -415,10 +435,23 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
     if (owned === null) return json({ error: 'forbidden baby' }, 403)
     const existing = await env.DB.prepare('SELECT id FROM weights WHERE id=?1 AND household_id=?2').bind(r.id, householdId).first()
     if (existing === null) {
-      await env.DB.prepare(
-        `INSERT INTO weights (id, household_id, baby_id, baby_seq, weight_kg, length_cm, recorded_at, device_id)
-         VALUES (?1, ?2, ?3, (SELECT COALESCE(MAX(baby_seq),0)+1 FROM (SELECT baby_seq FROM movements WHERE baby_id=?3 UNION ALL SELECT baby_seq FROM weights WHERE baby_id=?3)), ?4, ?5, ?6, ?7)`
-      ).bind(r.id, householdId, r.babyId, r.weightKg, typeof r.lengthCm === 'number' ? r.lengthCm : null, r.recordedAt, r.deviceId).run()
+      await env.DB.batch([
+        env.DB.prepare(
+          'INSERT INTO baby_sequences (baby_id, next_seq) VALUES (?1, 2) ON CONFLICT(baby_id) DO UPDATE SET next_seq = next_seq + 1',
+        ).bind(r.babyId),
+        env.DB.prepare(
+          `INSERT INTO weights (id, household_id, baby_id, baby_seq, weight_kg, length_cm, recorded_at, device_id)
+           VALUES (?1, ?2, ?3, (SELECT next_seq - 1 FROM baby_sequences WHERE baby_id=?3), ?4, ?5, ?6, ?7)`,
+        ).bind(
+          r.id,
+          householdId,
+          r.babyId,
+          r.weightKg,
+          typeof r.lengthCm === 'number' ? r.lengthCm : null,
+          r.recordedAt,
+          r.deviceId,
+        ),
+      ])
     }
     accepted.push(r.id)
   }
@@ -825,6 +858,7 @@ const deleteHouseholdData = (env: Env, householdId: string) => [
   env.DB.prepare(
     'DELETE FROM push_subscriptions WHERE user_id IN (SELECT id FROM users WHERE household_id=?1)',
   ).bind(householdId),
+  env.DB.prepare('DELETE FROM baby_sequences WHERE baby_id IN (SELECT id FROM babies WHERE household_id=?1)').bind(householdId),
   env.DB.prepare('DELETE FROM movements WHERE household_id=?1').bind(householdId),
   env.DB.prepare('DELETE FROM weights WHERE household_id=?1').bind(householdId),
   env.DB.prepare('DELETE FROM locations WHERE household_id=?1').bind(householdId),
