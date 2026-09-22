@@ -29,6 +29,16 @@ export const getActiveLocationId = (fallback: UUID): UUID => {
   return stored ?? fallback
 }
 
+export const resolveActiveLocationId = (
+  storedLocationId: UUID,
+  fallbackLocationId: UUID,
+  locations: Location[]
+): UUID => {
+  if (locations.some((location) => location.id === storedLocationId)) return storedLocationId
+  if (locations.some((location) => location.id === fallbackLocationId)) return fallbackLocationId
+  return locations[0]?.id ?? fallbackLocationId
+}
+
 export const setActiveLocationId = (locationId: UUID): void => {
   localStorage.setItem(ACTIVE_LOCATION_KEY, locationId)
 }
