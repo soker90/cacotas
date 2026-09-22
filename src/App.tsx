@@ -26,6 +26,7 @@ import { startSyncLoop } from './sync/scheduler.ts'
 import { getDeviceId } from './sync/device-id.ts'
 import { getSessionToken } from './auth/session.ts'
 import { Login } from './pages/Login/index.tsx'
+import { HouseholdEntry } from './pages/HouseholdEntry/index.tsx'
 
 void seedSizes(db)
 
@@ -96,9 +97,11 @@ const SyncLoop = () => {
 
 /** Startup flow of §9.7 when there is no local Baby. */
 const FirstLaunch = () => {
+  const [entry, setEntry] = useState(true)
   const [decision, setDecision] = useState<StartupDecision | null>(null)
 
   useEffect(() => {
+    if (entry) return
     let cancelled = false
     void resolveStartup(null, backend, getDeviceId()).then((d) => {
       if (!cancelled) setDecision(d)
@@ -106,7 +109,9 @@ const FirstLaunch = () => {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [entry])
+
+  if (entry) return <HouseholdEntry onDone={() => { setEntry(false) }} />
 
   // Adoption path: a remote baby was found, persist it and go straight to
   // Home, skipping the onboarding entirely. Unreachable while backend is
