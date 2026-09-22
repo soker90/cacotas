@@ -8,7 +8,7 @@ import { useCurrentSize, useStockBySize } from '../../hooks'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
-import { defaultLocationId, getActiveLocationId } from '../../lib/locations.ts'
+import { defaultLocationId, getActiveLocationId, resolveActiveLocationId } from '../../lib/locations.ts'
 import { transferStock } from '../../lib/transfers.ts'
 
 const quickAdjust = async (babyId: string, sizeId: number, delta: number, locationId?: string): Promise<void> => {
@@ -24,7 +24,10 @@ const quickAdjust = async (babyId: string, sizeId: number, delta: number, locati
 export const Inventory = ({ baby }: { baby: Baby }) => {
   const sizes = useLiveQuery(() => db.sizes.toArray())
   const locations = useLiveQuery(() => db.locations.toArray())
-  const locationId = getActiveLocationId(defaultLocationId(baby.id))
+  const storedLocationId = getActiveLocationId(defaultLocationId(baby.id))
+  const locationId = locations === undefined
+    ? storedLocationId
+    : resolveActiveLocationId(storedLocationId, defaultLocationId(baby.id), locations)
   const stocks = useStockBySize(baby.id, locationId)
   const currentSizeId = useCurrentSize(baby.id)
   const activeLocation = locations?.find((location) => location.id === locationId)
