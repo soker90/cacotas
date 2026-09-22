@@ -68,6 +68,10 @@ interface BabyRow {
 const PAGE_SIZE = 500
 const DEBOUNCE_MS = 60_000
 
+/** Location used by the physical button when it does not send one explicitly. */
+export const resolveMovementLocationId = (babyId: string, locationId?: string): string =>
+  locationId ?? `default:${babyId}`
+
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), {
     status,
@@ -397,7 +401,7 @@ const handleSync = async (
   })
 }
 
-const handleSingleMovement = async (
+export const handleSingleMovement = async (
   request: Request,
   env: Env
 ): Promise<Response> => {
@@ -413,6 +417,9 @@ const handleSingleMovement = async (
   if (r.type !== 'USAGE') { return json({ error: 'only USAGE supported' }, 400) }
   if (r.usageSource !== 'OWN_STOCK' && r.usageSource !== 'EXTERNAL') { return json({ error: 'usageSource required' }, 400) }
   if (typeof r.deviceId !== 'string' || r.deviceId === '') { return json({ error: 'deviceId required' }, 400) }
+  if (r.locationId !== undefined && (typeof r.locationId !== 'string' || r.locationId === '')) {
+    return json({ error: 'invalid locationId' }, 400)
+  }
 
   const now = Date.now()
 
@@ -440,11 +447,16 @@ const handleSingleMovement = async (
   }>()
   if (!babyRow) return json({ error: 'no baby configured yet' }, 400)
 
+  const locationId = resolveMovementLocationId(babyRow.id, r.locationId as string | undefined)
+  const location = await env.DB.prepare('SELECT id FROM locations WHERE id = ?1').bind(locationId).first<{ id: string }>()
+  if (!location) return json({ error: 'location not found' }, 400)
+
   const movement = createMovement(
     {
       id: crypto.randomUUID(),
       babyId: babyRow.id,
       sizeId: sizeRow.size_id,
+      locationId,
       deviceId: r.deviceId,
       occurredAt: now,
       recordedAt: now,
@@ -455,8 +467,8 @@ const handleSingleMovement = async (
   await env.DB.prepare(
     `INSERT INTO movements
        (id, baby_id, size_id, type, usage_source, quantity, delta,
-        occurred_at, recorded_at, device_id)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`
+        occurred_at, recorded_at, device_id, location_id)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`
   )
     .bind(
       movement.id,
@@ -468,7 +480,8 @@ const handleSingleMovement = async (
       movement.delta,
       movement.occurredAt,
       movement.recordedAt,
-      movement.deviceId
+      movement.deviceId,
+      movement.locationId ?? null
     )
     .run()
 
