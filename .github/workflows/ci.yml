@@ -42,7 +42,7 @@ jobs:
         run: pnpm build
         env:
           VITE_SYNC_URL: ${{ secrets.VITE_SYNC_URL }}
-          VITE_SYNC_SECRET: ${{ secrets.VITE_SYNC_SECRET }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
 
@@ -61,7 +61,7 @@ jobs:
             --auth "$NETLIFY_AUTH_TOKEN"
         env:
           VITE_SYNC_URL: ${{ secrets.VITE_SYNC_URL }}
-          VITE_SYNC_SECRET: ${{ secrets.VITE_SYNC_SECRET }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
