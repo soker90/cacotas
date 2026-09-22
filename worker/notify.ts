@@ -16,6 +16,8 @@ import type { Env } from './index.ts'
 
 interface MovementRow {
   seq: number
+  baby_seq: number
+  household_id: string
   id: string
   baby_id: string
   size_id: number
@@ -47,7 +49,7 @@ const rowToMovement = (row: MovementRow): Movement => ({
   occurredAt: row.occurred_at,
   recordedAt: row.recorded_at,
   deviceId: row.device_id,
-  serverSeq: row.seq,
+  serverSeq: row.baby_seq,
 })
 
 export interface NotifyResult {
@@ -99,12 +101,12 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
   const all = (movementRows.results ?? []).map(rowToMovement)
 
   const babyRow = await env.DB.prepare(
-    'SELECT * FROM babies LIMIT 1'
-  ).first<{ id: string; name: string }>()
+    'SELECT * FROM babies ORDER BY created_at,id LIMIT 1'
+  ).first<{ id: string; name: string; household_id: string }>()
 
-  const subscriptions = await env.DB.prepare(
-    'SELECT endpoint, keys_json FROM push_subscriptions'
-  ).all<{ endpoint: string; keys_json: string }>()
+  const subscriptions = babyRow === null ? { results: [] } : await env.DB.prepare(
+    'SELECT ps.endpoint, ps.keys_json FROM push_subscriptions ps JOIN users u ON u.id=ps.user_id WHERE u.household_id=?1'
+  ).bind(babyRow.household_id).all<{ endpoint: string; keys_json: string }>()
 
   const vapid = {
     privateKeyB64url: env.VAPID_PRIVATE_KEY,
@@ -271,14 +273,15 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
 
     await env.DB.prepare(
       `INSERT INTO notification_log
-         (baby_id, size_id, kind, state_hash, sent_at, snoozed_until)
-       VALUES (?1, ?2, ?3, ?4, ?5, NULL)
+         (household_id, baby_id, size_id, kind, state_hash, sent_at, snoozed_until)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL)
        ON CONFLICT(baby_id, size_id, kind) DO UPDATE SET
          state_hash = excluded.state_hash,
          sent_at = excluded.sent_at,
          snoozed_until = NULL`
     )
       .bind(
+        babyRow.household_id,
         babyRow.id,
         candidate.sizeId,
         candidate.kind,
