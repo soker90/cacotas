@@ -244,15 +244,6 @@ const rowToMovement = (row: MovementRow) => ({
   serverSeq: row.baby_seq,
 })
 
-const rowToLocation = (row: LocationRow): Location => ({
-  id: row.id,
-  name: row.name,
-  reorderPoint: row.reorder_point,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-  deviceId: row.device_id,
-})
-
 const rowToWeight = (row: WeightRow) => ({
   id: row.id,
   babyId: row.baby_id,
