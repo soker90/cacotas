@@ -24,6 +24,8 @@ import { UpdatePrompt } from './pwa/UpdatePrompt.tsx'
 import { HttpSyncBackend } from './sync/http-backend.ts'
 import { startSyncLoop } from './sync/scheduler.ts'
 import { getDeviceId } from './sync/device-id.ts'
+import { getSessionToken } from './auth/session.ts'
+import { Login } from './pages/Login/index.tsx'
 
 void seedSizes(db)
 
@@ -31,13 +33,12 @@ void seedSizes(db)
  *  and the startup flow can adopt a remote baby; without it everything
  *  stays local (first device). */
 const SYNC_URL = import.meta.env.VITE_SYNC_URL
-const SYNC_SECRET = import.meta.env.VITE_SYNC_SECRET
+const sessionToken = getSessionToken()
 const backend =
   typeof SYNC_URL === 'string' &&
   SYNC_URL !== '' &&
-  typeof SYNC_SECRET === 'string' &&
-  SYNC_SECRET !== ''
-    ? new HttpSyncBackend(SYNC_URL, SYNC_SECRET)
+  sessionToken !== null
+    ? new HttpSyncBackend(SYNC_URL, sessionToken)
     : null
 
 export const App = () => (
@@ -50,6 +51,11 @@ export const App = () => (
 const AppRoutes = () => {
   // undefined = still loading; null = no baby yet (§9.7)
   const localBaby = useBaby()
+  const [, rerender] = useState(0)
+
+  if (sessionToken === null) {
+    return <Login onLogin={() => { rerender((value) => value + 1) }} />
+  }
 
   if (localBaby === undefined) {
     return <main className='loading'>…</main>
