@@ -467,9 +467,15 @@ const handleAcceptInvite = async (request: Request, env: Env): Promise<Response>
   if(!invite||invite.email!==normalizeEmail(auth.user.email??'')){await recordInviteFailure(request,env);return json({error:'invalid invitation'},400)}
   const count=await env.DB.prepare('SELECT COUNT(*) AS count FROM users WHERE household_id=?1').bind(invite.household_id).first<{count:number}>()
   if((count?.count??0)>=2)return json({error:'household full'},409)
-  const result=await env.DB.prepare('UPDATE users SET household_id=?1 WHERE id=?2 AND household_id IS NULL').bind(invite.household_id,auth.user.id).run()
-  if(result.meta.changes!==1)return json({error:'already in household'},409)
-  await env.DB.prepare('UPDATE invites SET redeemed_at=?2,redeemed_by=?3 WHERE code=?1').bind(code,Date.now(),auth.user.id).run()
+  try {
+    const result = await env.DB.batch([
+      env.DB.prepare('UPDATE users SET household_id=?1 WHERE id=?2 AND household_id IS NULL').bind(invite.household_id,auth.user.id),
+      env.DB.prepare('UPDATE invites SET redeemed_at=?2,redeemed_by=?3 WHERE code=?1 AND redeemed_at IS NULL').bind(code,Date.now(),auth.user.id),
+    ])
+    if (result[0].meta.changes !== 1 || result[1].meta.changes !== 1) return json({ error: 'invalid invitation' }, 400)
+  } catch {
+    return json({ error: 'household full' }, 409)
+  }
   return json({householdId:invite.household_id})
 }
 
