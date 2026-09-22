@@ -942,7 +942,11 @@ export const handleSingleMovement = async (
     return json({ status: 'debounced' }, 200)
   }
 
-  const babyRow = await env.DB.prepare('SELECT id FROM babies WHERE household_id=?1 ORDER BY created_at,id LIMIT 1').bind(householdId).first<{id:string}>()
+  const babyRow = await env.DB.prepare(
+    'SELECT id FROM babies WHERE household_id=?1 ORDER BY created_at,id LIMIT 1',
+  )
+    .bind(householdId)
+    .first<{ id: string }>()
   if (!babyRow) return json({ error: 'no baby configured yet' }, 400)
 
   const sizeRow = await env.DB.prepare(
