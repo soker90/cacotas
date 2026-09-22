@@ -594,6 +594,9 @@ const handlePushSubscribe = async (
   request: Request,
   env: Env
 ): Promise<Response> => {
+  const auth = await authenticate(request, env)
+  if (auth instanceof Response) return auth
+  if (auth.user.household_id === null) return json({ error: 'household required' }, 409)
   let body: unknown
   try {
     body = await request.json()
@@ -613,13 +616,14 @@ const handlePushSubscribe = async (
   }
 
   await env.DB.prepare(
-    `INSERT INTO push_subscriptions (device_id, endpoint, keys_json)
-     VALUES (?1, ?2, ?3)
+    `INSERT INTO push_subscriptions (device_id, user_id, endpoint, keys_json)
+     VALUES (?1, ?2, ?3, ?4)
      ON CONFLICT(device_id) DO UPDATE SET
+       user_id = excluded.user_id,
        endpoint = excluded.endpoint,
        keys_json = excluded.keys_json`
   )
-    .bind(r.deviceId, r.endpoint, JSON.stringify(keys))
+    .bind(r.deviceId, auth.user.id, r.endpoint, JSON.stringify(keys))
     .run()
   return json({ status: 'subscribed' })
 }
@@ -628,6 +632,10 @@ const handleSnooze = async (
   request: Request,
   env: Env
 ): Promise<Response> => {
+  const auth = await authenticate(request, env)
+  if (auth instanceof Response) return auth
+  const householdId = requireHousehold(auth)
+  if (householdId instanceof Response) return householdId
   let body: unknown
   try {
     body = await request.json()
@@ -647,9 +655,9 @@ const handleSnooze = async (
 
   await env.DB.prepare(
     `UPDATE notification_log SET snoozed_until = ?4
-     WHERE baby_id = ?1 AND size_id = ?2 AND kind = ?3`
+     WHERE baby_id = ?1 AND size_id = ?2 AND kind = ?3 AND household_id = ?5`
   )
-    .bind(r.babyId, r.sizeId, r.kind, r.snoozedUntil)
+    .bind(r.babyId, r.sizeId, r.kind, r.snoozedUntil, householdId)
     .run()
   return json({ status: 'snoozed' })
 }
