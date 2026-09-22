@@ -122,3 +122,15 @@ CREATE TABLE notification_log (
   snoozed_until INTEGER,
   PRIMARY KEY (baby_id, size_id, kind)
 );
+
+
+CREATE INDEX idx_babies_household ON babies(household_id);
+
+CREATE TRIGGER enforce_household_two_users_insert
+BEFORE UPDATE OF household_id ON users
+WHEN NEW.household_id IS NOT NULL
+  AND (SELECT COUNT(*) FROM users WHERE household_id = NEW.household_id) >= 2
+  AND OLD.household_id IS NOT NEW.household_id
+BEGIN
+  SELECT RAISE(ABORT, 'household full');
+END;
