@@ -131,9 +131,9 @@ interface GoogleToken {
   name?: string
 }
 
-const decodeBase64Url = (value: string): Uint8Array => {
+const decodeBase64Url = (value: string): ArrayBuffer => {
   const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4)
-  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0))
+  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0)).buffer
 }
 
 const verifyGoogleIdToken = async (token: string, clientId: string): Promise<GoogleToken | null> => {
@@ -142,8 +142,8 @@ const verifyGoogleIdToken = async (token: string, clientId: string): Promise<Goo
   let header: { alg?: string; kid?: string }
   let payload: GoogleToken
   try {
-    header = JSON.parse(new TextDecoder().decode(decodeBase64Url(parts[0]))) as { alg?: string; kid?: string }
-    payload = JSON.parse(new TextDecoder().decode(decodeBase64Url(parts[1]))) as GoogleToken
+    header = JSON.parse(new TextDecoder().decode(new Uint8Array(decodeBase64Url(parts[0])))) as { alg?: string; kid?: string }
+    payload = JSON.parse(new TextDecoder().decode(new Uint8Array(decodeBase64Url(parts[1])))) as GoogleToken
   } catch {
     return null
   }
