@@ -121,6 +121,49 @@ const authenticate = async (request: Request, env: Env): Promise<AuthenticatedRe
   return { user: row, tokenHash }
 }
 
+interface GoogleToken {
+  iss: string
+  aud: string
+  sub: string
+  exp: number
+  email?: string
+  email_verified?: string | boolean
+  name?: string
+}
+
+const decodeBase64Url = (value: string): Uint8Array => {
+  const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4)
+  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0))
+}
+
+const verifyGoogleIdToken = async (token: string, clientId: string): Promise<GoogleToken | null> => {
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  let header: { alg?: string; kid?: string }
+  let payload: GoogleToken
+  try {
+    header = JSON.parse(new TextDecoder().decode(decodeBase64Url(parts[0]))) as { alg?: string; kid?: string }
+    payload = JSON.parse(new TextDecoder().decode(decodeBase64Url(parts[1]))) as GoogleToken
+  } catch {
+    return null
+  }
+  if (header.alg !== 'RS256' || typeof header.kid !== 'string' || payload.aud !== clientId ||
+      (payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') ||
+      !Number.isInteger(payload.exp) || payload.exp <= Math.floor(Date.now() / 1000) || payload.sub === '') return null
+  try {
+    const keysResponse = await fetch('https://www.googleapis.com/oauth2/v3/certs')
+    if (!keysResponse.ok) return null
+    const keys = await keysResponse.json() as { keys?: JsonWebKey[] }
+    const key = keys.keys?.find((candidate) => candidate.kid === header.kid)
+    if (!key) return null
+    const cryptoKey = await crypto.subtle.importKey('jwk', key, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'])
+    const signingInput = new TextEncoder().encode(`${parts[0]}.${parts[1]}`)
+    return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', cryptoKey, decodeBase64Url(parts[2]), signingInput) ? payload : null
+  } catch {
+    return null
+  }
+}
+
 const handleGoogleAuth = async (request: Request, env: Env): Promise<Response> => {
   if (env.GOOGLE_CLIENT_ID === '') return json({ error: 'google auth not configured' }, 503)
   let body: unknown
@@ -143,7 +186,7 @@ const handleGoogleAuth = async (request: Request, env: Env): Promise<Response> =
   const user = existing ?? {
     id: crypto.randomUUID(),
     household_id: null,
-    email: typeof google.email === 'string' ? google.email : null,
+    email: typeof google.email === 'string' ? normalizeEmail(google.email) : null,
     display_name: typeof google.name === 'string' ? google.name : null,
   }
   if (existing === null) {
