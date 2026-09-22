@@ -34,8 +34,8 @@ describe('location-scoped inventory persistence', () => {
   it('keeps onboarding stock and own usage in the same location ledger', async () => {
     await db.movements.bulkAdd([
       movement({ type: 'INITIAL', quantity: 84 }),
-      movement(db, { type: 'USAGE', usageSource: 'OWN_STOCK', quantity: 3 }),
-      movement(db, { type: 'PURCHASE', quantity: 30 }),
+      movement({ type: 'USAGE', usageSource: 'OWN_STOCK', quantity: 3 }),
+      movement({ type: 'PURCHASE', quantity: 30 }),
     ])
 
     const stock = await stockBySize(db, 'baby', 'home')
@@ -44,9 +44,9 @@ describe('location-scoped inventory persistence', () => {
 
   it('does not mix stock from another location', async () => {
     await db.movements.bulkAdd([
-      movement(db, { type: 'INITIAL', quantity: 84 }, 'home'),
-      movement(db, { type: 'PURCHASE', quantity: 20 }, 'grandparents'),
-      movement(db, { type: 'USAGE', usageSource: 'OWN_STOCK', quantity: 3 }, 'home'),
+      movement({ type: 'INITIAL', quantity: 84 }, 'home'),
+      movement({ type: 'PURCHASE', quantity: 20 }, 'grandparents'),
+      movement({ type: 'USAGE', usageSource: 'OWN_STOCK', quantity: 3 }, 'home'),
     ])
 
     expect((await stockBySize(db, 'baby', 'home')).get(2)).toBe(81)
