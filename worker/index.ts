@@ -1,6 +1,6 @@
 import { createMovement } from '../shared/factory.ts'
 import { madridNow, runNotifications } from './notify.ts'
-import type { Location, MovementType } from '../shared/types.ts'
+import type { MovementType } from '../shared/types.ts'
 
 /**
  * Cacotas sync worker (SPEC.md §9). Append-only ledger on D1 (D-02):
@@ -104,7 +104,7 @@ const sha256 = async (value: string): Promise<string> => {
 const randomToken = (): string => {
   const bytes = new Uint8Array(32)
   crypto.getRandomValues(bytes)
-  return btoa(String.fromCharCode(...bytes)).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '')
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 const authenticate = async (request: Request, env: Env): Promise<AuthenticatedRequest | Response> => {
@@ -132,7 +132,7 @@ const handleGoogleAuth = async (request: Request, env: Env): Promise<Response> =
   try {
     const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(r.idToken)}`)
     if (!response.ok) return json({ error: 'invalid google token' }, 401)
-    google = await response.json() as Record<string, unknown>
+    google = await response.json()
   } catch { return json({ error: 'google unavailable' }, 503) }
   if (google.aud !== env.GOOGLE_CLIENT_ID || google.iss !== 'https://accounts.google.com' || google.email_verified !== 'true' || typeof google.sub !== 'string') {
     return json({ error: 'invalid google token' }, 401)
