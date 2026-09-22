@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiRequest } from '../../auth/api.ts'
+import { clearSessionToken } from '../../auth/session.ts'
 
 interface Invite {
   code: string
@@ -73,6 +74,7 @@ export const HouseholdEntry = ({ onDone }: { onDone: () => void }) => {
           </>
           )}
       {error && <p role='alert' className='error'>{error}</p>}
+      <button type='button' onClick={() => { clearSessionToken(); window.location.reload() }}>Desloguearme</button>
     </main>
   )
 }
