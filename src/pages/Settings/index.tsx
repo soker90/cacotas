@@ -20,6 +20,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db/index.ts'
 import { createLocation } from '../../lib/locations.ts'
 import { apiRequest } from '../../auth/api.ts'
+import { clearSessionToken } from '../../auth/session.ts'
 
 export const Settings = () => {
   const [stayMode, setStayModeState] = useState(() => isStayMode())
@@ -284,6 +285,7 @@ export const Settings = () => {
                   return
                 }
                 await apiRequest('/household/leave', { method: 'POST' })
+                clearSessionToken()
                 await db.transaction(
                   'rw',
                   db.babies,
@@ -316,6 +318,7 @@ export const Settings = () => {
             }
             void apiRequest('/account/delete', { method: 'POST' })
               .then(async () => {
+                clearSessionToken()
                 await db.transaction(
                   'rw',
                   db.babies,
