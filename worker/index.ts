@@ -10,7 +10,7 @@ import type { Location, MovementType } from '../shared/types.ts'
 
 export interface Env {
   DB: D1Database
-  AUTH_SECRET: string
+  GOOGLE_CLIENT_ID: string
   VAPID_PRIVATE_KEY: string
   VAPID_PUBLIC_KEY: string
   VAPID_SUBJECT: string
@@ -19,6 +19,7 @@ export interface Env {
 
 interface MovementRow {
   seq: number
+  baby_seq: number
   id: string
   baby_id: string
   size_id: number
@@ -45,6 +46,7 @@ interface LocationRow {
 
 interface WeightRow {
   seq: number
+  baby_seq: number
   id: string
   baby_id: string
   weight_kg: number
@@ -78,8 +80,83 @@ const json = (body: unknown, status = 200): Response =>
     headers: { 'content-type': 'application/json' },
   })
 
-const authorized = (request: Request, env: Env): boolean =>
-  request.headers.get('X-Auth') === env.AUTH_SECRET && env.AUTH_SECRET !== ''
+interface UserRow {
+  id: string
+  household_id: string | null
+  email: string | null
+  display_name: string | null
+}
+
+interface AuthenticatedRequest {
+  user: UserRow
+  tokenHash: string
+}
+
+const sha256 = async (value: string): Promise<string> => {
+  const bytes = new TextEncoder().encode(value)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+const randomToken = (): string => {
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  return btoa(String.fromCharCode(...bytes)).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '')
+}
+
+const authenticate = async (request: Request, env: Env): Promise<AuthenticatedRequest | Response> => {
+  const header = request.headers.get('Authorization')
+  if (header === null || !header.startsWith('Bearer ')) return json({ error: 'unauthorized' }, 401)
+  const tokenHash = await sha256(header.slice(7))
+  const row = await env.DB.prepare(
+    `SELECT u.id, u.household_id, u.email, u.display_name
+     FROM sessions s JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash = ?1 AND s.revoked_at IS NULL AND s.last_seen > ?2`
+  ).bind(tokenHash, Date.now() - 90 * 24 * 60 * 60 * 1000).first<UserRow>()
+  if (row === null) return json({ error: 'unauthorized' }, 401)
+  await env.DB.prepare('UPDATE sessions SET last_seen = ?2 WHERE token_hash = ?1').bind(tokenHash, Date.now()).run()
+  return { user: row, tokenHash }
+}
+
+const handleGoogleAuth = async (request: Request, env: Env): Promise<Response> => {
+  if (env.GOOGLE_CLIENT_ID === '') return json({ error: 'google auth not configured' }, 503)
+  let body: unknown
+  try { body = await request.json() } catch { return json({ error: 'invalid JSON' }, 400) }
+  if (typeof body !== 'object' || body === null) return json({ error: 'invalid payload' }, 400)
+  const r = body as Record<string, unknown>
+  if (typeof r.idToken !== 'string' || r.idToken === '') return json({ error: 'idToken required' }, 400)
+  let google: Record<string, unknown>
+  try {
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(r.idToken)}`)
+    if (!response.ok) return json({ error: 'invalid google token' }, 401)
+    google = await response.json() as Record<string, unknown>
+  } catch { return json({ error: 'google unavailable' }, 503) }
+  if (google.aud !== env.GOOGLE_CLIENT_ID || google.iss !== 'https://accounts.google.com' || google.email_verified !== 'true' || typeof google.sub !== 'string') {
+    return json({ error: 'invalid google token' }, 401)
+  }
+  const existing = await env.DB.prepare(
+    'SELECT id, household_id, email, display_name FROM users WHERE provider = ?1 AND provider_sub = ?2'
+  ).bind('google', google.sub).first<UserRow>()
+  const user = existing ?? {
+    id: crypto.randomUUID(),
+    household_id: null,
+    email: typeof google.email === 'string' ? google.email : null,
+    display_name: typeof google.name === 'string' ? google.name : null,
+  }
+  if (existing === null) {
+    await env.DB.prepare(
+      'INSERT INTO users (id, household_id, provider, provider_sub, email, display_name, created_at) VALUES (?1, NULL, ?2, ?3, ?4, ?5, ?6)'
+    ).bind(user.id, 'google', google.sub, user.email, user.display_name, Date.now()).run()
+  }
+  const rawToken = randomToken()
+  await env.DB.prepare(
+    'INSERT INTO sessions (token_hash, user_id, device_id, created_at, last_seen) VALUES (?1, ?2, ?3, ?4, ?4)'
+  ).bind(await sha256(rawToken), user.id, typeof r.deviceId === 'string' && r.deviceId !== '' ? r.deviceId : 'web', Date.now()).run()
+  return json({ token: rawToken, user })
+}
+
+const requireHousehold = (auth: AuthenticatedRequest): string | Response =>
+  auth.user.household_id ?? json({ error: 'household required' }, 409)
 
 /** Wire-shape validation of §4.3 that does not need the UNDO original:
  *  an UNDO may legitimately arrive before the movement it undoes. */
@@ -164,7 +241,7 @@ const rowToMovement = (row: MovementRow) => ({
   recordedAt: row.recorded_at,
   deviceId: row.device_id,
   ...(row.location_id !== null ? { locationId: row.location_id } : {}),
-  serverSeq: row.seq,
+  serverSeq: row.baby_seq,
 })
 
 const rowToLocation = (row: LocationRow): Location => ({
@@ -183,7 +260,7 @@ const rowToWeight = (row: WeightRow) => ({
   ...(row.length_cm !== null ? { lengthCm: row.length_cm } : {}),
   recordedAt: row.recorded_at,
   deviceId: row.device_id,
-  serverSeq: row.seq,
+  serverSeq: row.baby_seq,
 })
 
 const rowToBaby = (row: BabyRow) => ({
@@ -202,203 +279,105 @@ const rowToBaby = (row: BabyRow) => ({
   updatedAt: row.updated_at,
 })
 
-const handleSync = async (
-  request: Request,
-  env: Env
-): Promise<Response> => {
+const handleSync = async (request: Request, env: Env): Promise<Response> => {
+  const auth = await authenticate(request, env)
+  if (auth instanceof Response) return auth
+  const householdId = requireHousehold(auth)
+  if (householdId instanceof Response) return householdId
   let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return json({ error: 'invalid JSON' }, 400)
-  }
-  if (typeof body !== 'object' || body === null) { return json({ error: 'invalid payload' }, 400) }
-
+  try { body = await request.json() } catch { return json({ error: 'invalid JSON' }, 400) }
+  if (typeof body !== 'object' || body === null) return json({ error: 'invalid payload' }, 400)
   const req = body as Record<string, unknown>
-  if (typeof req.deviceId !== 'string' || req.deviceId === '') { return json({ error: 'deviceId required' }, 400) }
-  if (typeof req.since !== 'number' || !Number.isInteger(req.since) || req.since < 0) { return json({ error: 'since must be a non-negative integer' }, 400) }
+  if (typeof req.deviceId !== 'string' || req.deviceId === '') return json({ error: 'deviceId required' }, 400)
+  const rawCursors = req.cursors
+  if (typeof rawCursors !== 'object' || rawCursors === null) return json({ error: 'cursors required' }, 400)
+  const cursors: Record<string, number> = {}
+  for (const [babyId, value] of Object.entries(rawCursors)) {
+    if (!Number.isInteger(value) || (value as number) < 0) return json({ error: 'invalid cursor' }, 400)
+    cursors[babyId] = value as number
+  }
 
-  const incomingMovements = Array.isArray(req.movements) ? req.movements : []
-  const incomingWeights = Array.isArray(req.weights) ? req.weights : []
   const incomingLocations = Array.isArray(req.locations) ? req.locations : []
-
   for (const location of incomingLocations) {
     if (typeof location !== 'object' || location === null) return json({ error: 'invalid location' }, 400)
     const r = location as Record<string, unknown>
     if (typeof r.id !== 'string' || typeof r.name !== 'string' || r.name.trim() === '' ||
-        typeof r.reorderPoint !== 'number' || !Number.isInteger(r.reorderPoint) || r.reorderPoint < 0 ||
+        typeof r.reorderPoint !== 'number' || !Number.isInteger(r.reorderPoint) ||
         typeof r.createdAt !== 'number' || typeof r.updatedAt !== 'number' || typeof r.deviceId !== 'string') {
       return json({ error: 'invalid location' }, 400)
     }
-    await env.DB.prepare(
-      `INSERT INTO locations (id, name, reorder_point, created_at, updated_at, device_id)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-       ON CONFLICT(id) DO UPDATE SET
-         name = excluded.name, reorder_point = excluded.reorder_point,
-         updated_at = excluded.updated_at, device_id = excluded.device_id
-       WHERE excluded.updated_at > locations.updated_at`
-    ).bind(r.id, r.name.trim(), r.reorderPoint, r.createdAt, r.updatedAt, r.deviceId).run()
+    const owned = await env.DB.prepare('SELECT id FROM locations WHERE id = ?1 AND household_id = ?2').bind(r.id, householdId).first()
+    if (owned === null) {
+      await env.DB.prepare(
+        'INSERT INTO locations (id, household_id, name, reorder_point, created_at, updated_at, device_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT(id) DO UPDATE SET name=excluded.name, reorder_point=excluded.reorder_point, updated_at=excluded.updated_at, device_id=excluded.device_id WHERE locations.household_id=excluded.household_id AND excluded.updated_at > locations.updated_at'
+      ).bind(r.id, householdId, r.name.trim(), r.reorderPoint, r.createdAt, r.updatedAt, r.deviceId).run()
+    } else {
+      await env.DB.prepare('UPDATE locations SET name=?2, reorder_point=?3, updated_at=?4, device_id=?5 WHERE id=?1 AND household_id=?6 AND updated_at < ?4').bind(r.id, r.name.trim(), r.reorderPoint, r.updatedAt, r.deviceId, householdId).run()
+    }
   }
 
-  // ── Upload ────────────────────────────────────────────
-  const validMovements: WireMovement[] = []
-  for (const m of incomingMovements) {
-    // Server-side revalidation with the shared rules; malformed payloads
-    // are rejected whole rather than partially applied.
-    if (!isValidWireMovement(m)) return json({ error: 'invalid movement' }, 400)
-    validMovements.push(m)
-  }
-
+  const incomingMovements = Array.isArray(req.movements) ? req.movements : []
   const accepted: string[] = []
-  if (validMovements.length > 0) {
-    const statements = validMovements.map((m) =>
-      env.DB.prepare(
-        `INSERT INTO movements
-           (id, baby_id, size_id, type, usage_source, quantity, delta,
-            undoes_movement_id, note, occurred_at, recorded_at, device_id, location_id)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
-         ON CONFLICT(id) DO NOTHING`
-      )
-        .bind(
-          m.id,
-          m.babyId,
-          m.sizeId,
-          m.type,
-          m.usageSource ?? null,
-          m.quantity,
-          m.delta,
-          m.undoesMovementId ?? null,
-          m.note ?? null,
-          m.occurredAt,
-          m.recordedAt,
-          m.deviceId,
-          m.locationId ?? null
-        )
-    )
-    await env.DB.batch(statements)
+  for (const m of incomingMovements) {
+    if (!isValidWireMovement(m)) return json({ error: 'invalid movement' }, 400)
+    const owned = await env.DB.prepare('SELECT id FROM babies WHERE id=?1 AND household_id=?2').bind(m.babyId, householdId).first()
+    if (owned === null) return json({ error: 'forbidden baby' }, 403)
+    const existing = await env.DB.prepare('SELECT id FROM movements WHERE id=?1 AND household_id=?2').bind(m.id, householdId).first()
+    if (existing === null) {
+      await env.DB.prepare(
+        `INSERT INTO movements (id, household_id, baby_id, baby_seq, size_id, type, usage_source, quantity, delta, undoes_movement_id, note, occurred_at, recorded_at, device_id, location_id)
+         VALUES (?1, ?2, ?3, (SELECT COALESCE(MAX(baby_seq),0)+1 FROM (SELECT baby_seq FROM movements WHERE baby_id=?3 UNION ALL SELECT baby_seq FROM weights WHERE baby_id=?3)), ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`
+      ).bind(m.id, householdId, m.babyId, m.sizeId, m.type, m.usageSource ?? null, m.quantity, m.delta, m.undoesMovementId ?? null, m.note ?? null, m.occurredAt, m.recordedAt, m.deviceId, m.locationId ?? null).run()
+    }
+    accepted.push(m.id)
   }
-  for (const m of validMovements) accepted.push(m.id)
 
+  const incomingWeights = Array.isArray(req.weights) ? req.weights : []
   for (const w of incomingWeights) {
-    if (
-      typeof w !== 'object' ||
-      w === null ||
-      typeof (w as Record<string, unknown>).id !== 'string' ||
-      typeof (w as Record<string, unknown>).weightKg !== 'number'
-    ) {
-      return json({ error: 'invalid weight' }, 400)
+    if (typeof w !== 'object' || w === null) return json({ error: 'invalid weight' }, 400)
+    const r = w as Record<string, unknown>
+    if (typeof r.id !== 'string' || typeof r.babyId !== 'string' || typeof r.weightKg !== 'number' || typeof r.recordedAt !== 'number' || typeof r.deviceId !== 'string') return json({ error: 'invalid weight' }, 400)
+    const owned = await env.DB.prepare('SELECT id FROM babies WHERE id=?1 AND household_id=?2').bind(r.babyId, householdId).first()
+    if (owned === null) return json({ error: 'forbidden baby' }, 403)
+    const existing = await env.DB.prepare('SELECT id FROM weights WHERE id=?1 AND household_id=?2').bind(r.id, householdId).first()
+    if (existing === null) {
+      await env.DB.prepare(
+        `INSERT INTO weights (id, household_id, baby_id, baby_seq, weight_kg, length_cm, recorded_at, device_id)
+         VALUES (?1, ?2, ?3, (SELECT COALESCE(MAX(baby_seq),0)+1 FROM (SELECT baby_seq FROM movements WHERE baby_id=?3 UNION ALL SELECT baby_seq FROM weights WHERE baby_id=?3)), ?4, ?5, ?6, ?7)`
+      ).bind(r.id, householdId, r.babyId, r.weightKg, typeof r.lengthCm === 'number' ? r.lengthCm : null, r.recordedAt, r.deviceId).run()
+    }
+    accepted.push(r.id)
+  }
+
+  if (typeof req.baby === 'object' && req.baby !== null) {
+    const b = req.baby as Record<string, unknown>
+    if (typeof b.id !== 'string' || typeof b.name !== 'string' || typeof b.zoneId !== 'string' || typeof b.createdAt !== 'number' || typeof b.updatedAt !== 'number') return json({ error: 'invalid baby' }, 400)
+    const existing = await env.DB.prepare('SELECT id FROM babies WHERE id=?1 AND household_id=?2').bind(b.id, householdId).first()
+    if (existing === null) {
+      await env.DB.prepare('INSERT INTO babies (id, household_id, name, birth_date, zone_id, birth_weight_kg, sex, gestational_weeks, created_at, updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)').bind(b.id, householdId, b.name, typeof b.birthDate === 'string' ? b.birthDate : null, b.zoneId, typeof b.birthWeightKg === 'number' ? b.birthWeightKg : null, typeof b.sex === 'string' ? b.sex : null, typeof b.gestationalWeeks === 'number' ? b.gestationalWeeks : null, b.createdAt, b.updatedAt).run()
+    } else {
+      await env.DB.prepare('UPDATE babies SET name=?3,birth_date=?4,zone_id=?5,birth_weight_kg=?6,sex=?7,gestational_weeks=?8,updated_at=?9 WHERE id=?1 AND household_id=?2 AND updated_at < ?9').bind(b.id, householdId, b.name, typeof b.birthDate === 'string' ? b.birthDate : null, b.zoneId, typeof b.birthWeightKg === 'number' ? b.birthWeightKg : null, typeof b.sex === 'string' ? b.sex : null, typeof b.gestationalWeeks === 'number' ? b.gestationalWeeks : null, b.updatedAt).run()
     }
   }
-  if (incomingWeights.length > 0) {
-    const statements = incomingWeights.map((w) => {
-      const r = w as Record<string, unknown>
-      const lengthCm =
-        typeof r.lengthCm === 'number' && r.lengthCm > 0 ? r.lengthCm : null
-      return env.DB.prepare(
-        `INSERT INTO weights (id, baby_id, weight_kg, length_cm, recorded_at, device_id)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-         ON CONFLICT(id) DO NOTHING`
-      ).bind(r.id, r.babyId, r.weightKg, lengthCm, r.recordedAt, r.deviceId)
-    })
-    await env.DB.batch(statements)
+
+  const babyRows = await env.DB.prepare('SELECT * FROM babies WHERE household_id=?1 ORDER BY created_at,id').bind(householdId).all<BabyRow>()
+  const babies = (babyRows.results ?? []).map(rowToBaby)
+  const movements: ReturnType<typeof rowToMovement>[] = []
+  const weights: ReturnType<typeof rowToWeight>[] = []
+  const hasMore: Record<string, boolean> = {}
+  const nextCursors: Record<string, number> = { ...cursors }
+  for (const b of babies) {
+    const cursor = cursors[b.id] ?? 0
+    const rows = await env.DB.prepare('SELECT * FROM movements WHERE household_id=?1 AND baby_id=?2 AND baby_seq>?3 ORDER BY baby_seq LIMIT ?4').bind(householdId, b.id, cursor, PAGE_SIZE).all<MovementRow>()
+    const weightRows = await env.DB.prepare('SELECT * FROM weights WHERE household_id=?1 AND baby_id=?2 AND baby_seq>?3 ORDER BY baby_seq LIMIT ?4').bind(householdId, b.id, cursor, PAGE_SIZE).all<WeightRow>()
+    movements.push(...(rows.results ?? []).map(rowToMovement))
+    weights.push(...(weightRows.results ?? []).map(rowToWeight))
+    const maxSeq = Math.max(cursor, ...(rows.results ?? []).map((row) => row.baby_seq), ...(weightRows.results ?? []).map((row) => row.baby_seq))
+    nextCursors[b.id] = maxSeq
+    hasMore[b.id] = (rows.results?.length ?? 0) === PAGE_SIZE || (weightRows.results?.length ?? 0) === PAGE_SIZE
   }
-
-  // ── Baby: last-write-wins over updated_at (§9.2) ──────
-  let requestBaby: Record<string, unknown> | undefined
-  if (
-    typeof req.baby === 'object' &&
-    req.baby !== null &&
-    typeof (req.baby as Record<string, unknown>).id === 'string'
-  ) {
-    requestBaby = req.baby as Record<string, unknown>
-    const b = requestBaby
-    if (
-      typeof b.name !== 'string' ||
-      typeof b.zoneId !== 'string' ||
-      typeof b.createdAt !== 'number' ||
-      typeof b.updatedAt !== 'number' ||
-      // New transition fields (issue #10): optional, but validated when present
-      (b.sex !== undefined && b.sex !== 'male' && b.sex !== 'female') ||
-      (b.gestationalWeeks !== undefined &&
-        (typeof b.gestationalWeeks !== 'number' ||
-          !Number.isInteger(b.gestationalWeeks) ||
-          b.gestationalWeeks < 20 ||
-          b.gestationalWeeks > 43)) ||
-      (b.birthWeightKg !== undefined &&
-        (typeof b.birthWeightKg !== 'number' ||
-          b.birthWeightKg <= 0 ||
-          b.birthWeightKg > 15))
-    ) {
-      return json({ error: 'invalid baby' }, 400)
-    }
-    await env.DB.prepare(
-      `INSERT INTO babies (id, name, birth_date, zone_id, birth_weight_kg,
-                           sex, gestational_weeks, created_at, updated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-       ON CONFLICT(id) DO UPDATE SET
-         name = excluded.name,
-         birth_date = excluded.birth_date,
-         zone_id = excluded.zone_id,
-         birth_weight_kg = excluded.birth_weight_kg,
-         sex = excluded.sex,
-         gestational_weeks = excluded.gestational_weeks,
-         updated_at = excluded.updated_at
-       WHERE excluded.updated_at > babies.updated_at`
-    )
-      .bind(
-        b.id,
-        b.name,
-        typeof b.birthDate === 'string' ? b.birthDate : null,
-        b.zoneId,
-        typeof b.birthWeightKg === 'number' ? b.birthWeightKg : null,
-        typeof b.sex === 'string' ? b.sex : null,
-        typeof b.gestationalWeeks === 'number' ? b.gestationalWeeks : null,
-        b.createdAt,
-        b.updatedAt
-      )
-      .run()
-  }
-
-  // ── Download: everything past the caller's cursor ─────
-  const since = req.since
-  const movementRows = await env.DB.prepare(
-    `SELECT * FROM movements WHERE seq > ? ORDER BY seq LIMIT ${PAGE_SIZE}`
-  )
-    .bind(since)
-    .all<MovementRow>()
-  const weightRows = await env.DB.prepare(
-    `SELECT * FROM weights WHERE seq > ? ORDER BY seq LIMIT ${PAGE_SIZE}`
-  )
-    .bind(since)
-    .all<WeightRow>()
-
-  const hasMore =
-    (movementRows.results?.length ?? 0) === PAGE_SIZE ||
-    (weightRows.results?.length ?? 0) === PAGE_SIZE
-
-  const serverSeqs = (movementRows.results ?? []).map((row) => row.seq)
-  const cursor =
-    serverSeqs.length > 0 ? Math.max(...serverSeqs) : since
-
-  const locationRows = await env.DB.prepare('SELECT * FROM locations ORDER BY created_at, id').all<LocationRow>()
-
-  const babyRows = await env.DB.prepare(
-    'SELECT * FROM babies LIMIT 1'
-  ).all<BabyRow>()
-  const baby =
-    babyRows.results && babyRows.results.length > 0
-      ? rowToBaby(babyRows.results[0])
-      : undefined
-
-  return json({
-    cursor,
-    hasMore,
-    movements: (movementRows.results ?? []).map(rowToMovement),
-    weights: (weightRows.results ?? []).map(rowToWeight),
-    locations: (locationRows.results ?? []).map(rowToLocation),
-    ...(baby !== undefined ? { baby } : {}),
-    accepted,
-  })
+  const locationRows = await env.DB.prepare('SELECT * FROM locations WHERE household_id=?1 ORDER BY created_at,id').bind(householdId).all<LocationRow>()
+  return json({ babies, cursors: nextCursors, hasMore, movements, weights, locations: locationRows.results ?? [], accepted })
 }
 
 export const handleSingleMovement = async (
