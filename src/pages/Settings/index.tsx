@@ -275,33 +275,38 @@ export const Settings = () => {
               return
             }
             void Promise.all([
-              db.movements.filter((movement) => movement.serverSeq === 0).count(),
-              db.weights.filter((weight) => weight.serverSeq === 0).count(),
+              db.movements
+                .filter((movement) => movement.serverSeq === 0)
+                .count(),
+              db.weights
+                .filter((weight) => weight.serverSeq === 0)
+                .count(),
             ]).then(async ([pendingMovements, pendingWeights]) => {
               const pending = pendingMovements + pendingWeights
-                if (pending > 0) {
-                  setError(
-                    'Hay cambios pendientes. Sincronízalos o exporta una copia antes de abandonar el hogar.',
-                  )
-                  return
-                }
-                await apiRequest('/household/leave', { method: 'POST' })
-                clearSessionToken()
-                await db.transaction(
-                  'rw',
-                  db.babies,
-                  db.movements,
-                  db.weights,
-                  db.locations,
-                  async () => {
-                    await db.babies.clear()
-                    await db.movements.clear()
-                    await db.weights.clear()
-                    await db.locations.clear()
-                  },
+              if (pending > 0) {
+                setError(
+                  'Hay cambios pendientes. Sincronízalos o exporta una copia antes de abandonar el hogar.',
                 )
-                window.location.reload()
-              })
+                return
+              }
+
+              await apiRequest('/household/leave', { method: 'POST' })
+              clearSessionToken()
+              await db.transaction(
+                'rw',
+                db.babies,
+                db.movements,
+                db.weights,
+                db.locations,
+                async () => {
+                  await db.babies.clear()
+                  await db.movements.clear()
+                  await db.weights.clear()
+                  await db.locations.clear()
+                },
+              )
+              window.location.reload()
+            })
               .catch((err: unknown) => {
                 setError(
                   err instanceof Error ? err.message : 'No se pudo abandonar',
