@@ -619,7 +619,6 @@ const sendInviteEmail = async (
   to: string,
   householdName: string,
   inviter: string,
-  code: string,
 ): Promise<void> => {
   if (!env.UNITPOST_API_KEY || !env.UNITPOST_FROM) {
     throw new Error('email not configured')
@@ -713,7 +712,6 @@ const handleInvite = async (
       email,
       household?.name ?? 'Cacotas',
       auth.user.display_name ?? auth.user.email ?? 'Un miembro',
-      code,
     )
   } catch {
     return json({ error: 'email unavailable' }, 503)
