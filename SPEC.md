@@ -1107,7 +1107,7 @@ Para el botón físico (D-20, §13). Debe existir desde el principio aunque no s
 ```
 POST /movement
 Headers: X-Auth: <secreto>
-Body: { "type": "USAGE", "usageSource": "OWN_STOCK", "deviceId": "boton-cambiador" }
+Body: { "type": "USAGE", "usageSource": "OWN_STOCK", "deviceId": "boton-cambiador", "locationId": "default:<babyId>" }
 ```
 
 El servidor rellena `id` (UUID nuevo), `sizeId` (último `SIZE_CHANGE`), `babyId` (el único que
