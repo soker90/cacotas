@@ -1032,19 +1032,19 @@ Headers: X-Auth: <secreto>
 ```ts
 interface SyncRequest {
   deviceId: string;
-  since: number;               // último serverSeq conocido; 0 = todo
-  movements: Movement[];       // pendientes de subir
-  weights: WeightRecord[];
-  baby?: Baby;                 // si cambió localmente
-}
-
-interface SyncResponse {
-  cursor: number;              // seq máximo devuelto en esta respuesta
-  hasMore: boolean;            // true si quedan filas por bajar
+  cursors: Record<UUID, number>; // último baby_seq conocido por bebé
   movements: Movement[];
   weights: WeightRecord[];
   baby?: Baby;
-  accepted: UUID[];            // ids que el servidor confirma tener
+}
+
+interface SyncResponse {
+  babies: Baby[];
+  cursors: Record<UUID, number>;
+  hasMore: Record<UUID, boolean>;
+  movements: Movement[];
+  weights: WeightRecord[];
+  accepted: UUID[];
 }
 ```
 
