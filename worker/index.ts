@@ -397,7 +397,7 @@ const handleCreateHousehold = async (request: Request, env: Env): Promise<Respon
   const baby = b as Record<string, unknown>
   if (typeof baby.name !== 'string' || baby.name.trim() === '' || typeof baby.zoneId !== 'string') return json({ error: 'invalid baby' }, 400)
   const householdId = crypto.randomUUID()
-  const babyId = crypto.randomUUID()
+  const babyId = typeof baby.id === 'string' && baby.id !== '' ? baby.id : crypto.randomUUID()
   const now = Date.now()
   await env.DB.batch([
     env.DB.prepare('INSERT INTO households (id,name,created_by,created_at) VALUES (?1,?2,?3,?4)').bind(householdId,name,auth.user.id,now),
