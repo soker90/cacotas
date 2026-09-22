@@ -79,7 +79,11 @@ export const runSync = async (
       }
     )
 
-    for (const [babyId, cursor] of Object.entries(res.cursors)) {
+    const receivedCursors: BabyCursors = { ...cursors }
+    for (const row of [...res.movements, ...res.weights]) {
+      receivedCursors[row.babyId] = Math.max(receivedCursors[row.babyId] ?? 0, row.serverSeq)
+    }
+    for (const [babyId, cursor] of Object.entries(receivedCursors)) {
       cursors[babyId] = Math.max(cursors[babyId] ?? 0, cursor)
     }
     hasMore = Object.values(res.hasMore).some(Boolean)
