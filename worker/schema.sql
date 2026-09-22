@@ -3,6 +3,7 @@
 
 CREATE TABLE households (
   id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
   created_by TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
@@ -124,9 +125,7 @@ CREATE TABLE notification_log (
 );
 
 
-CREATE INDEX idx_babies_household ON babies(household_id);
-
-CREATE TRIGGER enforce_household_two_users_insert
+CREATE TRIGGER enforce_household_two_users_update
 BEFORE UPDATE OF household_id ON users
 WHEN NEW.household_id IS NOT NULL
   AND (SELECT COUNT(*) FROM users WHERE household_id = NEW.household_id) >= 2
