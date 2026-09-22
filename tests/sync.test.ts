@@ -136,8 +136,11 @@ describe('sincronización (issue #4)', () => {
 
     // Server accepts but its download section "gets lost" (no echo back)
     class HalfBackend extends FakeSyncBackend {
-      constructor (private readonly server: FakeSyncBackend) {
+      private readonly server: FakeSyncBackend
+
+      constructor (server: FakeSyncBackend) {
         super()
+        this.server = server
       }
 
       override async sync (req: Parameters<FakeSyncBackend['sync']>[0]) {
