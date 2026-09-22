@@ -153,7 +153,7 @@ const verifyGoogleIdToken = async (token: string, clientId: string): Promise<Goo
   try {
     const keysResponse = await fetch('https://www.googleapis.com/oauth2/v3/certs')
     if (!keysResponse.ok) return null
-    const keys = await keysResponse.json() as { keys?: JsonWebKey[] }
+    const keys = await keysResponse.json() as { keys?: Array<JsonWebKey & { kid?: string }> }
     const key = keys.keys?.find((candidate) => candidate.kid === header.kid)
     if (!key) return null
     const cryptoKey = await crypto.subtle.importKey('jwk', key, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'])
@@ -164,42 +164,77 @@ const verifyGoogleIdToken = async (token: string, clientId: string): Promise<Goo
   }
 }
 
-const handleGoogleAuth = async (request: Request, env: Env): Promise<Response> => {
-  if (env.GOOGLE_CLIENT_ID === '') return json({ error: 'google auth not configured' }, 503)
+const handleGoogleAuth = async (
+  request: Request,
+  env: Env,
+): Promise<Response> => {
+  if (env.GOOGLE_CLIENT_ID === '') {
+    return json({ error: 'google auth not configured' }, 503)
+  }
+
   let body: unknown
-  try { body = await request.json() } catch { return json({ error: 'invalid JSON' }, 400) }
-  if (typeof body !== 'object' || body === null) return json({ error: 'invalid payload' }, 400)
-  const r = body as Record<string, unknown>
-  if (typeof r.idToken !== 'string' || r.idToken === '') return json({ error: 'idToken required' }, 400)
-  let google: Record<string, unknown>
   try {
-    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(r.idToken)}`)
-    if (!response.ok) return json({ error: 'invalid google token' }, 401)
-    google = await response.json()
-  } catch { return json({ error: 'google unavailable' }, 503) }
-  if (google.aud !== env.GOOGLE_CLIENT_ID || google.iss !== 'https://accounts.google.com' || google.email_verified !== 'true' || typeof google.sub !== 'string') {
+    body = await request.json()
+  } catch {
+    return json({ error: 'invalid JSON' }, 400)
+  }
+  if (typeof body !== 'object' || body === null) {
+    return json({ error: 'invalid payload' }, 400)
+  }
+
+  const r = body as Record<string, unknown>
+  if (typeof r.idToken !== 'string' || r.idToken === '') {
+    return json({ error: 'idToken required' }, 400)
+  }
+
+  const google = await verifyGoogleIdToken(r.idToken, env.GOOGLE_CLIENT_ID)
+  if (google === null) {
     return json({ error: 'invalid google token' }, 401)
   }
+  if (google.email_verified !== true && google.email_verified !== 'true') {
+    return json({ error: 'invalid google token' }, 401)
+  }
+
   const existing = await env.DB.prepare(
-    'SELECT id, household_id, email, display_name FROM users WHERE provider = ?1 AND provider_sub = ?2'
-  ).bind('google', google.sub).first<UserRow>()
+    'SELECT id, household_id, email, display_name FROM users WHERE provider = ?1 AND provider_sub = ?2',
+  )
+    .bind('google', google.sub)
+    .first<UserRow>()
+
   const user = existing ?? {
     id: crypto.randomUUID(),
     household_id: null,
     email: typeof google.email === 'string' ? normalizeEmail(google.email) : null,
     display_name: typeof google.name === 'string' ? google.name : null,
   }
+
   if (existing === null) {
     await env.DB.prepare(
-      'INSERT INTO users (id, household_id, provider, provider_sub, email, display_name, created_at) VALUES (?1, NULL, ?2, ?3, ?4, ?5, ?6)'
-    ).bind(user.id, 'google', google.sub, user.email, user.display_name, Date.now()).run()
+      'INSERT INTO users (id, household_id, provider, provider_sub, email, display_name, created_at) VALUES (?1, NULL, ?2, ?3, ?4, ?5, ?6)',
+    )
+      .bind(
+        user.id,
+        'google',
+        google.sub,
+        user.email,
+        user.display_name,
+        Date.now(),
+      )
+      .run()
   }
+
   const rawToken = randomToken()
-  const deviceId = typeof r.deviceId === 'string' && r.deviceId !== '' ? r.deviceId : 'web'
+  const deviceId =
+    typeof r.deviceId === 'string' && r.deviceId !== '' ? r.deviceId : 'web'
   await env.DB.batch([
-    env.DB.prepare('DELETE FROM sessions WHERE user_id=?1 AND device_id=?2').bind(user.id, deviceId),
-    env.DB.prepare('INSERT INTO sessions (token_hash,user_id,device_id,created_at,last_seen) VALUES (?1,?2,?3,?4,?4)').bind(await sha256(rawToken),user.id,deviceId,Date.now()),
+    env.DB.prepare(
+      'DELETE FROM sessions WHERE user_id=?1 AND device_id=?2',
+    ).bind(user.id, deviceId),
+    env.DB.prepare(
+      'INSERT INTO sessions (token_hash,user_id,device_id,created_at,last_seen) VALUES (?1,?2,?3,?4,?4)',
+    ).bind(await sha256(rawToken), user.id, deviceId, Date.now()),
   ])
+
   return json({ token: rawToken, user })
 }
 
