@@ -222,7 +222,7 @@ const handleSync = async (
     if (typeof location !== 'object' || location === null) return json({ error: 'invalid location' }, 400)
     const r = location as Record<string, unknown>
     if (typeof r.id !== 'string' || typeof r.name !== 'string' || r.name.trim() === '' ||
-        !Number.isInteger(r.reorderPoint) || r.reorderPoint < 0 ||
+        typeof r.reorderPoint !== 'number' || !Number.isInteger(r.reorderPoint) || r.reorderPoint < 0 ||
         typeof r.createdAt !== 'number' || typeof r.updatedAt !== 'number' || typeof r.deviceId !== 'string') {
       return json({ error: 'invalid location' }, 400)
     }
