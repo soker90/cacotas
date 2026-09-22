@@ -68,7 +68,7 @@ const AppRoutes = () => {
 
   return (
     <>
-      <SyncLoop />
+      <SyncLoop backend={backend} />
       <Routes>
         <Route element={<AppLayout />}>
           <Route path='/' element={<Home baby={localBaby} />} />
@@ -89,7 +89,7 @@ const AppRoutes = () => {
 }
 
 /** Mounts the sync triggers for as long as a local baby exists (§9.3). */
-const SyncLoop = () => {
+const SyncLoop = ({ backend }: { backend: HttpSyncBackend | null }) => {
   useEffect(() => {
     startSyncLoop(backend, getDeviceId())
   }, [])
