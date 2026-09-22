@@ -32,14 +32,13 @@ void seedSizes(db)
 /** §9.7: with the sync secret configured at build time the backend is real
  *  and the startup flow can adopt a remote baby; without it everything
  *  stays local (first device). */
-const SYNC_URL = import.meta.env.VITE_SYNC_URL
-const sessionToken = getSessionToken()
-const backend =
-  typeof SYNC_URL === 'string' &&
-  SYNC_URL !== '' &&
-  sessionToken !== null
-    ? new HttpSyncBackend(SYNC_URL, sessionToken)
+const createBackend = (): HttpSyncBackend | null => {
+  const url = import.meta.env.VITE_SYNC_URL
+  const token = getSessionToken()
+  return typeof url === 'string' && url !== '' && token !== null
+    ? new HttpSyncBackend(url, token)
     : null
+}
 
 export const App = () => (
   <BrowserRouter>
@@ -52,6 +51,7 @@ const AppRoutes = () => {
   // undefined = still loading; null = no baby yet (§9.7)
   const localBaby = useBaby()
   const [, rerender] = useState(0)
+  const backend = createBackend()
 
   if (sessionToken === null) {
     return <Login onLogin={() => { rerender((value) => value + 1) }} />
