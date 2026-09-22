@@ -1,0 +1,78 @@
+import { useEffect, useState } from 'react'
+import { apiRequest } from '../../auth/api.ts'
+
+interface Invite {
+  code: string
+  household_id: string
+  name: string
+  inviter_name: string | null
+  expires_at: number
+}
+
+export const HouseholdEntry = ({ onDone }: { onDone: () => void }) => {
+  const [invites, setInvites] = useState<Invite[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = (): void => {
+    void apiRequest<{ invites: Invite[] }>('/household/status')
+      .then((result) => { setInvites(result.invites); setLoading(false) })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'No se pudo comprobar las invitaciones')
+        setLoading(false)
+      })
+  }
+
+  useEffect(() => { load() }, [])
+
+  if (loading) return <main className='loading'>…</main>
+
+  const accept = (code: string): void => {
+    void apiRequest('/household/invite/accept', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }).then(onDone).catch((err: unknown) => {
+      setError(err instanceof Error ? err.message : 'No se pudo aceptar la invitación')
+    })
+  }
+
+  const reject = (code: string): void => {
+    void apiRequest('/household/invite/reject', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }).then(load).catch((err: unknown) => {
+      setError(err instanceof Error ? err.message : 'No se pudo rechazar la invitación')
+    })
+  }
+
+  return (
+    <main className='onboarding'>
+      <h1>Bienvenido a Cacotas</h1>
+      {invites.length > 0
+        ? (
+          <>
+            <p>Te han invitado a estos hogares:</p>
+            {invites.map((invite) => (
+              <section className='card' key={invite.code}>
+                <h2>{invite.name}</h2>
+                <p>Invita: {invite.inviter_name ?? 'Un miembro del hogar'}</p>
+                <div className='row'>
+                  <button type='button' className='primary' onClick={() => { accept(invite.code) }}>Aceptar</button>
+                  <button type='button' onClick={() => { reject(invite.code) }}>Rechazar</button>
+                </div>
+              </section>
+            ))}
+            <p className='muted small'>Al aceptar una invitación, las demás quedan pendientes para el futuro.</p>
+            <button type='button' onClick={() => { onDone() }}>Crear un hogar nuevo</button>
+          </>
+          )
+        : (
+          <>
+            <p>Aún no perteneces a ningún hogar.</p>
+            <button type='button' className='primary' onClick={onDone}>Crear un hogar nuevo</button>
+          </>
+          )}
+      {error && <p role='alert' className='error'>{error}</p>}
+    </main>
+  )
+}
