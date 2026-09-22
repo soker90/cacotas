@@ -152,9 +152,11 @@ const handleGoogleAuth = async (request: Request, env: Env): Promise<Response> =
     ).bind(user.id, 'google', google.sub, user.email, user.display_name, Date.now()).run()
   }
   const rawToken = randomToken()
-  await env.DB.prepare(
-    'INSERT INTO sessions (token_hash, user_id, device_id, created_at, last_seen) VALUES (?1, ?2, ?3, ?4, ?4)'
-  ).bind(await sha256(rawToken), user.id, typeof r.deviceId === 'string' && r.deviceId !== '' ? r.deviceId : 'web', Date.now()).run()
+  const deviceId = typeof r.deviceId === 'string' && r.deviceId !== '' ? r.deviceId : 'web'
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM sessions WHERE user_id=?1 AND device_id=?2').bind(user.id, deviceId),
+    env.DB.prepare('INSERT INTO sessions (token_hash,user_id,device_id,created_at,last_seen) VALUES (?1,?2,?3,?4,?4)').bind(await sha256(rawToken),user.id,deviceId,Date.now()),
+  ])
   return json({ token: rawToken, user })
 }
 
