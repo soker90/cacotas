@@ -549,13 +549,8 @@ export const handleSingleMovement = async (
   ).bind(householdId, babyRow.id).first<{ size_id: number }>()
   if (!sizeRow) return json({ error: 'no size configured yet' }, 400)
 
-  const babyRow = await env.DB.prepare('SELECT id FROM babies LIMIT 1').first<{
-    id: string
-  }>()
-  if (!babyRow) return json({ error: 'no baby configured yet' }, 400)
-
   const locationId = resolveMovementLocationId(babyRow.id, typeof r.locationId === 'string' ? r.locationId : undefined)
-  const location = await env.DB.prepare('SELECT id FROM locations WHERE id = ?1').bind(locationId).first<{ id: string }>()
+  const location = await env.DB.prepare('SELECT id FROM locations WHERE id = ?1 AND household_id = ?2').bind(locationId, householdId).first<{ id: string }>()
   if (!location) return json({ error: 'location not found' }, 400)
 
   const movement = createMovement(
