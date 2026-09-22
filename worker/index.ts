@@ -734,8 +734,11 @@ export default {
           return handlePushSubscribe(request, env)
         case '/snooze':
           return handleSnooze(request, env)
-        case '/run-notifications':
+        case '/run-notifications': {
+          const auth = await authenticate(request, env)
+          if (auth instanceof Response) return auth
           return runNotifications(env).then((result) => json(result))
+        }
         default:
           return json({ error: 'not found' }, 404)
       }
