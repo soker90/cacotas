@@ -232,43 +232,114 @@ export const Settings = () => {
         {memberCount < 2 && (
           <>
             <label htmlFor='invite-email'>Invitar a mi pareja</label>
-            <input id='invite-email' type='email' value={inviteEmail} onChange={(e) => { setInviteEmail(e.target.value) }} placeholder='correo@gmail.com' />
-            <button type='button' onClick={() => {
-              void apiRequest('/household/invite', { method: 'POST', body: JSON.stringify({ email: inviteEmail }) })
-                .then(() => { setInviteEmail(''); setError(null) })
-                .catch((err: unknown) => { setError(err instanceof Error ? err.message : 'No se pudo enviar') })
-            }}>Enviar invitación</button>
+            <input
+              id='invite-email'
+              type='email'
+              value={inviteEmail}
+              onChange={(e) => {
+                setInviteEmail(e.target.value)
+              }}
+              placeholder='correo@gmail.com'
+            />
+            <button
+              type='button'
+              onClick={() => {
+                void apiRequest('/household/invite', {
+                  method: 'POST',
+                  body: JSON.stringify({ email: inviteEmail }),
+                })
+                  .then(() => {
+                    setInviteEmail('')
+                    setError(null)
+                  })
+                  .catch((err: unknown) => {
+                    setError(
+                      err instanceof Error ? err.message : 'No se pudo enviar',
+                    )
+                  })
+              }}
+            >
+              Enviar invitación
+            </button>
           </>
         )}
-        <button type='button' onClick={() => {
-          if (!window.confirm('¿Abandonar este hogar? Si eres el último miembro se borrarán sus datos.')) return
-          void db.movements.filter((movement) => movement.serverSeq === 0).count().then(async (pending) => {
-            if (pending > 0) {
-              setError('Hay cambios pendientes. Sincronízalos o exporta una copia antes de abandonar el hogar.')
+        <button
+          type='button'
+          onClick={() => {
+            if (
+              !window.confirm(
+                '¿Abandonar este hogar? Si eres el último miembro se borrarán sus datos.',
+              )
+            ) {
               return
             }
-            await apiRequest('/household/leave', { method: 'POST' })
-            await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
-              await db.babies.clear()
-              await db.movements.clear()
-              await db.weights.clear()
-              await db.locations.clear()
-            })
-            window.location.reload()
-          }).catch((err: unknown) => { setError(err instanceof Error ? err.message : 'No se pudo abandonar') })
-        }}>Abandonar hogar</button>
-        <button type='button' onClick={() => {
-          if (!window.confirm('¿Borrar tu cuenta? Esta acción no se puede deshacer.')) return
-          void apiRequest('/account/delete', { method: 'POST' }).then(async () => {
-            await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
-              await db.babies.clear()
-              await db.movements.clear()
-              await db.weights.clear()
-              await db.locations.clear()
-            })
-            window.location.reload()
-          }).catch((err: unknown) => { setError(err instanceof Error ? err.message : 'No se pudo borrar la cuenta') })
-        }}>Borrar cuenta</button>
+            void db.movements
+              .filter((movement) => movement.serverSeq === 0)
+              .count()
+              .then(async (pending) => {
+                if (pending > 0) {
+                  setError(
+                    'Hay cambios pendientes. Sincronízalos o exporta una copia antes de abandonar el hogar.',
+                  )
+                  return
+                }
+                await apiRequest('/household/leave', { method: 'POST' })
+                await db.transaction(
+                  'rw',
+                  db.babies,
+                  db.movements,
+                  db.weights,
+                  db.locations,
+                  async () => {
+                    await db.babies.clear()
+                    await db.movements.clear()
+                    await db.weights.clear()
+                    await db.locations.clear()
+                  },
+                )
+                window.location.reload()
+              })
+              .catch((err: unknown) => {
+                setError(
+                  err instanceof Error ? err.message : 'No se pudo abandonar',
+                )
+              })
+          }}
+        >
+          Abandonar hogar
+        </button>
+        <button
+          type='button'
+          onClick={() => {
+            if (!window.confirm('¿Borrar tu cuenta? Esta acción no se puede deshacer.')) {
+              return
+            }
+            void apiRequest('/account/delete', { method: 'POST' })
+              .then(async () => {
+                await db.transaction(
+                  'rw',
+                  db.babies,
+                  db.movements,
+                  db.weights,
+                  db.locations,
+                  async () => {
+                    await db.babies.clear()
+                    await db.movements.clear()
+                    await db.weights.clear()
+                    await db.locations.clear()
+                  },
+                )
+                window.location.reload()
+              })
+              .catch((err: unknown) => {
+                setError(
+                  err instanceof Error ? err.message : 'No se pudo borrar la cuenta',
+                )
+              })
+          }}
+        >
+          Borrar cuenta
+        </button>
       </section>
 
       <section className='card'>
