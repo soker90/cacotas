@@ -6,6 +6,7 @@ import { db } from '../../db/index.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
+import { setActiveLocationId } from '../../lib/locations.ts'
 
 const parseDecimal = (text: string): number | null => {
   const value = Number.parseFloat(text.replace(',', '.'))
@@ -136,6 +137,9 @@ export const Onboarding = () => {
         await db.movements.bulkAdd([initial, sizeChange])
         if (birthWeight !== null) await db.weights.add(birthWeight)
       })
+      // Make the newly created location active so a previous baby's
+      // location selection cannot hide the initial stock.
+      setActiveLocationId(locationId)
       // Publish the new Baby right away (§9.7)
       notifyWrite()
     } catch (e) {
