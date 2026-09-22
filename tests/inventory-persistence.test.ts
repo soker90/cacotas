@@ -8,7 +8,6 @@ let sequence = 0
 const uid = (): string => `inventory-${sequence++}`
 
 const movement = (
-  db: CacotasDB,
   input: Parameters<typeof createMovement>[1],
   locationId = 'home'
 ) =>
@@ -34,7 +33,7 @@ describe('location-scoped inventory persistence', () => {
 
   it('keeps onboarding stock and own usage in the same location ledger', async () => {
     await db.movements.bulkAdd([
-      movement(db, { type: 'INITIAL', quantity: 84 }),
+      movement({ type: 'INITIAL', quantity: 84 }),
       movement(db, { type: 'USAGE', usageSource: 'OWN_STOCK', quantity: 3 }),
       movement(db, { type: 'PURCHASE', quantity: 30 }),
     ])
