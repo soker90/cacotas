@@ -447,7 +447,7 @@ export const handleSingleMovement = async (
   }>()
   if (!babyRow) return json({ error: 'no baby configured yet' }, 400)
 
-  const locationId = resolveMovementLocationId(babyRow.id, r.locationId as string | undefined)
+  const locationId = resolveMovementLocationId(babyRow.id, typeof r.locationId === 'string' ? r.locationId : undefined)
   const location = await env.DB.prepare('SELECT id FROM locations WHERE id = ?1').bind(locationId).first<{ id: string }>()
   if (!location) return json({ error: 'location not found' }, 400)
 
