@@ -3,6 +3,7 @@ DROP TABLE IF EXISTS notification_log;
 DROP TABLE IF EXISTS push_subscriptions;
 DROP TABLE IF EXISTS locations;
 DROP TABLE IF EXISTS weights;
+DROP TABLE IF EXISTS baby_sequences;
 DROP TABLE IF EXISTS movements;
 DROP TABLE IF EXISTS babies;
 DROP TABLE IF EXISTS sessions;
