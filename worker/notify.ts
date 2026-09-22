@@ -104,9 +104,14 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
     'SELECT * FROM babies ORDER BY created_at,id LIMIT 1'
   ).first<{ id: string; name: string; household_id: string }>()
 
-  const subscriptions = babyRow === null ? { results: [] } : await env.DB.prepare(
-    'SELECT ps.endpoint, ps.keys_json FROM push_subscriptions ps JOIN users u ON u.id=ps.user_id WHERE u.household_id=?1'
-  ).bind(babyRow.household_id).all<{ endpoint: string; keys_json: string }>()
+  const subscriptions =
+    babyRow === null
+      ? { results: [] }
+      : await env.DB.prepare(
+          'SELECT ps.endpoint, ps.keys_json FROM push_subscriptions ps JOIN users u ON u.id=ps.user_id WHERE u.household_id=?1',
+        )
+          .bind(babyRow.household_id)
+          .all<{ endpoint: string; keys_json: string }>()
 
   const vapid = {
     privateKeyB64url: env.VAPID_PRIVATE_KEY,
