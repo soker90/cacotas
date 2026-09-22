@@ -242,11 +242,32 @@ export const Settings = () => {
         )}
         <button type='button' onClick={() => {
           if (!window.confirm('¿Abandonar este hogar? Si eres el último miembro se borrarán sus datos.')) return
-          void apiRequest('/household/leave', { method: 'POST' }).then(() => { window.location.reload() }).catch((err: unknown) => { setError(err instanceof Error ? err.message : 'No se pudo abandonar') })
+          void db.movements.filter((movement) => movement.serverSeq === 0).count().then(async (pending) => {
+            if (pending > 0) {
+              setError('Hay cambios pendientes. Sincronízalos o exporta una copia antes de abandonar el hogar.')
+              return
+            }
+            await apiRequest('/household/leave', { method: 'POST' })
+            await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
+              await db.babies.clear()
+              await db.movements.clear()
+              await db.weights.clear()
+              await db.locations.clear()
+            })
+            window.location.reload()
+          }).catch((err: unknown) => { setError(err instanceof Error ? err.message : 'No se pudo abandonar') })
         }}>Abandonar hogar</button>
         <button type='button' onClick={() => {
           if (!window.confirm('¿Borrar tu cuenta? Esta acción no se puede deshacer.')) return
-          void apiRequest('/account/delete', { method: 'POST' }).then(() => { window.location.reload() }).catch((err: unknown) => { setError(err instanceof Error ? err.message : 'No se pudo borrar la cuenta') })
+          void apiRequest('/account/delete', { method: 'POST' }).then(async () => {
+            await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
+              await db.babies.clear()
+              await db.movements.clear()
+              await db.weights.clear()
+              await db.locations.clear()
+            })
+            window.location.reload()
+          }).catch((err: unknown) => { setError(err instanceof Error ? err.message : 'No se pudo borrar la cuenta') })
         }}>Borrar cuenta</button>
       </section>
 
