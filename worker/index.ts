@@ -636,7 +636,7 @@ const sendInviteEmail = async (
       from: env.UNITPOST_FROM,
       to,
       subject: `Invitación a ${householdName}`,
-      html: `<p>${inviter} te ha invitado al hogar <strong>${householdName}</strong> en Cacotas.</p><p><a href="${env.APP_URL}/invite/${code}">Aceptar invitación</a></p>`,
+      html: `<p>${inviter} te ha invitado al hogar <strong>${householdName}</strong> en Cacotas.</p><p><a href="${env.APP_URL}">Aceptar invitación</a></p>`,
     }),
   })
 
