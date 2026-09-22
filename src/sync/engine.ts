@@ -33,7 +33,7 @@ export const runSync = async (
   backend: SyncBackend,
   deviceId: string
 ): Promise<void> => {
-  let cursors = readCursors(deviceId)
+  const cursors = readCursors(deviceId)
   let hasMore = true
 
   while (hasMore) {
