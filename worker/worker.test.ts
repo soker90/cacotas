@@ -52,8 +52,8 @@ describe('physical button movement', () => {
     )
 
     expect(response.status).toBe(200)
-    const body = await response.json()
-    expect(body.movement.locationId).toBe('grandparents')
+    const body: unknown = await response.json()
+    expect(body).toMatchObject({ movement: { locationId: 'grandparents' } })
     expect(calls.at(-1)?.args.at(-1)).toBe('grandparents')
   })
 })
