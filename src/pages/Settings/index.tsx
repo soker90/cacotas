@@ -313,6 +313,15 @@ export const Settings = () => {
         <button
           type='button'
           onClick={() => {
+            clearSessionToken()
+            window.location.reload()
+          }}
+        >
+          Desloguearme
+        </button>
+        <button
+          type='button'
+          onClick={() => {
             if (!window.confirm('¿Borrar tu cuenta? Esta acción no se puede deshacer.')) {
               return
             }
