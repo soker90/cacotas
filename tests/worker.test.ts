@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { D1Database } from '@cloudflare/workers-types'
 import { handleSingleMovement, resolveMovementLocationId } from '../worker/index.ts'
+import type { Env } from '../worker/index.ts'
 
 const makeDb = () => {
   const calls: Array<{ sql: string; args: unknown[] }> = []
@@ -47,7 +48,7 @@ describe('physical button movement', () => {
           locationId: 'grandparents',
         }),
       }),
-      { DB: db, AUTH_SECRET: 'secret' } as never
+      { DB: db, AUTH_SECRET: 'secret' } as Env
     )
 
     expect(response.status).toBe(200)
