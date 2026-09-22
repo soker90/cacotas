@@ -625,9 +625,10 @@ const sendInviteEmail = async (
     throw new Error('email not configured')
   }
 
-  const response = await fetch('https://api.unitpost.com/v1/email', {
+  const response = await fetch('https://www.unitpost.com/api/v1/email', {
     method: 'POST',
     headers: {
+      'user-agent': 'cacotas/1.0',
       authorization: `Bearer ${env.UNITPOST_API_KEY}`,
       'content-type': 'application/json',
     },
