@@ -19,6 +19,7 @@ import { notifyWrite } from '../../sync/scheduler.ts'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db/index.ts'
 import { createLocation } from '../../lib/locations.ts'
+import { apiRequest } from '../../auth/api.ts'
 
 export const Settings = () => {
   const [stayMode, setStayModeState] = useState(() => isStayMode())
@@ -34,8 +35,15 @@ export const Settings = () => {
   const locations = useLiveQuery(() => db.locations.toArray())
   const [newLocationName, setNewLocationName] = useState('')
   const [newLocationPoint, setNewLocationPoint] = useState('10')
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [householdName, setHouseholdName] = useState<string | null>(null)
+  const [memberCount, setMemberCount] = useState(0)
 
   useEffect(() => {
+    void apiRequest<{ household?: { name?: string }; users?: unknown[] }>('/household/status').then((status) => {
+      setHouseholdName(status.household?.name ?? null)
+      setMemberCount(status.users?.length ?? 0)
+    }).catch(() => {})
     void pushState().then(async (state) => {
       setPushSupport(state)
       // Self-heal: a subscription may exist in the browser but never have
@@ -215,6 +223,31 @@ export const Settings = () => {
             Añadir ubicación
           </button>
         </div>
+      </section>
+
+      <section className='card'>
+        <h2>Hogar</h2>
+        <p>{householdName ?? 'Sin hogar'}</p>
+        <p className='muted small'>{memberCount} de 2 miembros</p>
+        {memberCount < 2 && (
+          <>
+            <label htmlFor='invite-email'>Invitar a mi pareja</label>
+            <input id='invite-email' type='email' value={inviteEmail} onChange={(e) => { setInviteEmail(e.target.value) }} placeholder='correo@gmail.com' />
+            <button type='button' onClick={() => {
+              void apiRequest('/household/invite', { method: 'POST', body: JSON.stringify({ email: inviteEmail }) })
+                .then(() => { setInviteEmail(''); setError(null) })
+                .catch((err: unknown) => { setError(err instanceof Error ? err.message : 'No se pudo enviar') })
+            }}>Enviar invitación</button>
+          </>
+        )}
+        <button type='button' onClick={() => {
+          if (!window.confirm('¿Abandonar este hogar? Si eres el último miembro se borrarán sus datos.')) return
+          void apiRequest('/household/leave', { method: 'POST' }).then(() => { window.location.reload() }).catch((err: unknown) => { setError(err instanceof Error ? err.message : 'No se pudo abandonar') })
+        }}>Abandonar hogar</button>
+        <button type='button' onClick={() => {
+          if (!window.confirm('¿Borrar tu cuenta? Esta acción no se puede deshacer.')) return
+          void apiRequest('/account/delete', { method: 'POST' }).then(() => { window.location.reload() }).catch((err: unknown) => { setError(err instanceof Error ? err.message : 'No se pudo borrar la cuenta') })
+        }}>Borrar cuenta</button>
       </section>
 
       <section className='card'>
