@@ -15,10 +15,11 @@ const makeDb = () => {
         },
         first: <T>() => {
           firstCount += 1
-          if (firstCount === 1) return null as T | null
-          if (firstCount === 2) return { size_id: 2 } as T
+          if (firstCount === 1) return { id: 'user-1', household_id: 'house-1', email: 'a@example.com', display_name: 'A' } as T
+          if (firstCount === 2) return null as T | null
           if (firstCount === 3) return { id: 'baby-1' } as T
-          return { id: 'default:baby-1' } as T
+          if (firstCount === 4) return { size_id: 2 } as T
+          return { id: 'grandparents' } as T
         },
         run: () => ({ success: true }),
         all: () => ({ results: [] }),
@@ -41,6 +42,7 @@ describe('physical button movement', () => {
     const response = await handleSingleMovement(
       new Request('https://example.test/movement', {
         method: 'POST',
+        headers: { Authorization: 'Bearer test-token', 'content-type': 'application/json' },
         body: JSON.stringify({
           type: 'USAGE',
           usageSource: 'OWN_STOCK',
@@ -48,7 +50,7 @@ describe('physical button movement', () => {
           locationId: 'grandparents',
         }),
       }),
-      { DB: db, AUTH_SECRET: 'secret' } as Env
+      { DB: db, GOOGLE_CLIENT_ID: 'client', VAPID_PRIVATE_KEY: '', VAPID_PUBLIC_KEY: '', VAPID_SUBJECT: '', APP_URL: 'https://cacotas.netlify.app' } as unknown as Env
     )
 
     expect(response.status).toBe(200)
