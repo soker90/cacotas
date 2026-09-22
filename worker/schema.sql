@@ -9,7 +9,7 @@ CREATE TABLE households (
 
 CREATE TABLE users (
   id TEXT PRIMARY KEY,
-  household_id TEXT NOT NULL REFERENCES households(id),
+  household_id TEXT REFERENCES households(id),
   provider TEXT NOT NULL,
   provider_sub TEXT NOT NULL,
   email TEXT,
@@ -47,6 +47,7 @@ CREATE UNIQUE INDEX idx_sessions_user_device ON sessions(user_id, device_id);
 CREATE TABLE movements (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
   id TEXT NOT NULL UNIQUE,
+  household_id TEXT NOT NULL REFERENCES households(id),
   baby_id TEXT NOT NULL,
   baby_seq INTEGER NOT NULL,
   size_id INTEGER NOT NULL,
@@ -62,11 +63,13 @@ CREATE TABLE movements (
   location_id TEXT
 );
 CREATE UNIQUE INDEX idx_movements_baby_seq ON movements(baby_id, baby_seq);
+CREATE INDEX idx_movements_household ON movements(household_id);
 CREATE INDEX idx_movements_baby_location ON movements(baby_id, location_id);
 
 CREATE TABLE weights (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
   id TEXT NOT NULL UNIQUE,
+  household_id TEXT NOT NULL REFERENCES households(id),
   baby_id TEXT NOT NULL,
   baby_seq INTEGER NOT NULL,
   weight_kg REAL NOT NULL,
@@ -75,6 +78,7 @@ CREATE TABLE weights (
   device_id TEXT NOT NULL
 );
 CREATE UNIQUE INDEX idx_weights_baby_seq ON weights(baby_id, baby_seq);
+CREATE INDEX idx_weights_household ON weights(household_id);
 
 CREATE TABLE babies (
   id TEXT PRIMARY KEY,
