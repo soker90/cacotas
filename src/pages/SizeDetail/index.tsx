@@ -30,7 +30,7 @@ import { notifyWrite } from '../../sync/scheduler.ts'
 import { WeightForm } from '../../components/WeightForm.tsx'
 import { FitGuide } from '../../components/FitGuide.tsx'
 import { TransitionPrompt } from '../../components/TransitionPrompt.tsx'
-import { defaultLocationId, getActiveLocationId } from '../../lib/locations.ts'
+import { defaultLocationId, getActiveLocationId, resolveActiveLocationId } from '../../lib/locations.ts'
 
 const parsePositive = (text: string): number | null => {
   const value = Number.parseInt(text, 10)
@@ -42,7 +42,11 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
   const navigate = useNavigate()
   const sizeId = Number.parseInt(rawSizeId ?? '', 10)
 
-  const locationId = getActiveLocationId(defaultLocationId(baby.id))
+  const locations = useLiveQuery(() => db.locations.toArray())
+  const storedLocationId = getActiveLocationId(defaultLocationId(baby.id))
+  const locationId = locations === undefined
+    ? storedLocationId
+    : resolveActiveLocationId(storedLocationId, defaultLocationId(baby.id), locations)
   const stocks = useStockBySize(baby.id, locationId)
   const currentSizeId = useCurrentSize(baby.id)
   const forecast = useForecast(baby.id, Number.isInteger(sizeId) ? sizeId : null, locationId)
@@ -131,6 +135,7 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
         deviceId: getDeviceId(),
         occurredAt: now,
         recordedAt: now,
+        locationId,
         ...(adjustNote.trim() !== '' ? { note: adjustNote.trim() } : {}),
       },
       { type: 'ADJUSTMENT', delta }
