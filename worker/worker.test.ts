@@ -39,6 +39,14 @@ describe('physical button movement', () => {
     expect(resolveMovementLocationId('baby-1', 'grandparents')).toBe('grandparents')
 
     const { db, calls } = makeDb()
+    const env: Env = {
+      DB: db,
+      GOOGLE_CLIENT_ID: 'client',
+      VAPID_PRIVATE_KEY: '',
+      VAPID_PUBLIC_KEY: '',
+      VAPID_SUBJECT: '',
+      APP_URL: 'https://cacotas.netlify.app',
+    }
     const response = await handleSingleMovement(
       new Request('https://example.test/movement', {
         method: 'POST',
@@ -50,7 +58,7 @@ describe('physical button movement', () => {
           locationId: 'grandparents',
         }),
       }),
-      { DB: db, GOOGLE_CLIENT_ID: 'client', VAPID_PRIVATE_KEY: '', VAPID_PUBLIC_KEY: '', VAPID_SUBJECT: '', APP_URL: 'https://cacotas.netlify.app' } as unknown as Env
+      env
     )
 
     expect(response.status).toBe(200)
