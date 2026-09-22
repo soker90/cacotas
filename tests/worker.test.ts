@@ -13,15 +13,15 @@ const makeDb = () => {
           calls.push({ sql, args })
           return statement
         },
-        first: async <T>() => {
+        first: <T>() => {
           firstCount += 1
           if (firstCount === 1) return null as T | null
           if (firstCount === 2) return { size_id: 2 } as T
           if (firstCount === 3) return { id: 'baby-1' } as T
           return { id: 'default:baby-1' } as T
         },
-        run: async () => ({ success: true }),
-        all: async () => ({ results: [] }),
+        run: () => ({ success: true }),
+        all: () => ({ results: [] }),
       }
       return statement
     },
@@ -30,7 +30,7 @@ const makeDb = () => {
 }
 
 describe('physical button movement', () => {
-  it('uses the baby default location when the button sends no location', async () => {
+  it('uses the baby default location when the button sends no location', () => {
     expect(resolveMovementLocationId('baby-1')).toBe('default:baby-1')
   })
 
