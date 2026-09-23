@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { exportJSON, importJSON } from '../../lib/backup.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
@@ -259,12 +259,22 @@ export const Settings = () => {
                   id='invite-link'
                   value={inviteLink}
                   readOnly
+                  onFocus={(event) => { event.currentTarget.select() }}
                 />
                 <button
                   type='button'
-                  onClick={() => {
-                    void navigator.clipboard?.writeText(inviteLink)
-                    setInviteMessage('Enlace copiado.')
+                  onClick={async () => {
+                    if (navigator.clipboard === undefined) {
+                      setInviteMessage('No se pudo copiar. Selecciona el enlace y cópialo manualmente.')
+                      return
+                    }
+                    try {
+                      await navigator.clipboard.writeText(inviteLink)
+                      setInviteMessage('Enlace copiado.')
+                      setError(null)
+                    } catch {
+                      setInviteMessage('No se pudo copiar. Selecciona el enlace y cópialo manualmente.')
+                    }
                   }}
                 >
                   Copiar enlace
