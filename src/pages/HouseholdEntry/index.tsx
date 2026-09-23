@@ -26,16 +26,6 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
 
   useEffect(() => { load() }, [])
 
-  useEffect(() => {
-    if (!inviteCode || loading || !invites.some((invite) => invite.code === inviteCode)) return
-    void apiRequest('/household/invite/accept', {
-      method: 'POST',
-      body: JSON.stringify({ code: inviteCode }),
-    }).then(onDone).catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : 'No se pudo aceptar la invitación')
-    })
-  }, [inviteCode, loading, invites, onDone])
-
   if (loading) return <main className='loading'>…</main>
   if (inviteCode && !loading && !invites.some((invite) => invite.code === inviteCode)) {
     return (
@@ -67,6 +57,8 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
     })
   }
 
+  const visibleInvites = inviteCode ? [...invites.filter((invite) => invite.code === inviteCode), ...invites.filter((invite) => invite.code !== inviteCode)] : invites
+
   return (
     <main className='onboarding'>
       <h1>Bienvenido a Cacotas</h1>
@@ -74,7 +66,7 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
         ? (
           <>
             <p>Te han invitado a estos hogares:</p>
-            {invites.map((invite) => (
+            {visibleInvites.map((invite) => (
               <section className='card' key={invite.code}>
                 <h2>{invite.name}</h2>
                 <p>Invita: {invite.inviter_name ?? 'Un miembro del hogar'}</p>
