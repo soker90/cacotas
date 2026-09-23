@@ -133,7 +133,7 @@ export const Settings = () => {
             <input id='settings-baby-name' value={babyName} onChange={(e) => { setBabyName(e.target.value) }} />
           </div>
           <label className='check-row'>
-            <input type='checkbox' checked={babyUnborn} onChange={(e) => { setBabyUnborn(e.target.checked); if (e.target.checked) setBabyBirthDate('') }} />
+            <input type='checkbox' checked={babyUnborn} onChange={(e) => { setBabyUnborn(e.target.checked); if (e.target.checked) { setBabyBirthDate(''); setBabyPremature(false) } }} />
             Todavía no ha nacido
           </label>
           {!babyUnborn && (
@@ -155,7 +155,7 @@ export const Settings = () => {
             <input type='checkbox' checked={babyPremature} onChange={(e) => { setBabyPremature(e.target.checked) }} />
             Nació antes de tiempo
           </label>
-          {babyPremature && (
+          {!babyUnborn && babyPremature && (
             <div className='form-row'>
               <label htmlFor='settings-baby-weeks'>Semanas de gestación</label>
               <input id='settings-baby-weeks' inputMode='numeric' value={babyWeeks} onChange={(e) => { setBabyWeeks(e.target.value) }} placeholder='34' />
