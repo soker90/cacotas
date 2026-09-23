@@ -106,7 +106,7 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: (action: Househ
           </>
           )}
       {error && <p role='alert' className='error'>{error}</p>}
-      <button type='button' onClick={() => { clearSessionToken(); window.location.reload() }}>Desloguearme</button>
+      <button type='button' onClick={() => { clearSessionToken(); window.location.reload() }}>Cerrar sesión</button>
     </main>
   )
 }
