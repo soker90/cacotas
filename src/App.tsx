@@ -26,7 +26,7 @@ import { startSyncLoop } from './sync/scheduler.ts'
 import { getDeviceId } from './sync/device-id.ts'
 import { getSessionToken } from './auth/session.ts'
 import { Login } from './pages/Login/index.tsx'
-import { HouseholdEntry } from './pages/HouseholdEntry/index.tsx'
+import { HouseholdEntry, type HouseholdEntryAction } from './pages/HouseholdEntry/index.tsx'
 
 void seedSizes(db)
 
@@ -96,10 +96,15 @@ const SyncLoop = ({ backend }: { backend: HttpSyncBackend | null }) => {
 
 const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null; inviteCode?: string }) => {
   const [entry, setEntry] = useState(true)
+  const [entryAction, setEntryAction] = useState<HouseholdEntryAction | null>(null)
   const [decision, setDecision] = useState<StartupDecision | null>(null)
 
   useEffect(() => {
-    if (entry) return
+    if (entry || entryAction === null) return
+    if (entryAction === 'CREATE') {
+      setDecision({ route: 'ONBOARDING' })
+      return
+    }
     let cancelled = false
     void resolveStartup(null, backend, getDeviceId()).then((d) => {
       if (!cancelled) setDecision(d)
@@ -107,7 +112,7 @@ const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null;
     return () => {
       cancelled = true
     }
-  }, [entry, backend])
+  }, [entry, entryAction, backend])
 
   useEffect(() => {
     if (decision?.route !== 'HOME' || !decision.remote) return
@@ -121,8 +126,8 @@ const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null;
 
   if (entry) {
     return inviteCode === undefined
-      ? <HouseholdEntry onDone={() => { setEntry(false) }} />
-      : <HouseholdEntry inviteCode={inviteCode} onDone={() => { setEntry(false) }} />
+      ? <HouseholdEntry onDone={(action) => { setEntryAction(action); setEntry(false) }} />
+      : <HouseholdEntry inviteCode={inviteCode} onDone={(action) => { setEntryAction(action); setEntry(false) }} />
   }
 
   if (decision === null) {
