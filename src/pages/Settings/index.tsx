@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
+import type { Sex } from '../../../shared/types.ts'
 import { exportJSON, importJSON } from '../../lib/backup.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { isStayMode, setStayMode } from '../../lib/stay-mode.ts'
@@ -41,6 +42,25 @@ export const Settings = () => {
   const [householdName, setHouseholdName] = useState<string | null>(null)
   const [memberCount, setMemberCount] = useState(0)
   const [inviteMessage, setInviteMessage] = useState<string | null>(null)
+  const baby = useLiveQuery(() => db.babies.toCollection().first())
+  const [babyName, setBabyName] = useState('')
+  const [babyBirthDate, setBabyBirthDate] = useState('')
+  const [babyUnborn, setBabyUnborn] = useState(false)
+  const [babySex, setBabySex] = useState<Sex | null>(null)
+  const [babyBirthWeight, setBabyBirthWeight] = useState('')
+  const [babyPremature, setBabyPremature] = useState(false)
+  const [babyWeeks, setBabyWeeks] = useState('')
+
+  useEffect(() => {
+    if (baby === undefined) return
+    setBabyName(baby.name)
+    setBabyBirthDate(baby.birthDate ?? '')
+    setBabyUnborn(baby.birthDate === undefined)
+    setBabySex(baby.sex ?? null)
+    setBabyBirthWeight(baby.birthWeightKg === undefined ? '' : String(baby.birthWeightKg))
+    setBabyPremature(baby.gestationalWeeks !== undefined && baby.gestationalWeeks < 37)
+    setBabyWeeks(baby.gestationalWeeks === undefined ? '' : String(baby.gestationalWeeks))
+  }, [baby])
 
   useEffect(() => {
     void apiRequest<{ household?: { name?: string }; users?: unknown[] }>('/household/status').then((status) => {
@@ -104,6 +124,63 @@ export const Settings = () => {
   return (
     <main className='page'>
       <h1>Ajustes</h1>
+
+      {baby && (
+        <section className='card'>
+          <h2>Datos del bebé</h2>
+          <div className='form-row'>
+            <label htmlFor='settings-baby-name'>Nombre</label>
+            <input id='settings-baby-name' value={babyName} onChange={(e) => { setBabyName(e.target.value) }} />
+          </div>
+          <label className='check-row'>
+            <input type='checkbox' checked={babyUnborn} onChange={(e) => { setBabyUnborn(e.target.checked); if (e.target.checked) setBabyBirthDate('') }} />
+            Todavía no ha nacido
+          </label>
+          {!babyUnborn && (
+            <div className='form-row'>
+              <label htmlFor='settings-baby-birth-date'>Fecha de nacimiento</label>
+              <input id='settings-baby-birth-date' type='date' value={babyBirthDate} max={new Date().toISOString().slice(0, 10)} onChange={(e) => { setBabyBirthDate(e.target.value) }} />
+            </div>
+          )}
+          <p className='muted small'>Sexo (opcional)</p>
+          <div className='row settings-sex'>
+            <button type='button' className={babySex === 'male' ? 'size selected' : 'size'} aria-pressed={babySex === 'male'} onClick={() => { setBabySex(babySex === 'male' ? null : 'male') }}>Niño</button>
+            <button type='button' className={babySex === 'female' ? 'size selected' : 'size'} aria-pressed={babySex === 'female'} onClick={() => { setBabySex(babySex === 'female' ? null : 'female') }}>Niña</button>
+          </div>
+          <div className='form-row'>
+            <label htmlFor='settings-baby-birth-weight'>Peso al nacer en kg (opcional)</label>
+            <input id='settings-baby-birth-weight' inputMode='decimal' value={babyBirthWeight} onChange={(e) => { setBabyBirthWeight(e.target.value) }} placeholder='3,3' />
+          </div>
+          <label className='check-row'>
+            <input type='checkbox' checked={babyPremature} onChange={(e) => { setBabyPremature(e.target.checked) }} />
+            Nació antes de tiempo
+          </label>
+          {babyPremature && (
+            <div className='form-row'>
+              <label htmlFor='settings-baby-weeks'>Semanas de gestación</label>
+              <input id='settings-baby-weeks' inputMode='numeric' value={babyWeeks} onChange={(e) => { setBabyWeeks(e.target.value) }} placeholder='34' />
+            </div>
+          )}
+          <button type='button' className='primary' onClick={() => {
+            if (babyName.trim() === '') { setError('El nombre del bebé no puede estar vacío'); return }
+            if (!babyUnborn && babyBirthDate === '') { setError('Indica la fecha de nacimiento o marca que todavía no ha nacido'); return }
+            const weight = babyBirthWeight.trim() === '' ? undefined : Number.parseFloat(babyBirthWeight.replace(',', '.'))
+            if (babyBirthWeight.trim() !== '' && (!Number.isFinite(weight) || (weight ?? 0) <= 0)) { setError('El peso al nacer debe ser un número mayor que 0'); return }
+            const weeks = babyPremature ? Number.parseInt(babyWeeks, 10) : undefined
+            if (babyPremature && (!Number.isInteger(weeks) || (weeks ?? 0) < 20 || (weeks ?? 0) > 43)) { setError('Las semanas de gestación deben ser un número entre 20 y 43'); return }
+            void db.babies.update(baby.id, {
+              name: babyName.trim(),
+              updatedAt: Date.now(),
+              ...(babyUnborn ? { birthDate: undefined } : { birthDate: babyBirthDate }),
+              ...(weight !== undefined ? { birthWeightKg: weight } : { birthWeightKg: undefined }),
+              ...(babySex !== null ? { sex: babySex } : { sex: undefined }),
+              ...(weeks !== undefined ? { gestationalWeeks: weeks } : { gestationalWeeks: undefined }),
+            }).then(() => { setError(null); notifyWrite() }).catch((err: unknown) => {
+              setError(err instanceof Error ? err.message : 'No se pudieron guardar los datos del bebé')
+            })
+          }}>Guardar datos del bebé</button>
+        </section>
+      )}
 
       <section className='card'>
         <label className='switch-row'>
