@@ -16,7 +16,7 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
   const [error, setError] = useState<string | null>(null)
 
   const load = (): void => {
-    void apiRequest<{ invites: Invite[] }>('/household/status')
+    void apiRequest<{ invites: Invite[] }>('/household/status', inviteCode ? { method: 'POST', body: JSON.stringify({ inviteCode }) } : { method: 'POST', body: '{}' })
       .then((result) => { setInvites(result.invites); setLoading(false) })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'No se pudo comprobar las invitaciones')
@@ -65,7 +65,7 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
       {invites.length > 0
         ? (
           <>
-            <p>Te han invitado a estos hogares:</p>
+            <p>Te han invitado a este hogar:</p>
             {visibleInvites.map((invite) => (
               <section className='card' key={invite.code}>
                 <h2>{invite.name}</h2>
@@ -76,7 +76,6 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
                 </div>
               </section>
             ))}
-            <p className='muted small'>Al aceptar una invitación, las demás quedan pendientes para el futuro.</p>
             <button type='button' onClick={() => { onDone() }}>Crear un hogar nuevo</button>
           </>
           )
