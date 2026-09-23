@@ -250,7 +250,7 @@ export const Onboarding = () => {
         <section>
           <p>¿Qué talla usáis ahora?</p>
           <div className='size-grid'>
-            {Array.from({ length: 7 }, (_, i) => (
+            {Array.from({ length: 8 }, (_, i) => (
               <button
                 key={i}
                 type='button'
