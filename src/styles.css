@@ -170,7 +170,7 @@ input[type='datetime-local'] {
   font-weight: 700;
 }
 
-.size-grid .size.selected {
+.size.selected {
   background: var(--green);
   border-color: var(--green-dark);
   color: white;
