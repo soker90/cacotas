@@ -164,7 +164,7 @@ const verifyGoogleIdToken = async (token: string, clientId: string): Promise<Goo
 
 const handleGoogleAuth = async (
   request: Request,
-  env: Env,
+  env: Env
 ): Promise<Response> => {
   if (env.GOOGLE_CLIENT_ID === '') {
     return json({ error: 'google auth not configured' }, 503)
@@ -194,7 +194,7 @@ const handleGoogleAuth = async (
   }
 
   const existing = await env.DB.prepare(
-    'SELECT id, household_id, email, display_name FROM users WHERE provider = ?1 AND provider_sub = ?2',
+    'SELECT id, household_id, email, display_name FROM users WHERE provider = ?1 AND provider_sub = ?2'
   )
     .bind('google', google.sub)
     .first<UserRow>()
@@ -208,7 +208,7 @@ const handleGoogleAuth = async (
 
   if (existing === null) {
     await env.DB.prepare(
-      'INSERT INTO users (id, household_id, provider, provider_sub, email, display_name, created_at) VALUES (?1, NULL, ?2, ?3, ?4, ?5, ?6)',
+      'INSERT INTO users (id, household_id, provider, provider_sub, email, display_name, created_at) VALUES (?1, NULL, ?2, ?3, ?4, ?5, ?6)'
     )
       .bind(
         user.id,
@@ -216,7 +216,7 @@ const handleGoogleAuth = async (
         google.sub,
         user.email,
         user.display_name,
-        Date.now(),
+        Date.now()
       )
       .run()
   }
@@ -226,10 +226,10 @@ const handleGoogleAuth = async (
     typeof r.deviceId === 'string' && r.deviceId !== '' ? r.deviceId : 'web'
   await env.DB.batch([
     env.DB.prepare(
-      'DELETE FROM sessions WHERE user_id=?1 AND device_id=?2',
+      'DELETE FROM sessions WHERE user_id=?1 AND device_id=?2'
     ).bind(user.id, deviceId),
     env.DB.prepare(
-      'INSERT INTO sessions (token_hash,user_id,device_id,created_at,last_seen) VALUES (?1,?2,?3,?4,?4)',
+      'INSERT INTO sessions (token_hash,user_id,device_id,created_at,last_seen) VALUES (?1,?2,?3,?4,?4)'
     ).bind(await sha256(rawToken), user.id, deviceId, Date.now()),
   ])
 
@@ -399,11 +399,11 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
     if (existing === null) {
       await env.DB.batch([
         env.DB.prepare(
-          'INSERT INTO baby_sequences (baby_id, next_seq) VALUES (?1, 2) ON CONFLICT(baby_id) DO UPDATE SET next_seq = next_seq + 1',
+          'INSERT INTO baby_sequences (baby_id, next_seq) VALUES (?1, 2) ON CONFLICT(baby_id) DO UPDATE SET next_seq = next_seq + 1'
         ).bind(m.babyId),
         env.DB.prepare(
           `INSERT INTO movements (id, household_id, baby_id, baby_seq, size_id, type, usage_source, quantity, delta, undoes_movement_id, note, occurred_at, recorded_at, device_id, location_id)
-           VALUES (?1, ?2, ?3, (SELECT next_seq - 1 FROM baby_sequences WHERE baby_id=?3), ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`,
+           VALUES (?1, ?2, ?3, (SELECT next_seq - 1 FROM baby_sequences WHERE baby_id=?3), ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`
         ).bind(
           m.id,
           householdId,
@@ -418,7 +418,7 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
           m.occurredAt,
           m.recordedAt,
           m.deviceId,
-          m.locationId ?? null,
+          m.locationId ?? null
         ),
       ])
     }
@@ -437,11 +437,11 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
     if (existing === null) {
       await env.DB.batch([
         env.DB.prepare(
-          'INSERT INTO baby_sequences (baby_id, next_seq) VALUES (?1, 2) ON CONFLICT(baby_id) DO UPDATE SET next_seq = next_seq + 1',
+          'INSERT INTO baby_sequences (baby_id, next_seq) VALUES (?1, 2) ON CONFLICT(baby_id) DO UPDATE SET next_seq = next_seq + 1'
         ).bind(r.babyId),
         env.DB.prepare(
           `INSERT INTO weights (id, household_id, baby_id, baby_seq, weight_kg, length_cm, recorded_at, device_id)
-           VALUES (?1, ?2, ?3, (SELECT next_seq - 1 FROM baby_sequences WHERE baby_id=?3), ?4, ?5, ?6, ?7)`,
+           VALUES (?1, ?2, ?3, (SELECT next_seq - 1 FROM baby_sequences WHERE baby_id=?3), ?4, ?5, ?6, ?7)`
         ).bind(
           r.id,
           householdId,
@@ -449,7 +449,7 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
           r.weightKg,
           typeof r.lengthCm === 'number' ? r.lengthCm : null,
           r.recordedAt,
-          r.deviceId,
+          r.deviceId
         ),
       ])
     }
@@ -483,7 +483,7 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
          UNION ALL
          SELECT baby_seq, 'weight' AS row_kind, seq, id, household_id, baby_id, NULL AS size_id, NULL AS type, NULL AS usage_source, NULL AS quantity, NULL AS delta, NULL AS undoes_movement_id, NULL AS note, NULL AS occurred_at, recorded_at, device_id, NULL AS location_id, weight_kg, length_cm
          FROM weights WHERE household_id=?1 AND baby_id=?2 AND baby_seq>?3
-       ) ORDER BY baby_seq LIMIT ?4`,
+       ) ORDER BY baby_seq LIMIT ?4`
     ).bind(householdId, b.id, cursor, PAGE_SIZE).all<Record<string, unknown>>()
     const page = rows.results ?? []
     for (const row of page) {
@@ -509,13 +509,13 @@ const inviteCode = (): string => {
   crypto.getRandomValues(bytes)
   return Array.from(
     bytes,
-    (byte) => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[byte % 32],
+    (byte) => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[byte % 32]
   ).join('')
 }
 
 const handleCreateHousehold = async (
   request: Request,
-  env: Env,
+  env: Env
 ): Promise<Response> => {
   const auth = await authenticate(request, env)
   if (auth instanceof Response) return auth
@@ -561,13 +561,13 @@ const handleCreateHousehold = async (
 
   await env.DB.batch([
     env.DB.prepare(
-      'INSERT INTO households (id,name,created_by,created_at) VALUES (?1,?2,?3,?4)',
+      'INSERT INTO households (id,name,created_by,created_at) VALUES (?1,?2,?3,?4)'
     ).bind(householdId, name, auth.user.id, now),
     env.DB.prepare(
-      'UPDATE users SET household_id=?1 WHERE id=?2 AND household_id IS NULL',
+      'UPDATE users SET household_id=?1 WHERE id=?2 AND household_id IS NULL'
     ).bind(householdId, auth.user.id),
     env.DB.prepare(
-      'INSERT INTO babies (id,household_id,name,birth_date,zone_id,birth_weight_kg,sex,gestational_weeks,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?9)',
+      'INSERT INTO babies (id,household_id,name,birth_date,zone_id,birth_weight_kg,sex,gestational_weeks,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?9)'
     ).bind(
       babyId,
       householdId,
@@ -579,7 +579,7 @@ const handleCreateHousehold = async (
       typeof baby.gestationalWeeks === 'number'
         ? baby.gestationalWeeks
         : null,
-      now,
+      now
     ),
   ])
 
@@ -588,7 +588,7 @@ const handleCreateHousehold = async (
 
 const handleHouseholdStatus = async (
   request: Request,
-  env: Env,
+  env: Env
 ): Promise<Response> => {
   const auth = await authenticate(request, env)
   if (auth instanceof Response) return auth
@@ -596,7 +596,7 @@ const handleHouseholdStatus = async (
   if (auth.user.household_id === null) {
     let inviteCode: string | null = null
     try {
-      const body = await request.json() as unknown
+      const body = await request.json()
       if (typeof body === 'object' && body !== null && typeof body.inviteCode === 'string') {
         inviteCode = body.inviteCode
       }
@@ -608,7 +608,7 @@ const handleHouseholdStatus = async (
       ? []
       : (
           await env.DB.prepare(
-            'SELECT i.code,i.expires_at,h.id AS household_id,h.name,u.display_name AS inviter_name FROM invites i JOIN households h ON h.id=i.household_id LEFT JOIN users u ON u.id=i.created_by WHERE i.code=?1 AND i.redeemed_at IS NULL AND i.rejected_at IS NULL AND i.expires_at>?2',
+            'SELECT i.code,i.expires_at,h.id AS household_id,h.name,u.display_name AS inviter_name FROM invites i JOIN households h ON h.id=i.household_id LEFT JOIN users u ON u.id=i.created_by WHERE i.code=?1 AND i.redeemed_at IS NULL AND i.rejected_at IS NULL AND i.expires_at>?2'
           )
             .bind(inviteCode, Date.now())
             .all()
@@ -618,14 +618,14 @@ const handleHouseholdStatus = async (
   }
 
   const household = await env.DB.prepare(
-    'SELECT id,name,created_by,created_at FROM households WHERE id=?1',
+    'SELECT id,name,created_by,created_at FROM households WHERE id=?1'
   )
     .bind(auth.user.household_id)
     .first()
   const users =
     (
       await env.DB.prepare(
-        'SELECT id,email,display_name FROM users WHERE household_id=?1 ORDER BY created_at,id',
+        'SELECT id,email,display_name FROM users WHERE household_id=?1 ORDER BY created_at,id'
       )
         .bind(auth.user.household_id)
         .all()
@@ -636,7 +636,7 @@ const handleHouseholdStatus = async (
 
 const handleInvite = async (
   request: Request,
-  env: Env,
+  env: Env
 ): Promise<Response> => {
   const auth = await authenticate(request, env)
   if (auth instanceof Response) return auth
@@ -644,7 +644,7 @@ const handleInvite = async (
   if (householdId instanceof Response) return householdId
 
   const count = await env.DB.prepare(
-    'SELECT COUNT(*) AS count FROM users WHERE household_id=?1',
+    'SELECT COUNT(*) AS count FROM users WHERE household_id=?1'
   ).bind(householdId).first<{ count: number }>()
   if ((count?.count ?? 0) >= 2) return json({ error: 'household full' }, 409)
 
@@ -656,7 +656,7 @@ const handleInvite = async (
   const now = Date.now()
   const expiresAt = now + 72 * 60 * 60 * 1000
   await env.DB.prepare(
-    'INSERT INTO invites (code,household_id,created_by,created_at,expires_at) VALUES (?1,?2,?3,?4,?5)',
+    'INSERT INTO invites (code,household_id,created_by,created_at,expires_at) VALUES (?1,?2,?3,?4,?5)'
   ).bind(code, householdId, auth.user.id, now, expiresAt).run()
 
   return json({
@@ -672,12 +672,12 @@ const inviteIp = (request: Request): string =>
 
 const inviteRateLimited = async (
   request: Request,
-  env: Env,
+  env: Env
 ): Promise<boolean> => {
   const ip = inviteIp(request)
   const cutoff = Date.now() - 60 * 60 * 1000
   const row = await env.DB.prepare(
-    'SELECT COUNT(*) AS count FROM invite_attempts WHERE ip=?1 AND attempted_at>?2',
+    'SELECT COUNT(*) AS count FROM invite_attempts WHERE ip=?1 AND attempted_at>?2'
   )
     .bind(ip, cutoff)
     .first<{ count: number }>()
@@ -686,10 +686,10 @@ const inviteRateLimited = async (
 
 const recordInviteFailure = async (
   request: Request,
-  env: Env,
+  env: Env
 ): Promise<void> => {
   await env.DB.prepare(
-    'INSERT INTO invite_attempts (ip,attempted_at) VALUES (?1,?2)',
+    'INSERT INTO invite_attempts (ip,attempted_at) VALUES (?1,?2)'
   )
     .bind(inviteIp(request), Date.now())
     .run()
@@ -697,7 +697,7 @@ const recordInviteFailure = async (
 
 const handleAcceptInvite = async (
   request: Request,
-  env: Env,
+  env: Env
 ): Promise<Response> => {
   const auth = await authenticate(request, env)
   if (auth instanceof Response) return auth
@@ -723,7 +723,7 @@ const handleAcceptInvite = async (
       ? String((body as Record<string, unknown>).code)
       : ''
   const invite = await env.DB.prepare(
-    'SELECT code,household_id FROM invites WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?2',
+    'SELECT code,household_id FROM invites WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?2'
   )
     .bind(code, Date.now())
     .first<{ code: string; household_id: string }>()
@@ -734,7 +734,7 @@ const handleAcceptInvite = async (
   }
 
   const count = await env.DB.prepare(
-    'SELECT COUNT(*) AS count FROM users WHERE household_id=?1',
+    'SELECT COUNT(*) AS count FROM users WHERE household_id=?1'
   )
     .bind(invite.household_id)
     .first<{ count: number }>()
@@ -745,10 +745,10 @@ const handleAcceptInvite = async (
   try {
     const result = await env.DB.batch([
       env.DB.prepare(
-        'UPDATE users SET household_id=?1 WHERE id=?2 AND household_id IS NULL',
+        'UPDATE users SET household_id=?1 WHERE id=?2 AND household_id IS NULL'
       ).bind(invite.household_id, auth.user.id),
       env.DB.prepare(
-        'UPDATE invites SET redeemed_at=?2,redeemed_by=?3 WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?4',
+        'UPDATE invites SET redeemed_at=?2,redeemed_by=?3 WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?4'
       ).bind(code, Date.now(), auth.user.id, Date.now()),
     ])
     if (result[0].meta.changes !== 1 || result[1].meta.changes !== 1) {
@@ -763,7 +763,7 @@ const handleAcceptInvite = async (
 
 const handleRejectInvite = async (
   request: Request,
-  env: Env,
+  env: Env
 ): Promise<Response> => {
   const auth = await authenticate(request, env)
   if (auth instanceof Response) return auth
@@ -786,7 +786,7 @@ const handleRejectInvite = async (
       ? String((body as Record<string, unknown>).code)
       : ''
   const result = await env.DB.prepare(
-    'UPDATE invites SET rejected_at=?2,rejected_by=?3 WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?4',
+    'UPDATE invites SET rejected_at=?2,rejected_by=?3 WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?4'
   )
     .bind(code, Date.now(), auth.user.id, Date.now())
     .run()
@@ -800,7 +800,7 @@ const deleteHouseholdData = (env: Env, householdId: string) => [
   env.DB.prepare('DELETE FROM invites WHERE household_id=?1').bind(householdId),
   env.DB.prepare('DELETE FROM notification_log WHERE household_id=?1').bind(householdId),
   env.DB.prepare(
-    'DELETE FROM push_subscriptions WHERE user_id IN (SELECT id FROM users WHERE household_id=?1)',
+    'DELETE FROM push_subscriptions WHERE user_id IN (SELECT id FROM users WHERE household_id=?1)'
   ).bind(householdId),
   env.DB.prepare('DELETE FROM baby_sequences WHERE baby_id IN (SELECT id FROM babies WHERE household_id=?1)').bind(householdId),
   env.DB.prepare('DELETE FROM movements WHERE household_id=?1').bind(householdId),
@@ -808,7 +808,7 @@ const deleteHouseholdData = (env: Env, householdId: string) => [
   env.DB.prepare('DELETE FROM locations WHERE household_id=?1').bind(householdId),
   env.DB.prepare('DELETE FROM babies WHERE household_id=?1').bind(householdId),
   env.DB.prepare(
-    'DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE household_id=?1)',
+    'DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE household_id=?1)'
   ).bind(householdId),
   env.DB.prepare('DELETE FROM users WHERE household_id=?1').bind(householdId),
   env.DB.prepare('DELETE FROM households WHERE id=?1').bind(householdId),
@@ -816,7 +816,7 @@ const deleteHouseholdData = (env: Env, householdId: string) => [
 
 const handleLeaveHousehold = async (
   request: Request,
-  env: Env,
+  env: Env
 ): Promise<Response> => {
   const auth = await authenticate(request, env)
   if (auth instanceof Response) return auth
@@ -824,7 +824,7 @@ const handleLeaveHousehold = async (
   if (householdId instanceof Response) return householdId
 
   const other = await env.DB.prepare(
-    'SELECT id FROM users WHERE household_id=?1 AND id<>?2 LIMIT 1',
+    'SELECT id FROM users WHERE household_id=?1 AND id<>?2 LIMIT 1'
   )
     .bind(householdId, auth.user.id)
     .first()
@@ -832,13 +832,13 @@ const handleLeaveHousehold = async (
   if (other) {
     await env.DB.batch([
       env.DB.prepare('UPDATE users SET household_id=NULL WHERE id=?1').bind(
-        auth.user.id,
+        auth.user.id
       ),
       env.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(
-        auth.user.id,
+        auth.user.id
       ),
       env.DB.prepare('DELETE FROM push_subscriptions WHERE user_id=?1').bind(
-        auth.user.id,
+        auth.user.id
       ),
     ])
   } else {
@@ -850,7 +850,7 @@ const handleLeaveHousehold = async (
 
 const handleDeleteAccount = async (
   request: Request,
-  env: Env,
+  env: Env
 ): Promise<Response> => {
   const auth = await authenticate(request, env)
   if (auth instanceof Response) return auth
@@ -865,7 +865,7 @@ const handleDeleteAccount = async (
   }
 
   const other = await env.DB.prepare(
-    'SELECT id FROM users WHERE household_id=?1 AND id<>?2 LIMIT 1',
+    'SELECT id FROM users WHERE household_id=?1 AND id<>?2 LIMIT 1'
   )
     .bind(householdId, auth.user.id)
     .first()
@@ -875,7 +875,7 @@ const handleDeleteAccount = async (
       env.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(auth.user.id),
       env.DB.prepare('DELETE FROM push_subscriptions WHERE user_id=?1').bind(auth.user.id),
       env.DB.prepare('UPDATE users SET household_id=NULL WHERE id=?1').bind(
-        auth.user.id,
+        auth.user.id
       ),
     ])
   } else {
@@ -925,7 +925,7 @@ export const handleSingleMovement = async (
   }
 
   const babyRow = await env.DB.prepare(
-    'SELECT id FROM babies WHERE household_id=?1 ORDER BY created_at,id LIMIT 1',
+    'SELECT id FROM babies WHERE household_id=?1 ORDER BY created_at,id LIMIT 1'
   )
     .bind(householdId)
     .first<{ id: string }>()
@@ -956,7 +956,7 @@ export const handleSingleMovement = async (
 
   await env.DB.batch([
     env.DB.prepare(
-      'INSERT INTO baby_sequences (baby_id,next_seq) VALUES (?1,2) ON CONFLICT(baby_id) DO UPDATE SET next_seq=next_seq+1',
+      'INSERT INTO baby_sequences (baby_id,next_seq) VALUES (?1,2) ON CONFLICT(baby_id) DO UPDATE SET next_seq=next_seq+1'
     ).bind(movement.babyId),
     env.DB.prepare(
       `INSERT INTO movements

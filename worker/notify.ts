@@ -168,7 +168,7 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
               data: { babyId: babyRow.id, sizeId: candidate.sizeId, kind: candidate.kind },
               actions: [{ action: 'snooze', title: 'Me encargo yo' }],
             }),
-            { privateKeyB64url: env.VAPID_PRIVATE_KEY, publicKeyB64url: env.VAPID_PUBLIC_KEY, subject: env.VAPID_SUBJECT },
+            { privateKeyB64url: env.VAPID_PRIVATE_KEY, publicKeyB64url: env.VAPID_PUBLIC_KEY, subject: env.VAPID_SUBJECT }
           )
           if (status === 404 || status === 410) {
             await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?1').bind(device.endpoint).run()
@@ -180,7 +180,7 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
       await env.DB.prepare(
         `INSERT INTO notification_log (household_id,baby_id,size_id,kind,state_hash,sent_at,snoozed_until)
          VALUES (?1,?2,?3,?4,?5,?6,NULL)
-         ON CONFLICT(baby_id,size_id,kind) DO UPDATE SET state_hash=excluded.state_hash,sent_at=excluded.sent_at,snoozed_until=NULL`,
+         ON CONFLICT(baby_id,size_id,kind) DO UPDATE SET state_hash=excluded.state_hash,sent_at=excluded.sent_at,snoozed_until=NULL`
       ).bind(babyRow.household_id, babyRow.id, candidate.sizeId, candidate.kind, stateHash, Date.now()).run()
       result.sent.push({ kind: candidate.kind, sizeId: candidate.sizeId, devices: delivered })
     }

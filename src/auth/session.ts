@@ -53,7 +53,7 @@ const loadGoogle = async (): Promise<GoogleApi> => {
 
 export const renderGoogleButton = async (
   element: HTMLElement,
-  onCredential: (credential: string) => void,
+  onCredential: (credential: string) => void
 ): Promise<void> => {
   const clientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '')
   if (typeof clientId !== 'string' || clientId === '') throw new Error('Falta VITE_GOOGLE_CLIENT_ID')

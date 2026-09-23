@@ -293,7 +293,7 @@ export const Settings = () => {
           onClick={() => {
             if (
               !window.confirm(
-                '¿Abandonar este hogar? Si eres el último miembro se borrarán sus datos.',
+                '¿Abandonar este hogar? Si eres el último miembro se borrarán sus datos.'
               )
             ) {
               return
@@ -309,7 +309,7 @@ export const Settings = () => {
               const pending = pendingMovements + pendingWeights
               if (pending > 0) {
                 setError(
-                  'Hay cambios pendientes. Sincronízalos o exporta una copia antes de abandonar el hogar.',
+                  'Hay cambios pendientes. Sincronízalos o exporta una copia antes de abandonar el hogar.'
                 )
                 return
               }
@@ -328,13 +328,13 @@ export const Settings = () => {
                   await db.movements.clear()
                   await db.weights.clear()
                   await db.locations.clear()
-                },
+                }
               )
               window.location.reload()
             })
               .catch((err: unknown) => {
                 setError(
-                  err instanceof Error ? err.message : 'No se pudo abandonar',
+                  err instanceof Error ? err.message : 'No se pudo abandonar'
                 )
               })
           }}
@@ -371,13 +371,13 @@ export const Settings = () => {
                     await db.movements.clear()
                     await db.weights.clear()
                     await db.locations.clear()
-                  },
+                  }
                 )
                 window.location.reload()
               })
               .catch((err: unknown) => {
                 setError(
-                  err instanceof Error ? err.message : 'No se pudo borrar la cuenta',
+                  err instanceof Error ? err.message : 'No se pudo borrar la cuenta'
                 )
               })
           }}
