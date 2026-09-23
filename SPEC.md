@@ -1575,7 +1575,7 @@ Correo transaccional · proveedor de email para invitaciones · Login legado por
 - El hogar no puede quedar sin usuarios; cuando el último usuario sale, se elimina el hogar y sus datos.
 - Las invitaciones **no se envían por email**. No se introduce un proveedor de correo ni un dominio propio para esta funcionalidad.
 - Crear una invitación genera un código opaco y un enlace compartible bajo `APP_URL`. La UI permite copiar/compartir ambos.
-- La invitación caduca a las 72 h y se reutiliza al volver a invitar al mismo email mientras siga pendiente.
+- La invitación caduca a las 72 h. Cada generación crea un enlace independiente, por lo que pueden existir varias invitaciones pendientes simultáneamente.
 - El destinatario inicia sesión con Google y, si el email coincide, ve el nombre del hogar y quién le invitó antes de aceptar.
 - Aceptar una invitación asigna el usuario al hogar; un usuario que ya pertenece a otro hogar no puede aceptarla.
 - Rechazar una invitación la marca como rechazada y permite crear otro hogar o cerrar sesión.
