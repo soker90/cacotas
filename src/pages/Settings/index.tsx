@@ -39,6 +39,7 @@ export const Settings = () => {
   const [inviteEmail, setInviteEmail] = useState('')
   const [householdName, setHouseholdName] = useState<string | null>(null)
   const [memberCount, setMemberCount] = useState(0)
+  const [inviteMessage, setInviteMessage] = useState<string | null>(null)
 
   useEffect(() => {
     void apiRequest<{ household?: { name?: string }; users?: unknown[] }>('/household/status').then((status) => {
@@ -252,9 +253,11 @@ export const Settings = () => {
                 })
                   .then(() => {
                     setInviteEmail('')
-                    setError('Invitación creada. La otra persona la verá al iniciar sesión con esa cuenta de Google.')
+                    setInviteMessage('Invitación creada. La otra persona la verá al iniciar sesión con esa cuenta de Google.')
+                    setError(null)
                   })
                   .catch((err: unknown) => {
+                    setInviteMessage(null)
                     setError(
                       err instanceof Error ? err.message : 'No se pudo crear la invitación',
                     )
@@ -263,6 +266,7 @@ export const Settings = () => {
             >
               Enviar invitación
             </button>
+            {inviteMessage && <p className='muted small' role='status'>{inviteMessage}</p>}
           </>
         )}
         <button
