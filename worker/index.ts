@@ -594,17 +594,25 @@ const handleHouseholdStatus = async (
   if (auth instanceof Response) return auth
 
   if (auth.user.household_id === null) {
-    const email = normalizeEmail(auth.user.email ?? '')
-    const invites =
-      email === ''
-        ? []
-        : (
-            await env.DB.prepare(
-              'SELECT i.code,i.expires_at,h.id AS household_id,h.name,u.display_name AS inviter_name FROM invites i JOIN households h ON h.id=i.household_id LEFT JOIN users u ON u.id=i.created_by WHERE i.redeemed_at IS NULL AND i.rejected_at IS NULL AND i.expires_at>?2 ORDER BY i.created_at DESC',
-            )
-              .bind(Date.now())
-              .all()
-          ).results ?? []
+    let inviteCode: string | null = null
+    try {
+      const body = await request.json() as unknown
+      if (typeof body === 'object' && body !== null && typeof (body as Record<string, unknown>).inviteCode === 'string') {
+        inviteCode = (body as Record<string, unknown>).inviteCode
+      }
+    } catch {
+      // Empty request body is valid when there is no invitation link.
+    }
+
+    const invites = inviteCode === null
+      ? []
+      : (
+          await env.DB.prepare(
+            'SELECT i.code,i.expires_at,h.id AS household_id,h.name,u.display_name AS inviter_name FROM invites i JOIN households h ON h.id=i.household_id LEFT JOIN users u ON u.id=i.created_by WHERE i.code=?1 AND i.redeemed_at IS NULL AND i.rejected_at IS NULL AND i.expires_at>?2',
+          )
+            .bind(inviteCode, Date.now())
+            .all()
+        ).results ?? []
 
     return json({ user: auth.user, invites })
   }
@@ -715,12 +723,12 @@ const handleAcceptInvite = async (
       ? String((body as Record<string, unknown>).code)
       : ''
   const invite = await env.DB.prepare(
-    'SELECT code,household_id,email FROM invites WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?2',
+    'SELECT code,household_id FROM invites WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?2',
   )
     .bind(code, Date.now())
-    .first<{ code: string; household_id: string; email: string }>()
+    .first<{ code: string; household_id: string }>()
 
-  if (!invite || invite.email !== normalizeEmail(auth.user.email ?? '')) {
+  if (!invite) {
     await recordInviteFailure(request, env)
     return json({ error: 'invalid invitation' }, 400)
   }
@@ -740,8 +748,8 @@ const handleAcceptInvite = async (
         'UPDATE users SET household_id=?1 WHERE id=?2 AND household_id IS NULL',
       ).bind(invite.household_id, auth.user.id),
       env.DB.prepare(
-        'UPDATE invites SET redeemed_at=?2,redeemed_by=?3 WHERE code=?1 AND redeemed_at IS NULL',
-      ).bind(code, Date.now(), auth.user.id),
+        'UPDATE invites SET redeemed_at=?2,redeemed_by=?3 WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?4',
+      ).bind(code, Date.now(), auth.user.id, Date.now()),
     ])
     if (result[0].meta.changes !== 1 || result[1].meta.changes !== 1) {
       return json({ error: 'invalid invitation' }, 400)
@@ -778,14 +786,9 @@ const handleRejectInvite = async (
       ? String((body as Record<string, unknown>).code)
       : ''
   const result = await env.DB.prepare(
-    'UPDATE invites SET rejected_at=?2,rejected_by=?3 WHERE code=?1 AND email=?4 AND redeemed_at IS NULL AND rejected_at IS NULL',
+    'UPDATE invites SET rejected_at=?2,rejected_by=?3 WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?4',
   )
-    .bind(
-      code,
-      Date.now(),
-      auth.user.id,
-      normalizeEmail(auth.user.email ?? ''),
-    )
+    .bind(code, Date.now(), auth.user.id, Date.now())
     .run()
 
   return result.meta.changes === 0
@@ -834,6 +837,9 @@ const handleLeaveHousehold = async (
       env.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(
         auth.user.id,
       ),
+      env.DB.prepare('DELETE FROM push_subscriptions WHERE user_id=?1').bind(
+        auth.user.id,
+      ),
     ])
   } else {
     await env.DB.batch(deleteHouseholdData(env, householdId))
@@ -867,6 +873,7 @@ const handleDeleteAccount = async (
   if (other) {
     await env.DB.batch([
       env.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(auth.user.id),
+      env.DB.prepare('DELETE FROM push_subscriptions WHERE user_id=?1').bind(auth.user.id),
       env.DB.prepare('UPDATE users SET household_id=NULL WHERE id=?1').bind(
         auth.user.id,
       ),
@@ -947,14 +954,18 @@ export const handleSingleMovement = async (
     { type: 'USAGE', usageSource: r.usageSource, quantity: 1 }
   )
 
-  await env.DB.prepare(
-    `INSERT INTO movements
-       (id, baby_id, size_id, type, usage_source, quantity, delta,
+  await env.DB.batch([
+    env.DB.prepare(
+      'INSERT INTO baby_sequences (baby_id,next_seq) VALUES (?1,2) ON CONFLICT(baby_id) DO UPDATE SET next_seq=next_seq+1',
+    ).bind(movement.babyId),
+    env.DB.prepare(
+      `INSERT INTO movements
+       (id, household_id, baby_id, baby_seq, size_id, type, usage_source, quantity, delta,
         occurred_at, recorded_at, device_id, location_id)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`
-  )
-    .bind(
+       VALUES (?1, ?2, ?3, (SELECT next_seq - 1 FROM baby_sequences WHERE baby_id=?3), ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`
+    ).bind(
       movement.id,
+      householdId,
       movement.babyId,
       movement.sizeId,
       movement.type,
@@ -965,8 +976,8 @@ export const handleSingleMovement = async (
       movement.recordedAt,
       movement.deviceId,
       movement.locationId ?? null
-    )
-    .run()
+    ),
+  ])
 
   return json({ movement: { ...movement, serverSeq: 0 } }, 200)
 }
