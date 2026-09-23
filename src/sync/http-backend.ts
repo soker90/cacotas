@@ -9,11 +9,11 @@ export class TransientSyncError extends Error {}
 
 export class HttpSyncBackend implements SyncBackend {
   readonly #url: string
-  readonly #secret: string
+  readonly #token: string
 
-  constructor (url: string, secret: string) {
+  constructor (url: string, token: string) {
     this.#url = url
-    this.#secret = secret
+    this.#token = token
   }
 
   async sync (req: SyncRequest): Promise<SyncResponse> {
@@ -23,7 +23,7 @@ export class HttpSyncBackend implements SyncBackend {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          'X-Auth': this.#secret,
+          Authorization: `Bearer ${this.#token}`,
         },
         body: JSON.stringify(req),
       })

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   BrowserRouter,
   Navigate,
@@ -24,21 +24,18 @@ import { UpdatePrompt } from './pwa/UpdatePrompt.tsx'
 import { HttpSyncBackend } from './sync/http-backend.ts'
 import { startSyncLoop } from './sync/scheduler.ts'
 import { getDeviceId } from './sync/device-id.ts'
+import { getSessionToken } from './auth/session.ts'
+import { Login } from './pages/Login/index.tsx'
+import { HouseholdEntry } from './pages/HouseholdEntry/index.tsx'
 
 void seedSizes(db)
 
-/** §9.7: with the sync secret configured at build time the backend is real
- *  and the startup flow can adopt a remote baby; without it everything
- *  stays local (first device). */
-const SYNC_URL = import.meta.env.VITE_SYNC_URL
-const SYNC_SECRET = import.meta.env.VITE_SYNC_SECRET
-const backend =
-  typeof SYNC_URL === 'string' &&
-  SYNC_URL !== '' &&
-  typeof SYNC_SECRET === 'string' &&
-  SYNC_SECRET !== ''
-    ? new HttpSyncBackend(SYNC_URL, SYNC_SECRET)
+const createBackend = (sessionToken: string | null): HttpSyncBackend | null => {
+  const url = import.meta.env.VITE_SYNC_URL
+  return typeof url === 'string' && url !== '' && sessionToken !== null
+    ? new HttpSyncBackend(url, sessionToken)
     : null
+}
 
 export const App = () => (
   <BrowserRouter>
@@ -48,19 +45,29 @@ export const App = () => (
 )
 
 const AppRoutes = () => {
-  // undefined = still loading; null = no baby yet (§9.7)
   const localBaby = useBaby()
+  const [, rerender] = useState(0)
+  const sessionToken = getSessionToken()
+  const backend = useMemo(() => createBackend(sessionToken), [sessionToken])
+
+  if (sessionToken === null) {
+    return <Login onLogin={() => { rerender((value) => value + 1) }} />
+  }
 
   if (localBaby === undefined) {
     return <main className='loading'>…</main>
   }
   if (!localBaby) {
-    return <FirstLaunch />
+    const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)$/)
+    const inviteCode = inviteMatch?.[1]
+    return inviteCode === undefined
+      ? <FirstLaunch backend={backend} />
+      : <FirstLaunch backend={backend} inviteCode={inviteCode} />
   }
 
   return (
     <>
-      <SyncLoop />
+      <SyncLoop backend={backend} />
       <Routes>
         <Route element={<AppLayout />}>
           <Route path='/' element={<Home baby={localBaby} />} />
@@ -80,19 +87,19 @@ const AppRoutes = () => {
   )
 }
 
-/** Mounts the sync triggers for as long as a local baby exists (§9.3). */
-const SyncLoop = () => {
+const SyncLoop = ({ backend }: { backend: HttpSyncBackend | null }) => {
   useEffect(() => {
     startSyncLoop(backend, getDeviceId())
-  }, [])
+  }, [backend])
   return null
 }
 
-/** Startup flow of §9.7 when there is no local Baby. */
-const FirstLaunch = () => {
+const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null; inviteCode?: string }) => {
+  const [entry, setEntry] = useState(true)
   const [decision, setDecision] = useState<StartupDecision | null>(null)
 
   useEffect(() => {
+    if (entry) return
     let cancelled = false
     void resolveStartup(null, backend, getDeviceId()).then((d) => {
       if (!cancelled) setDecision(d)
@@ -100,11 +107,8 @@ const FirstLaunch = () => {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [entry, backend])
 
-  // Adoption path: a remote baby was found, persist it and go straight to
-  // Home, skipping the onboarding entirely. Unreachable while backend is
-  // null; exercised by unit tests and wired up in phase 3.
   useEffect(() => {
     if (decision?.route !== 'HOME' || !decision.remote) return
     const { baby, movements, locations } = decision.remote
@@ -115,11 +119,16 @@ const FirstLaunch = () => {
     })
   }, [decision])
 
+  if (entry) {
+    return inviteCode === undefined
+      ? <HouseholdEntry onDone={() => { setEntry(false) }} />
+      : <HouseholdEntry inviteCode={inviteCode} onDone={() => { setEntry(false) }} />
+  }
+
   if (decision === null) {
     return <main className='loading'>…</main>
   }
 
-  // Unreachable in phase 1: there is no backend to fail.
   if (decision.route === 'JOIN_RETRY') {
     return (
       <main className='onboarding'>

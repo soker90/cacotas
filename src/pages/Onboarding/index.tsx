@@ -7,6 +7,7 @@ import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
 import { setActiveLocationId } from '../../lib/locations.ts'
+import { apiRequest } from '../../auth/api.ts'
 
 const parseDecimal = (text: string): number | null => {
   const value = Number.parseFloat(text.replace(',', '.'))
@@ -23,6 +24,7 @@ const parseDecimal = (text: string): number | null => {
 export const Onboarding = () => {
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
+  const [householdName, setHouseholdName] = useState('Nuestro hogar')
   const [birthDate, setBirthDate] = useState('')
   const [birthWeightText, setBirthWeightText] = useState('')
   const [sex, setSex] = useState<Sex | null>(null)
@@ -46,7 +48,7 @@ export const Onboarding = () => {
     : undefined
 
   const canNext =
-    (step === 0 && name.trim().length > 0 && birthDate !== '') ||
+    (step === 0 && name.trim().length > 0 && birthDate !== '' && householdName.trim().length > 0) ||
     (step === 1 && sizeId !== null) ||
     step === 2
 
@@ -86,6 +88,21 @@ export const Onboarding = () => {
     }
 
     try {
+      await apiRequest('/household/create', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: householdName.trim(),
+          baby: {
+            id: babyId,
+            name: baby.name,
+            birthDate: baby.birthDate,
+            zoneId: baby.zoneId,
+            birthWeightKg: baby.birthWeightKg,
+            sex: baby.sex,
+            gestationalWeeks: baby.gestationalWeeks,
+          },
+        }),
+      })
       const initial = createMovement(
         {
           id: uuid(),
@@ -154,6 +171,9 @@ export const Onboarding = () => {
 
       {step === 0 && (
         <section>
+          <label htmlFor='household-name'>¿Cómo se llama vuestro hogar?</label>
+          <input id='household-name' value={householdName} onChange={(e) => { setHouseholdName(e.target.value) }} placeholder='Nuestra casa' />
+
           <label htmlFor='baby-name'>¿Cómo se llama el bebé?</label>
           <input
             id='baby-name'
@@ -230,7 +250,7 @@ export const Onboarding = () => {
         <section>
           <p>¿Qué talla usáis ahora?</p>
           <div className='size-grid'>
-            {Array.from({ length: 7 }, (_, i) => (
+            {Array.from({ length: 8 }, (_, i) => (
               <button
                 key={i}
                 type='button'

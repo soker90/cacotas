@@ -19,6 +19,9 @@ import { notifyWrite } from '../../sync/scheduler.ts'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db/index.ts'
 import { createLocation } from '../../lib/locations.ts'
+import { apiRequest } from '../../auth/api.ts'
+import { clearSessionToken } from '../../auth/session.ts'
+import { clearSyncState } from '../../sync/engine.ts'
 
 export const Settings = () => {
   const [stayMode, setStayModeState] = useState(() => isStayMode())
@@ -34,8 +37,16 @@ export const Settings = () => {
   const locations = useLiveQuery(() => db.locations.toArray())
   const [newLocationName, setNewLocationName] = useState('')
   const [newLocationPoint, setNewLocationPoint] = useState('10')
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [householdName, setHouseholdName] = useState<string | null>(null)
+  const [memberCount, setMemberCount] = useState(0)
+  const [inviteMessage, setInviteMessage] = useState<string | null>(null)
 
   useEffect(() => {
+    void apiRequest<{ household?: { name?: string }; users?: unknown[] }>('/household/status').then((status) => {
+      setHouseholdName(status.household?.name ?? null)
+      setMemberCount(status.users?.length ?? 0)
+    }).catch(() => {})
     void pushState().then(async (state) => {
       setPushSupport(state)
       // Self-heal: a subscription may exist in the browser but never have
@@ -215,6 +226,174 @@ export const Settings = () => {
             Añadir ubicación
           </button>
         </div>
+      </section>
+
+      <section className='card'>
+        <h2>Hogar</h2>
+        <p>{householdName ?? 'Sin hogar'}</p>
+        <p className='muted small'>{memberCount} de 2 miembros</p>
+        {memberCount < 2 && <p className='muted small'>Genera un enlace y compártelo con la otra persona. Para aceptar la invitación tendrá que abrir ese enlace e iniciar sesión con Google.</p>}
+        {memberCount < 2 && (
+          <>
+            <button
+              type='button'
+              onClick={() => {
+                void apiRequest<{ inviteUrl: string }>('/household/invite', { method: 'POST', body: '{}' })
+                  .then((result) => {
+                    setInviteLink(result.inviteUrl)
+                    setInviteMessage('Invitación creada.')
+                    setError(null)
+                  })
+                  .catch((err: unknown) => {
+                    setInviteMessage(null)
+                    setError(err instanceof Error ? err.message : 'No se pudo crear la invitación')
+                  })
+              }}
+            >
+              Generar enlace de invitación
+            </button>
+            {inviteLink && (
+              <div className='form-row'>
+                <label htmlFor='invite-link'>Enlace de invitación</label>
+                <input
+                  id='invite-link'
+                  value={inviteLink}
+                  readOnly
+                  onFocus={(event) => { event.currentTarget.select() }}
+                />
+                <button
+                  type='button'
+                  onClick={async () => {
+                    if (navigator.clipboard === undefined) {
+                      setInviteMessage('No se pudo copiar. Selecciona el enlace y cópialo manualmente.')
+                      return
+                    }
+                    try {
+                      await navigator.clipboard.writeText(inviteLink)
+                      setInviteMessage('Enlace copiado.')
+                      setError(null)
+                    } catch {
+                      setInviteMessage('No se pudo copiar. Selecciona el enlace y cópialo manualmente.')
+                    }
+                  }}
+                >
+                  Copiar enlace
+                </button>
+                {navigator.share && (
+                  <button
+                    type='button'
+                    onClick={() => {
+                      void navigator.share({
+                        title: 'Invitación a Cacotas',
+                        text: 'Únete a nuestro hogar en Cacotas',
+                        url: inviteLink,
+                      }).catch(() => {})
+                    }}
+                  >
+                    Compartir
+                  </button>
+                )}
+              </div>
+            )}
+            {inviteMessage && <p className='muted small' role='status'>{inviteMessage}</p>}
+          </>
+        )}
+        <button
+          type='button'
+          onClick={() => {
+            if (
+              !window.confirm(
+                '¿Abandonar este hogar? Si eres el último miembro se borrarán sus datos.'
+              )
+            ) {
+              return
+            }
+            void Promise.all([
+              db.movements
+                .filter((movement) => movement.serverSeq === 0)
+                .count(),
+              db.weights
+                .filter((weight) => weight.serverSeq === 0)
+                .count(),
+            ]).then(async ([pendingMovements, pendingWeights]) => {
+              const pending = pendingMovements + pendingWeights
+              if (pending > 0) {
+                setError(
+                  'Hay cambios pendientes. Sincronízalos o exporta una copia antes de abandonar el hogar.'
+                )
+                return
+              }
+
+              await apiRequest('/household/leave', { method: 'POST' })
+              clearSessionToken()
+              clearSyncState(getDeviceId())
+              await db.transaction(
+                'rw',
+                db.babies,
+                db.movements,
+                db.weights,
+                db.locations,
+                async () => {
+                  await db.babies.clear()
+                  await db.movements.clear()
+                  await db.weights.clear()
+                  await db.locations.clear()
+                }
+              )
+              window.location.reload()
+            })
+              .catch((err: unknown) => {
+                setError(
+                  err instanceof Error ? err.message : 'No se pudo abandonar'
+                )
+              })
+          }}
+        >
+          Abandonar hogar
+        </button>
+        <button
+          type='button'
+          onClick={() => {
+            clearSessionToken()
+            window.location.reload()
+          }}
+        >
+          Desloguearme
+        </button>
+        <button
+          type='button'
+          onClick={() => {
+            if (!window.confirm('¿Borrar tu cuenta? Esta acción no se puede deshacer.')) {
+              return
+            }
+            void apiRequest('/account/delete', { method: 'POST' })
+              .then(async () => {
+                clearSessionToken()
+                clearSyncState(getDeviceId())
+                await db.transaction(
+                  'rw',
+                  db.babies,
+                  db.movements,
+                  db.weights,
+                  db.locations,
+                  async () => {
+                    await db.babies.clear()
+                    await db.movements.clear()
+                    await db.weights.clear()
+                    await db.locations.clear()
+                  }
+                )
+                window.location.reload()
+              })
+              .catch((err: unknown) => {
+                setError(
+                  err instanceof Error ? err.message : 'No se pudo borrar la cuenta'
+                )
+              })
+          }}
+        >
+          Borrar cuenta
+        </button>
       </section>
 
       <section className='card'>

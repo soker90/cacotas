@@ -40,7 +40,7 @@ preparado para dos).
 | Reactividad | `dexie-react-hooks` (`useLiveQuery`) |
 | Estáticos | Netlify o GitHub Pages — **fuera de Cloudflare** (§11) |
 | Sync | Cloudflare Worker + D1 |
-| Auth | Secreto compartido en cabecera `X-Auth` |
+| Auth | Google OAuth + sesión opaca del Worker |
 
 ### Estructura de carpetas
 
@@ -1032,19 +1032,19 @@ Headers: X-Auth: <secreto>
 ```ts
 interface SyncRequest {
   deviceId: string;
-  since: number;               // último serverSeq conocido; 0 = todo
-  movements: Movement[];       // pendientes de subir
-  weights: WeightRecord[];
-  baby?: Baby;                 // si cambió localmente
-}
-
-interface SyncResponse {
-  cursor: number;              // seq máximo devuelto en esta respuesta
-  hasMore: boolean;            // true si quedan filas por bajar
+  cursors: Record<UUID, number>; // último baby_seq conocido por bebé
   movements: Movement[];
   weights: WeightRecord[];
   baby?: Baby;
-  accepted: UUID[];            // ids que el servidor confirma tener
+}
+
+interface SyncResponse {
+  babies: Baby[];
+  cursors: Record<UUID, number>;
+  hasMore: Record<UUID, boolean>;
+  movements: Movement[];
+  weights: WeightRecord[];
+  accepted: UUID[];
 }
 ```
 
@@ -1566,7 +1566,26 @@ las descubra por sorpresa.
 
 ## 18. Fuera de alcance
 
-Login · cuentas de usuario · sincronización multi-hogar · iOS · comparación de precios · compra
+Correo transaccional · proveedor de email para invitaciones · login mediante proveedores distintos de Google
+
+## 18.1 Cuentas y hogares (issue #16)
+
+- Google es el único proveedor de identidad.
+- Un usuario puede pertenecer a un único hogar y un hogar tiene como máximo 2 usuarios.
+- El hogar no puede quedar sin usuarios; cuando el último usuario sale, se elimina el hogar y sus datos.
+- Las invitaciones **no se envían por email**. No se introduce un proveedor de correo ni un dominio propio para esta funcionalidad.
+- Crear una invitación genera un código opaco y un enlace compartible bajo `APP_URL`. La UI permite copiar/compartir ambos.
+- La invitación caduca a las 72 h. Cada generación crea un enlace independiente, por lo que pueden existir varias invitaciones pendientes simultáneamente.
+- El destinatario inicia sesión con Google y ve el nombre del hogar y quién le invitó antes de aceptar.
+- Aceptar una invitación asigna el usuario al hogar; un usuario que ya pertenece a otro hogar no puede aceptarla.
+- Rechazar una invitación la marca como rechazada y permite crear otro hogar o cerrar sesión.
+- No se muestran bebés, movimientos, stock ni otros datos privados antes de aceptar.
+- Las invitaciones pendientes de un hogar se eliminan al eliminarse el hogar.
+- El cambio/salida de hogar es una acción explícita y borra la sesión local antes de permitir entrar en otro hogar.
+
+La decisión de no enviar emails elimina la necesidad de configurar Unitpost, SPF/DKIM/DMARC o un dominio de correo para el despliegue inicial.
+
+Proveedores de identidad distintos de Google · sincronización multi-hogar fuera del modelo definido en §18.1 · iOS · comparación de precios · compra
 integrada · escáner de códigos de barras · IA · reconocimiento de imágenes · integración con
 tiendas · curvas pediátricas · recomendaciones médicas.
 

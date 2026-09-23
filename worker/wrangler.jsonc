@@ -3,6 +3,9 @@
   "name": "cacotas-sync",
   "main": "index.ts",
   "compatibility_date": "2026-08-01",
+  "vars": {
+    "APP_URL": "https://cacotas.netlify.app"
+  },
   "d1_databases": [
     {
       "binding": "DB",

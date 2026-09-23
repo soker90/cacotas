@@ -1,3 +1,17 @@
+PRAGMA foreign_keys = OFF;
+DROP TABLE IF EXISTS notification_log;
+DROP TABLE IF EXISTS push_subscriptions;
+DROP TABLE IF EXISTS locations;
+DROP TABLE IF EXISTS weights;
+DROP TABLE IF EXISTS baby_sequences;
+DROP TABLE IF EXISTS movements;
+DROP TABLE IF EXISTS babies;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS invites;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS households;
+PRAGMA foreign_keys = ON;
+
 -- Cacotas D1 schema — new accounts/households model (issue #16).
 -- The database is intentionally reset when this model is deployed.
 
@@ -24,7 +38,6 @@ CREATE TABLE invites (
   code TEXT PRIMARY KEY,
   household_id TEXT NOT NULL REFERENCES households(id),
   created_by TEXT NOT NULL,
-  email TEXT,
   created_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
   redeemed_at INTEGER,
@@ -32,7 +45,6 @@ CREATE TABLE invites (
   rejected_at INTEGER,
   rejected_by TEXT
 );
-CREATE INDEX idx_invites_email ON invites(email);
 CREATE INDEX idx_invites_household ON invites(household_id);
 
 CREATE TABLE invite_attempts (
@@ -50,11 +62,6 @@ CREATE TABLE sessions (
   revoked_at INTEGER
 );
 CREATE UNIQUE INDEX idx_sessions_user_device ON sessions(user_id, device_id);
-
-CREATE TABLE baby_sequences (
-  baby_id TEXT PRIMARY KEY REFERENCES babies(id),
-  next_seq INTEGER NOT NULL
-);
 
 CREATE TABLE movements (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,6 +113,11 @@ CREATE TABLE babies (
 );
 CREATE INDEX idx_babies_household ON babies(household_id);
 
+CREATE TABLE baby_sequences (
+  baby_id TEXT PRIMARY KEY REFERENCES babies(id),
+  next_seq INTEGER NOT NULL
+);
+
 CREATE TABLE locations (
   id TEXT PRIMARY KEY,
   household_id TEXT NOT NULL REFERENCES households(id),
@@ -134,7 +146,6 @@ CREATE TABLE notification_log (
   snoozed_until INTEGER,
   PRIMARY KEY (baby_id, size_id, kind)
 );
-
 
 CREATE TRIGGER enforce_household_two_users_update
 BEFORE UPDATE OF household_id ON users

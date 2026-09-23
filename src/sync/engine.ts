@@ -1,113 +1,99 @@
 import type { CacotasDB } from '../db/index.ts'
 import { BabyMismatchError } from './errors.ts'
 import type { SyncBackend } from './backend.ts'
+import type { BabyCursors } from './types.ts'
 
-const CURSOR_KEY = 'cacotas.syncCursor'
+const CURSOR_KEY = 'cacotas.syncCursors'
 const LAST_SYNC_KEY = 'cacotas.lastSyncAt'
 
-// The cursor belongs to a device↔server pair; namespacing it by deviceId
-// keeps multiple backends (or restored devices) from stepping on each other.
 const cursorKey = (deviceId: string): string => `${CURSOR_KEY}:${deviceId}`
 
-const readCursor = (deviceId: string): number => {
+const readCursors = (deviceId: string): BabyCursors => {
   const raw = localStorage.getItem(cursorKey(deviceId))
-  const parsed = raw === null ? NaN : Number.parseInt(raw, 10)
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0
+  if (raw === null) return {}
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null) return {}
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([, value]) => Number.isInteger(value) && (value as number) >= 0)
+    )
+  } catch {
+    return {}
+  }
 }
 
-/** Discreet "synced X ago" indicator source (§9.3) — never an error. */
+export const clearSyncState = (deviceId: string): void => {
+  localStorage.removeItem(cursorKey(deviceId))
+  localStorage.removeItem(LAST_SYNC_KEY)
+}
+
 export const lastSyncAt = (): number | null => {
   const raw = localStorage.getItem(LAST_SYNC_KEY)
   const parsed = raw === null ? NaN : Number.parseInt(raw, 10)
   return Number.isInteger(parsed) ? parsed : null
 }
 
-/**
- * One full sync round: upload pending rows, download everything past the
- * cursor (paginating as needed). Throws on failure; the cursor is only
- * persisted after a fully successful round.
- */
 export const runSync = async (
   db: CacotasDB,
   backend: SyncBackend,
   deviceId: string
 ): Promise<void> => {
-  let since = readCursor(deviceId)
+  const cursors = readCursors(deviceId)
   let hasMore = true
 
   while (hasMore) {
-    // Re-read pending rows every iteration: the echo of our own uploads
-    // (with the server-assigned serverSeq) updates them between pages.
-    const pendingMovements = await db.movements
-      .where('serverSeq')
-      .equals(0)
-      .toArray()
-    const pendingWeights = await db.weights
-      .where('serverSeq')
-      .equals(0)
-      .toArray()
+    const pendingMovements = await db.movements.where('serverSeq').equals(0).toArray()
+    const pendingWeights = await db.weights.where('serverSeq').equals(0).toArray()
     const localBaby = (await db.babies.toArray()).at(0)
     const localLocations = await db.locations.toArray()
 
     const res = await backend.sync({
       deviceId,
-      since,
+      cursors,
       movements: pendingMovements,
       weights: pendingWeights,
       locations: localLocations,
       ...(localBaby !== undefined ? { baby: localBaby } : {}),
     })
 
-    // Safeguard §9.7: never mix two babies. Abort before writing anything.
     if (
-      (res.baby !== undefined &&
-        localBaby !== undefined &&
-        res.baby.id !== localBaby.id) ||
-      (localBaby !== undefined &&
-        res.movements.some((m) => m.babyId !== localBaby.id))
+      (localBaby !== undefined && res.babies.some((baby) => baby.id !== localBaby.id)) ||
+      (localBaby !== undefined && res.movements.some((m) => m.babyId !== localBaby.id)) ||
+      (localBaby !== undefined && res.weights.some((w) => w.babyId !== localBaby.id))
     ) {
       throw new BabyMismatchError()
     }
 
     await db.transaction(
-      'rw',
-      db.movements,
-      db.weights,
-      db.babies,
-      db.locations,
+      'rw', db.movements, db.weights, db.babies, db.locations,
       async () => {
-        // 1. Remote rows first — bulkPut is idempotent by id.
         await db.movements.bulkPut(res.movements)
         await db.weights.bulkPut(res.weights)
         for (const location of res.locations ?? []) {
           const mine = await db.locations.get(location.id)
-          if (mine === undefined || location.updatedAt > mine.updatedAt) {
-            await db.locations.put(location)
-          }
+          if (mine === undefined || location.updatedAt > mine.updatedAt) await db.locations.put(location)
         }
-
-        // Baby LWW client-side mirror of §9.2.
+        for (const baby of res.babies) {
+          const mine = await db.babies.get(baby.id)
+          if (mine === undefined || baby.updatedAt > mine.updatedAt) await db.babies.put(baby)
+        }
         if (res.baby !== undefined) {
           const mine = await db.babies.get(res.baby.id)
-          if (mine === undefined || res.baby.updatedAt > mine.updatedAt) {
-            await db.babies.put(res.baby)
-          }
+          if (mine === undefined || res.baby.updatedAt > mine.updatedAt) await db.babies.put(res.baby)
         }
-
-        // 2. Movements confirmed in `accepted` but NOT echoed back in this
-        //    page keep serverSeq = 0: nothing is falsely marked, so the next
-        //    round re-uploads them and D-17 idempotency absorbs it.
       }
     )
 
-    since =
-      res.movements.length > 0
-        ? Math.max(...res.movements.map((m) => m.serverSeq))
-        : since
-    hasMore = res.hasMore
+    const receivedCursors: BabyCursors = { ...cursors }
+    for (const row of [...res.movements, ...res.weights]) {
+      receivedCursors[row.babyId] = Math.max(receivedCursors[row.babyId] ?? 0, row.serverSeq)
+    }
+    for (const [babyId, cursor] of Object.entries(receivedCursors)) {
+      cursors[babyId] = Math.max(cursors[babyId] ?? 0, cursor)
+    }
+    hasMore = Object.values(res.hasMore).some(Boolean)
   }
 
-  localStorage.setItem(cursorKey(deviceId), String(since))
-  // Global stamp for the UI indicator (single-device UI, D-23)
+  localStorage.setItem(cursorKey(deviceId), JSON.stringify(cursors))
   localStorage.setItem(LAST_SYNC_KEY, String(Date.now()))
 }

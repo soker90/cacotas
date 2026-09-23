@@ -136,12 +136,19 @@ describe('sincronización (issue #4)', () => {
 
     // Server accepts but its download section "gets lost" (no echo back)
     class HalfBackend extends FakeSyncBackend {
+      private readonly server: FakeSyncBackend
+
+      constructor (server: FakeSyncBackend) {
+        super()
+        this.server = server
+      }
+
       override async sync (req: Parameters<FakeSyncBackend['sync']>[0]) {
-        const res = await super.sync(req)
-        return { ...res, movements: [], hasMore: false }
+        const res = await this.server.sync(req)
+        return { ...res, movements: [], hasMore: {} }
       }
     }
-    const half = new HalfBackend()
+    const half = new HalfBackend(backend)
     await runSync(dbA, half, 'device-a')
 
     // Nothing was falsely marked: still pending for the next round

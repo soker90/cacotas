@@ -82,14 +82,14 @@ describe('FakeSyncBackend server rules', () => {
 
     const first = await backend.sync({
       deviceId: 'd',
-      since: 0,
+      cursors: {},
       movements: [movement],
       weights: [],
     })
     // Retry after a cut connection: same payload
     const second = await backend.sync({
       deviceId: 'd',
-      since: 0,
+      cursors: {},
       movements: [{ ...movement, serverSeq: 0 }],
       weights: [],
     })
@@ -97,6 +97,6 @@ describe('FakeSyncBackend server rules', () => {
     expect(first.accepted).toEqual(['m-1'])
     expect(second.accepted).toEqual(['m-1'])
     expect(backend.movements.size).toBe(1) // no duplicate (D-17)
-    expect(second.cursor).toBe(1) // max seq of returned rows, not global
+    expect(second.cursors.b).toBe(1) // cursor is scoped to the baby
   })
 })

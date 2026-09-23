@@ -35,15 +35,15 @@ export const resolveStartup = async (
   try {
     const res = await backend.sync({
       deviceId,
-      since: 0,
+      cursors: {},
       movements: [],
       weights: [],
       locations: [],
     })
-    if (res.baby) {
+    if (res.babies[0]) {
       return {
         route: 'HOME',
-        remote: { baby: res.baby, movements: res.movements, locations: res.locations ?? [] },
+        remote: { baby: res.babies[0], movements: res.movements, locations: res.locations ?? [] },
       }
     }
     return { route: 'ONBOARDING' }
