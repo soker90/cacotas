@@ -24,7 +24,7 @@ CREATE TABLE invites (
   code TEXT PRIMARY KEY,
   household_id TEXT NOT NULL REFERENCES households(id),
   created_by TEXT NOT NULL,
-  email TEXT NOT NULL,
+  email TEXT,
   created_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
   redeemed_at INTEGER,
