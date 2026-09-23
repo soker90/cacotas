@@ -51,25 +51,33 @@ const AppRoutes = () => {
   const backend = useMemo(() => createBackend(sessionToken), [sessionToken])
   const [startupReady, setStartupReady] = useState(false)
 
+  const localBabyId = localBaby?.id
+
   useEffect(() => {
-    if (sessionToken === null || localBaby === undefined || !localBaby || backend === null) {
-      setStartupReady(true)
+    if (sessionToken === null || localBabyId === undefined || backend === null) {
       return
     }
 
     let cancelled = false
-    setStartupReady(false)
-    void resolveStartup(localBaby, backend, getDeviceId()).then(async (decision) => {
+    void db.babies.get(localBabyId).then((currentLocalBaby) => {
+      if (currentLocalBaby === undefined) return null
+      return resolveStartup(currentLocalBaby, backend, getDeviceId())
+    }).then(async (decision) => {
       if (cancelled || decision.remote === undefined) {
         if (!cancelled) setStartupReady(true)
         return
       }
 
       const { baby, movements, locations } = decision.remote
+      const currentLocalBaby = await db.babies.get(localBabyId)
+      if (currentLocalBaby === undefined) {
+        if (!cancelled) setStartupReady(true)
+        return
+      }
       await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
-        const localMovements = await db.movements.where('babyId').equals(localBaby.id).toArray()
-        const localWeights = await db.weights.where('babyId').equals(localBaby.id).toArray()
-        if (baby.id !== localBaby.id) {
+        const localMovements = await db.movements.where('babyId').equals(currentLocalBaby.id).toArray()
+        const localWeights = await db.weights.where('babyId').equals(currentLocalBaby.id).toArray()
+        if (baby.id !== currentLocalBaby.id) {
           await db.movements.clear()
           await db.weights.clear()
           await db.babies.clear()
@@ -90,13 +98,13 @@ const AppRoutes = () => {
     return () => {
       cancelled = true
     }
-  }, [backend, localBaby, sessionToken])
+  }, [backend, localBabyId, sessionToken])
 
   if (sessionToken === null) {
     return <Login onLogin={() => { rerender((value) => value + 1) }} />
   }
 
-  if (localBaby === undefined || !startupReady) {
+  if (localBaby === undefined || (localBaby !== null && backend !== null && !startupReady)) {
     return <main className='loading'>…</main>
   }
   if (!localBaby) {
