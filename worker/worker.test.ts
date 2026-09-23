@@ -26,6 +26,7 @@ const makeDb = () => {
       }
       return statement
     },
+    batch: async () => [],
   } as unknown as D1Database
   return { db, calls }
 }
