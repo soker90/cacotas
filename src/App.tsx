@@ -35,9 +35,8 @@ void seedSizes(db)
  *  stays local (first device). */
 const createBackend = (sessionToken: string | null): HttpSyncBackend | null => {
   const url = import.meta.env.VITE_SYNC_URL
-  const token = getSessionToken()
-  return typeof url === 'string' && url !== '' && token !== null
-    ? new HttpSyncBackend(url, token)
+  return typeof url === 'string' && url !== '' && sessionToken !== null
+    ? new HttpSyncBackend(url, sessionToken)
     : null
 }
 
