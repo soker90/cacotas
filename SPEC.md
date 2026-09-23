@@ -40,7 +40,7 @@ preparado para dos).
 | Reactividad | `dexie-react-hooks` (`useLiveQuery`) |
 | Estáticos | Netlify o GitHub Pages — **fuera de Cloudflare** (§11) |
 | Sync | Cloudflare Worker + D1 |
-| Auth | Secreto compartido en cabecera `X-Auth` |
+| Auth | Google OAuth + sesión opaca del Worker |
 
 ### Estructura de carpetas
 
@@ -1565,6 +1565,25 @@ las descubra por sorpresa.
 | El forecast semillado usa medias de fabricante | Los primeros días el consumo es una cifra de la tabla Dodot, etiquetada *"estimación del fabricante"*, con confianza `LOW` y sin poder bloquear compras | No es inventar una cifra (D-13): es una media publicada y etiquetada como tal. Callarse, justo los días tras el parto, sería peor |
 
 ## 18. Fuera de alcance
+
+Correo transaccional · proveedor de email para invitaciones · Login legado por secreto compartido
+
+## 18.1 Cuentas y hogares (issue #16)
+
+- Google es el único proveedor de identidad.
+- Un usuario puede pertenecer a un único hogar y un hogar tiene como máximo 2 usuarios.
+- El hogar no puede quedar sin usuarios; cuando el último usuario sale, se elimina el hogar y sus datos.
+- Las invitaciones **no se envían por email**. No se introduce un proveedor de correo ni un dominio propio para esta funcionalidad.
+- Crear una invitación genera un código opaco y un enlace compartible bajo `APP_URL`. La UI permite copiar/compartir ambos.
+- La invitación caduca a las 72 h y se reutiliza al volver a invitar al mismo email mientras siga pendiente.
+- El destinatario inicia sesión con Google y, si el email coincide, ve el nombre del hogar y quién le invitó antes de aceptar.
+- Aceptar una invitación asigna el usuario al hogar; un usuario que ya pertenece a otro hogar no puede aceptarla.
+- Rechazar una invitación la marca como rechazada y permite crear otro hogar o cerrar sesión.
+- No se muestran bebés, movimientos, stock ni otros datos privados antes de aceptar.
+- Las invitaciones pendientes de un hogar se eliminan al eliminarse el hogar.
+- El cambio/salida de hogar es una acción explícita y borra la sesión local antes de permitir entrar en otro hogar.
+
+La decisión de no enviar emails elimina la necesidad de configurar Unitpost, SPF/DKIM/DMARC o un dominio de correo para el despliegue inicial.
 
 Login · cuentas de usuario · sincronización multi-hogar · iOS · comparación de precios · compra
 integrada · escáner de códigos de barras · IA · reconocimiento de imágenes · integración con
