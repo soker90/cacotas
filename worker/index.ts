@@ -656,7 +656,7 @@ const handleInvite = async (
   const now = Date.now()
   const expiresAt = now + 72 * 60 * 60 * 1000
   await env.DB.prepare(
-    'INSERT INTO invites (code,household_id,created_by,email,created_at,expires_at) VALUES (?1,?2,?3,NULL,?4,?5)',
+    'INSERT INTO invites (code,household_id,created_by,created_at,expires_at) VALUES (?1,?2,?3,?4,?5)',
   ).bind(code, householdId, auth.user.id, now, expiresAt).run()
 
   return json({
