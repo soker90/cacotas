@@ -54,7 +54,7 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: (action: Househ
       <main className='onboarding'>
         <h1>Invitación a Cacotas</h1>
         <p>Esta invitación no aparece como pendiente. Puede haber caducado o ya haber sido utilizada.</p>
-        <button type='button' onClick={onDone}>Continuar</button>
+        <button type='button' onClick={() => { onDone('CREATE') }}>Continuar</button>
       </main>
     )
   }
@@ -102,7 +102,7 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: (action: Househ
         : (
           <>
             <p>Aún no perteneces a ningún hogar.</p>
-            <button type='button' className='primary' onClick={onDone}>Crear un hogar nuevo</button>
+            <button type='button' className='primary' onClick={() => { onDone('CREATE') }}>Crear un hogar nuevo</button>
           </>
           )}
       {error && <p role='alert' className='error'>{error}</p>}
