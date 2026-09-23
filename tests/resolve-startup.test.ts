@@ -24,6 +24,16 @@ describe('resolveStartup (§9.7)', () => {
     expect(d.remote).toBeUndefined()
   })
 
+  it('refreshes from the server before trusting a local baby', async () => {
+    const backend = new FakeSyncBackend()
+    backend.setBaby(remoteBaby())
+
+    const d = await resolveStartup(localBaby, backend, 'device-a')
+
+    expect(d.route).toBe('HOME')
+    expect(d.remote?.baby.id).toBe('baby-remote')
+  })
+
   it('goes ONBOARDING without baby and without backend (phase 1)', async () => {
     const d = await resolveStartup(null, null, 'device-a')
     expect(d.route).toBe('ONBOARDING')
