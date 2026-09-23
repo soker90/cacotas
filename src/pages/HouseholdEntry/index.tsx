@@ -10,7 +10,9 @@ interface Invite {
   expires_at: number
 }
 
-export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inviteCode?: string }) => {
+export type HouseholdEntryAction = 'CREATE' | 'JOIN'
+
+export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: (action: HouseholdEntryAction) => void; inviteCode?: string }) => {
   const [invites, setInvites] = useState<Invite[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -43,7 +45,7 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
         >
           Reintentar
         </button>
-        <button type='button' onClick={onDone}>Continuar</button>
+        <button type='button' onClick={() => { onDone('CREATE') }}>Continuar</button>
       </main>
     )
   }
@@ -61,7 +63,7 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
     void apiRequest('/household/invite/accept', {
       method: 'POST',
       body: JSON.stringify({ code }),
-    }).then(onDone).catch((err: unknown) => {
+    }).then(() => { onDone('JOIN') }).catch((err: unknown) => {
       setError(err instanceof Error ? err.message : 'No se pudo aceptar la invitación')
     })
   }
@@ -94,13 +96,13 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
                 </div>
               </section>
             ))}
-            <button type='button' onClick={() => { onDone() }}>Crear un hogar nuevo</button>
+            <button type='button' onClick={() => { onDone('CREATE') }}>Crear un hogar nuevo</button>
           </>
           )
         : (
           <>
             <p>Aún no perteneces a ningún hogar.</p>
-            <button type='button' className='primary' onClick={onDone}>Crear un hogar nuevo</button>
+            <button type='button' className='primary' onClick={() => { onDone('CREATE') }}>Crear un hogar nuevo</button>
           </>
           )}
       {error && <p role='alert' className='error'>{error}</p>}
