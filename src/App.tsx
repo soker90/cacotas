@@ -63,7 +63,8 @@ const AppRoutes = () => {
     return <main className='loading'>…</main>
   }
   if (!localBaby) {
-    return <FirstLaunch backend={backend} />
+    const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)$/)
+    return <FirstLaunch backend={backend} inviteCode={inviteMatch?.[1]} />
   }
 
   return (
@@ -97,7 +98,7 @@ const SyncLoop = ({ backend }: { backend: HttpSyncBackend | null }) => {
 }
 
 /** Startup flow of §9.7 when there is no local Baby. */
-const FirstLaunch = ({ backend }: { backend: HttpSyncBackend | null }) => {
+const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null; inviteCode?: string }) => {
   const [entry, setEntry] = useState(true)
   const [decision, setDecision] = useState<StartupDecision | null>(null)
 
@@ -125,7 +126,7 @@ const FirstLaunch = ({ backend }: { backend: HttpSyncBackend | null }) => {
     })
   }, [decision])
 
-  if (entry) return <HouseholdEntry onDone={() => { setEntry(false) }} />
+  if (entry) return <HouseholdEntry inviteCode={inviteCode} onDone={() => { setEntry(false) }} />
 
   if (decision === null) {
     return <main className='loading'>…</main>
