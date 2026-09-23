@@ -22,9 +22,9 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
         setError(err instanceof Error ? err.message : 'No se pudo comprobar las invitaciones')
         setLoading(false)
       })
-  }
+  }, [inviteCode])
 
-  }, [inviteCode])\n\n  useEffect(() => { load() }, [load])
+  useEffect(() => { load() }, [load])
 
   if (loading) return <main className='loading'>…</main>
   if (inviteCode && !loading && !invites.some((invite) => invite.code === inviteCode)) {
