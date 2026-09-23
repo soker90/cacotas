@@ -48,7 +48,11 @@ export const UpdatePrompt = () => {
 
     const register = async (): Promise<void> => {
       try {
-        await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        const registration = await navigator.serviceWorker.register('/sw.js', {
+          scope: '/',
+          updateViaCache: 'none',
+        })
+        await registration.update()
         await detect()
       } catch {
         // A failed registration must never break the app (§11)

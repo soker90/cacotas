@@ -29,10 +29,11 @@ export const resolveStartup = async (
   backend: SyncBackend | null,
   deviceId: string
 ): Promise<StartupDecision> => {
-  if (localBaby) return { route: 'HOME' }
-  if (!backend) return { route: 'ONBOARDING' }
+  if (!backend) return localBaby ? { route: 'HOME' } : { route: 'ONBOARDING' }
 
   try {
+    // Probe the server before trusting local state. This prevents an old
+    // browser cache/database from deciding what household data to display.
     const res = await backend.sync({
       deviceId,
       cursors: {},
@@ -46,10 +47,11 @@ export const resolveStartup = async (
         remote: { baby: res.babies[0], movements: res.movements, locations: res.locations ?? [] },
       }
     }
+    if (localBaby) return { route: 'HOME' }
     return { route: 'ONBOARDING' }
   } catch (err) {
-    // Network failure on first device pairing: user chooses retry or start
-    // fresh. The reason travels along for discreet display.
+    // Keep the local app usable offline when there is already a baby.
+    if (localBaby) return { route: 'HOME' }
     return {
       route: 'JOIN_RETRY',
       reason: err instanceof Error ? err.message : String(err),

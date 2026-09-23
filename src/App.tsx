@@ -49,12 +49,62 @@ const AppRoutes = () => {
   const [, rerender] = useState(0)
   const sessionToken = getSessionToken()
   const backend = useMemo(() => createBackend(sessionToken), [sessionToken])
+  const [startupReady, setStartupReady] = useState(false)
+
+  const localBabyId = localBaby?.id
+
+  useEffect(() => {
+    if (sessionToken === null || localBabyId === undefined || backend === null) {
+      return
+    }
+
+    let cancelled = false
+    void db.babies.get(localBabyId).then((currentLocalBaby) => {
+      if (currentLocalBaby === undefined) return undefined
+      return resolveStartup(currentLocalBaby, backend, getDeviceId())
+    }).then(async (decision) => {
+      if (cancelled || decision === undefined || decision.remote === undefined) {
+        if (!cancelled) setStartupReady(true)
+        return
+      }
+
+      const { baby, movements, locations } = decision.remote
+      const currentLocalBaby = await db.babies.get(localBabyId)
+      if (currentLocalBaby === undefined) {
+        if (!cancelled) setStartupReady(true)
+        return
+      }
+      await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
+        const localMovements = await db.movements.where('babyId').equals(currentLocalBaby.id).toArray()
+        const localWeights = await db.weights.where('babyId').equals(currentLocalBaby.id).toArray()
+        if (baby.id !== currentLocalBaby.id) {
+          await db.movements.clear()
+          await db.weights.clear()
+          await db.babies.clear()
+          await db.locations.clear()
+        } else {
+          await db.movements.bulkDelete(localMovements.filter((row) => row.serverSeq > 0).map((row) => row.id))
+          await db.weights.bulkDelete(localWeights.filter((row) => row.serverSeq > 0).map((row) => row.id))
+        }
+        await db.babies.put(baby)
+        await db.movements.bulkPut(movements)
+        await db.locations.bulkPut(locations)
+      })
+      if (!cancelled) setStartupReady(true)
+    }).catch(() => {
+      if (!cancelled) setStartupReady(true)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [backend, localBabyId, sessionToken])
 
   if (sessionToken === null) {
     return <Login onLogin={() => { rerender((value) => value + 1) }} />
   }
 
-  if (localBaby === undefined) {
+  if (localBaby === undefined || (localBaby !== null && backend !== null && !startupReady)) {
     return <main className='loading'>…</main>
   }
   if (!localBaby) {
