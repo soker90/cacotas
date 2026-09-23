@@ -191,7 +191,7 @@ export const Onboarding = () => {
               checked={unborn}
               onChange={(e) => {
                 setUnborn(e.target.checked)
-                if (e.target.checked) setBirthDate('')
+                if (e.target.checked) { setBirthDate(''); setPremature(false) }
               }}
             />
             Todavía no ha nacido
