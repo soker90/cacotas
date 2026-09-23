@@ -365,7 +365,7 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
   if (typeof rawCursors !== 'object' || rawCursors === null) return json({ error: 'cursors required' }, 400)
   const cursors: Record<string, number> = {}
   for (const [babyId, value] of Object.entries(rawCursors)) {
-    if (!Number.isInteger(value) || (value as number) < 0) return json({ error: 'invalid cursor' }, 400)
+    if (!Number.isInteger(value) || value < 0) return json({ error: 'invalid cursor' }, 400)
     cursors[babyId] = value as number
   }
 
