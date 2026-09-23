@@ -597,8 +597,8 @@ const handleHouseholdStatus = async (
     let inviteCode: string | null = null
     try {
       const body = await request.json() as unknown
-      if (typeof body === 'object' && body !== null && typeof (body as Record<string, unknown>).inviteCode === 'string') {
-        inviteCode = (body as Record<string, unknown>).inviteCode
+      if (typeof body === 'object' && body !== null && typeof body.inviteCode === 'string') {
+        inviteCode = body.inviteCode
       }
     } catch {
       // Empty request body is valid when there is no invitation link.
