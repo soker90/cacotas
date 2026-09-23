@@ -92,7 +92,7 @@ const AppRoutes = () => {
 const SyncLoop = ({ backend }: { backend: HttpSyncBackend | null }) => {
   useEffect(() => {
     startSyncLoop(backend, getDeviceId())
-  }, [])
+  }, [backend])
   return null
 }
 
