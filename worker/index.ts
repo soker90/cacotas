@@ -1077,9 +1077,24 @@ export default {
 
   fetch (request: Request, env: Env): Promise<Response> {
     return (async () => {
-      const url = new URL(request.url)
+      const origin = request.headers.get('Origin')
+      const allowedOrigin = origin === env.APP_URL ? origin : null
+      if (request.method === 'OPTIONS') {
+        if (allowedOrigin === null) return new Response(null, { status: 403 })
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': allowedOrigin,
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+            'Access-Control-Max-Age': '86400',
+            Vary: 'Origin',
+          },
+        })
+      }
       if (request.method !== 'POST') return json({ error: 'not found' }, 404)
-      switch (url.pathname) {
+      const response = await (async () => {
+      switch (new URL(request.url).pathname) {
         case '/auth/google': return handleGoogleAuth(request, env)
         case '/sync': return handleSync(request, env)
         case '/household/status': return handleHouseholdStatus(request, env)
@@ -1094,6 +1109,12 @@ export default {
         case '/snooze': return handleSnooze(request, env)
         default: return json({ error: 'not found' }, 404)
       }
+      })()
+      if (allowedOrigin !== null) {
+        response.headers.set('Access-Control-Allow-Origin', allowedOrigin)
+        response.headers.set('Vary', 'Origin')
+      }
+      return response
     })()
   },
 }
