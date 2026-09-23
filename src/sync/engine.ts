@@ -22,6 +22,11 @@ const readCursors = (deviceId: string): BabyCursors => {
   }
 }
 
+export const clearSyncState = (deviceId: string): void => {
+  localStorage.removeItem(cursorKey(deviceId))
+  localStorage.removeItem(LAST_SYNC_KEY)
+}
+
 export const lastSyncAt = (): number | null => {
   const raw = localStorage.getItem(LAST_SYNC_KEY)
   const parsed = raw === null ? NaN : Number.parseInt(raw, 10)
