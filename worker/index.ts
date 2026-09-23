@@ -637,30 +637,12 @@ const handleInvite = async (
 
   const count = await env.DB.prepare(
     'SELECT COUNT(*) AS count FROM users WHERE household_id=?1',
-  )
-    .bind(householdId)
-    .first<{ count: number }>()
-  if ((count?.count ?? 0) >= 2) {
-    return json({ error: 'household full' }, 409)
-  }
+  ).bind(householdId).first<{ count: number }>()
+  if ((count?.count ?? 0) >= 2) return json({ error: 'household full' }, 409)
 
   let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return json({ error: 'invalid JSON' }, 400)
-  }
-  if (typeof body !== 'object' || body === null) {
-    return json({ error: 'invalid payload' }, 400)
-  }
-
-  const email =
-    typeof (body as Record<string, unknown>).email === 'string'
-      ? normalizeEmail(String((body as Record<string, unknown>).email))
-      : ''
-  if (!email || !email.includes('@')) {
-    return json({ error: 'invalid email' }, 400)
-  }
+  try { body = await request.json() } catch { return json({ error: 'invalid JSON' }, 400) }
+  if (typeof body !== 'object' || body === null) return json({ error: 'invalid payload' }, 400)
 
   const code = inviteCode()
   const now = Date.now()
@@ -669,7 +651,12 @@ const handleInvite = async (
     'INSERT INTO invites (code,household_id,created_by,email,created_at,expires_at) VALUES (?1,?2,?3,NULL,?4,?5)',
   ).bind(code, householdId, auth.user.id, now, expiresAt).run()
 
-  return json({ status: 'pending' })
+  return json({
+    status: 'pending',
+    code,
+    inviteUrl: `${env.APP_URL}/invite/${code}`,
+    expiresAt,
+  })
 }
 
 const inviteIp = (request: Request): string =>
