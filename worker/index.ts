@@ -1094,7 +1094,7 @@ export default {
       }
       if (request.method !== 'POST') return json({ error: 'not found' }, 404)
       const response = await (async () => {
-      switch (new URL(request.url).pathname) {
+        switch (new URL(request.url).pathname) {
         case '/auth/google': return handleGoogleAuth(request, env)
         case '/sync': return handleSync(request, env)
         case '/household/status': return handleHouseholdStatus(request, env)
@@ -1108,7 +1108,7 @@ export default {
         case '/push-subscribe': return handlePushSubscribe(request, env)
         case '/snooze': return handleSnooze(request, env)
         default: return json({ error: 'not found' }, 404)
-      }
+        }
       })()
       if (allowedOrigin !== null) {
         response.headers.set('Access-Control-Allow-Origin', allowedOrigin)
