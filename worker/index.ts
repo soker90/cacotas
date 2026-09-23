@@ -586,9 +586,9 @@ const handleHouseholdStatus = async (
         ? []
         : (
             await env.DB.prepare(
-              'SELECT i.code,i.expires_at,h.id AS household_id,h.name,u.display_name AS inviter_name FROM invites i JOIN households h ON h.id=i.household_id LEFT JOIN users u ON u.id=i.created_by WHERE i.email IS NULL AND i.redeemed_at IS NULL AND i.rejected_at IS NULL AND i.expires_at>?2 ORDER BY i.created_at DESC',
+              'SELECT i.code,i.expires_at,h.id AS household_id,h.name,u.display_name AS inviter_name FROM invites i JOIN households h ON h.id=i.household_id LEFT JOIN users u ON u.id=i.created_by WHERE i.redeemed_at IS NULL AND i.rejected_at IS NULL AND i.expires_at>?2 ORDER BY i.created_at DESC',
             )
-              .bind(email, Date.now())
+              .bind(Date.now())
               .all()
           ).results ?? []
 
@@ -652,13 +652,16 @@ const handleAcceptInvite = async (request: Request, env: Env): Promise<Response>
     'SELECT i.code,i.household_id,i.expires_at,h.name,u.display_name AS inviter_name FROM invites i JOIN households h ON h.id=i.household_id LEFT JOIN users u ON u.id=i.created_by WHERE i.code=?1 AND i.redeemed_at IS NULL AND i.rejected_at IS NULL AND i.expires_at>?2'
   ).bind(code, Date.now()).first<{ code: string; household_id: string; expires_at: number; name: string; inviter_name: string | null }>()
   if (!invite) return json({ error: 'invalid invitation' }, 400)
-  const count = await env.DB.prepare('SELECT COUNT(*) AS count FROM users WHERE household_id=?1').bind(invite.household_id).first<{ count: number }>()
-  if ((count?.count ?? 0) >= 2) return json({ error: 'household full' }, 409)
-  const result = await env.DB.prepare(
-    'UPDATE users SET household_id=?1 WHERE id=?2 AND household_id IS NULL'
-  ).bind(invite.household_id, auth.user.id).run()
-  if (result.meta.changes !== 1) return json({ error: 'already in household' }, 409)
-  await env.DB.prepare('UPDATE invites SET redeemed_at=?2,redeemed_by=?3 WHERE code=?1').bind(code,Date.now(),auth.user.id).run()
+  try {
+    await env.DB.batch([
+      env.DB.prepare('UPDATE users SET household_id=?1 WHERE id=?2 AND household_id IS NULL').bind(invite.household_id, auth.user.id),
+      env.DB.prepare('UPDATE invites SET redeemed_at=?2,redeemed_by=?3 WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?4').bind(code, Date.now(), auth.user.id, Date.now()),
+    ])
+  } catch {
+    return json({ error: 'household full' }, 409)
+  }
+  const membership = await env.DB.prepare('SELECT household_id FROM users WHERE id=?1').bind(auth.user.id).first<{ household_id: string | null }>()
+  if (membership?.household_id !== invite.household_id) return json({ error: 'invitation unavailable' }, 409)
   return json({ householdId: invite.household_id, householdName: invite.name, inviterName: invite.inviter_name })
 }
 
@@ -687,15 +690,8 @@ const handleRejectInvite = async (
       ? String((body as Record<string, unknown>).code)
       : ''
   const result = await env.DB.prepare(
-    'UPDATE invites SET rejected_at=?2,rejected_by=?3 WHERE code=?1 AND email=?4 AND redeemed_at IS NULL AND rejected_at IS NULL',
-  )
-    .bind(
-      code,
-      Date.now(),
-      auth.user.id,
-      normalizeEmail(auth.user.email ?? ''),
-    )
-    .run()
+    'UPDATE invites SET rejected_at=?2,rejected_by=?3 WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?4',
+  ).bind(code, Date.now(), auth.user.id, Date.now()).run()
 
   return result.meta.changes === 0
     ? json({ error: 'invalid invitation' }, 400)
