@@ -255,15 +255,33 @@ export const Settings = () => {
             {inviteLink && (
               <div className='form-row'>
                 <label htmlFor='invite-link'>Enlace de invitación</label>
-                <input id='invite-link' value={inviteLink} readOnly />
-                <button type='button' onClick={() => {
-                  void navigator.clipboard?.writeText(inviteLink)
-                  setInviteMessage('Enlace copiado.')
-                }}>Copiar enlace</button>
+                <input
+                  id='invite-link'
+                  value={inviteLink}
+                  readOnly
+                />
+                <button
+                  type='button'
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(inviteLink)
+                    setInviteMessage('Enlace copiado.')
+                  }}
+                >
+                  Copiar enlace
+                </button>
                 {navigator.share && (
-                  <button type='button' onClick={() => {
-                    void navigator.share({ title: 'Invitación a Cacotas', text: 'Únete a nuestro hogar en Cacotas', url: inviteLink }).catch(() => {})
-                  }}>Compartir</button>
+                  <button
+                    type='button'
+                    onClick={() => {
+                      void navigator.share({
+                        title: 'Invitación a Cacotas',
+                        text: 'Únete a nuestro hogar en Cacotas',
+                        url: inviteLink,
+                      }).catch(() => {})
+                    }}
+                  >
+                    Compartir
+                  </button>
                 )}
               </div>
             )}
