@@ -130,7 +130,7 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
         kind: 'STOCK_LOW',
         sizeId: currentSize,
         condition: forecast.daysRemaining !== null && forecast.daysRemaining <= 7 && forecast.status !== 'NO_DATA',
-        body: `Quedan ≈ ${String(forecast.daysRemaining ?? 0)} días de pañales (talla ${String(currentSize)}).`,
+        body: `${babyRow.name}: quedan ≈ ${String(forecast.daysRemaining ?? 0)} días de pañales (talla ${String(currentSize)}).`,
         hashParts: { kind: 'STOCK_LOW', daysRemaining: forecast.daysRemaining, stock: currentStock, sizeId: currentSize },
       },
       {
@@ -138,8 +138,8 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
         sizeId: currentSize,
         condition: (forecast.status === 'BUY_NOW' || forecast.status === 'BUY_BOTH_SIZES') && isPurchaseDay(madrid.weekday),
         body: forecast.recommendedDiapers !== null && forecast.recommendedDiapers > 0
-          ? `Conviene comprar ≈ ${String(forecast.recommendedDiapers)} pañales de talla ${String(currentSize)}.`
-          : `Conviene comprar pañales de talla ${String(currentSize)}.`,
+          ? `${babyRow.name}: conviene comprar ≈ ${String(forecast.recommendedDiapers)} pañales de talla ${String(currentSize)}.`
+          : `${babyRow.name}: conviene comprar pañales de talla ${String(currentSize)}.`,
         hashParts: { kind: 'PURCHASE_RECOMMENDED', recommendedDiapers: forecast.recommendedDiapers, dailyConsumption: forecast.dailyConsumption, sizeId: currentSize },
       },
     ]
@@ -164,7 +164,7 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
             JSON.stringify({
               title: 'Cacotas',
               body: candidate.body,
-              tag: `${candidate.kind}-${String(candidate.sizeId)}`,
+              tag: `${babyRow.id}-${candidate.kind}-${String(candidate.sizeId)}`,
               data: { babyId: babyRow.id, sizeId: candidate.sizeId, kind: candidate.kind },
               actions: [{ action: 'snooze', title: 'Me encargo yo' }],
             }),
