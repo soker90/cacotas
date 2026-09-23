@@ -866,7 +866,7 @@ export const handleSingleMovement = async (
     { type: 'USAGE', usageSource: r.usageSource, quantity: 1 }
   )
 
-  const seqResult = await env.DB.batch([
+  await env.DB.batch([
     env.DB.prepare('INSERT INTO baby_sequences (baby_id,next_seq) VALUES (?1,2) ON CONFLICT(baby_id) DO UPDATE SET next_seq=next_seq+1').bind(movement.babyId),
     env.DB.prepare(
       `INSERT INTO movements (id,household_id,baby_id,baby_seq,size_id,type,usage_source,quantity,delta,occurred_at,recorded_at,device_id,location_id)
