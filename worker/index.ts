@@ -14,8 +14,6 @@ export interface Env {
   VAPID_PRIVATE_KEY: string
   VAPID_PUBLIC_KEY: string
   VAPID_SUBJECT: string
-  UNITPOST_API_KEY?: string
-  UNITPOST_FROM?: string
   APP_URL: string
   HEARTBEAT_URL?: string
 }
@@ -614,34 +612,6 @@ const handleHouseholdStatus = async (
   return json({ user: auth.user, household, users })
 }
 
-const sendInviteEmail = async (
-  env: Env,
-  to: string,
-  householdName: string,
-  inviter: string,
-): Promise<void> => {
-  if (!env.UNITPOST_API_KEY || !env.UNITPOST_FROM) {
-    throw new Error('email not configured')
-  }
-
-  const response = await fetch('https://www.unitpost.com/api/v1/email', {
-    method: 'POST',
-    headers: {
-      'user-agent': 'cacotas/1.0',
-      authorization: `Bearer ${env.UNITPOST_API_KEY}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: env.UNITPOST_FROM,
-      to,
-      subject: `Invitación a ${householdName}`,
-      html: `<p>${inviter} te ha invitado al hogar <strong>${householdName}</strong> en Cacotas.</p><p><a href="${env.APP_URL}">Aceptar invitación</a></p>`,
-    }),
-  })
-
-  if (!response.ok) throw new Error('unitpost send failed')
-}
-
 const handleInvite = async (
   request: Request,
   env: Env,
@@ -706,18 +676,7 @@ const handleInvite = async (
       .run()
   }
 
-  try {
-    await sendInviteEmail(
-      env,
-      email,
-      household?.name ?? 'Cacotas',
-      auth.user.display_name ?? auth.user.email ?? 'Un miembro',
-    )
-  } catch {
-    return json({ error: 'email unavailable' }, 503)
-  }
-
-  return json({ status: 'sent' })
+  return json({ status: existing ? 'already_pending' : 'pending' })
 }
 
 const inviteIp = (request: Request): string =>
