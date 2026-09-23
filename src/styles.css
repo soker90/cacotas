@@ -1054,3 +1054,8 @@ input[type='datetime-local'] {
 .home-footer {
   padding-top: 0.15rem;
 }
+
+/* ── Household entry actions ───────────────────────── */
+.onboarding > button + button {
+  margin-top: 0.75rem;
+}
