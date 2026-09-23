@@ -21,6 +21,7 @@ import { db } from '../../db/index.ts'
 import { createLocation } from '../../lib/locations.ts'
 import { apiRequest } from '../../auth/api.ts'
 import { clearSessionToken } from '../../auth/session.ts'
+import { clearSyncState } from '../../sync/engine.ts'
 
 export const Settings = () => {
   const [stayMode, setStayModeState] = useState(() => isStayMode())
@@ -231,10 +232,9 @@ export const Settings = () => {
         <h2>Hogar</h2>
         <p>{householdName ?? 'Sin hogar'}</p>
         <p className='muted small'>{memberCount} de 2 miembros</p>
-        {memberCount < 2 && <p className='muted small'>La invitación aparecerá en Cacotas cuando la otra persona inicie sesión con esa cuenta de Google.</p>}
+        {memberCount < 2 && <p className='muted small'>Genera un enlace y compártelo con la otra persona. Para aceptar la invitación tendrá que abrir ese enlace e iniciar sesión con Google.</p>}
         {memberCount < 2 && (
           <>
-            <p className='muted small'>Genera un enlace y compártelo con la otra persona. No enviamos correos desde Cacotas.</p>
             <button
               type='button'
               onClick={() => {
@@ -298,6 +298,7 @@ export const Settings = () => {
 
               await apiRequest('/household/leave', { method: 'POST' })
               clearSessionToken()
+              clearSyncState(getDeviceId())
               await db.transaction(
                 'rw',
                 db.babies,
@@ -340,6 +341,7 @@ export const Settings = () => {
             void apiRequest('/account/delete', { method: 'POST' })
               .then(async () => {
                 clearSessionToken()
+                clearSyncState(getDeviceId())
                 await db.transaction(
                   'rw',
                   db.babies,
