@@ -358,7 +358,7 @@ export const Settings = () => {
             window.location.reload()
           }}
         >
-          Desloguearme
+          Cerrar sesión
         </button>
         <button
           type='button'
