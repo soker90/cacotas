@@ -38,7 +38,6 @@ CREATE TABLE invites (
   code TEXT PRIMARY KEY,
   household_id TEXT NOT NULL REFERENCES households(id),
   created_by TEXT NOT NULL,
-  email TEXT,
   created_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
   redeemed_at INTEGER,
@@ -46,7 +45,6 @@ CREATE TABLE invites (
   rejected_at INTEGER,
   rejected_by TEXT
 );
-CREATE INDEX idx_invites_email ON invites(email);
 CREATE INDEX idx_invites_household ON invites(household_id);
 
 CREATE TABLE invite_attempts (
@@ -64,11 +62,6 @@ CREATE TABLE sessions (
   revoked_at INTEGER
 );
 CREATE UNIQUE INDEX idx_sessions_user_device ON sessions(user_id, device_id);
-
-CREATE TABLE baby_sequences (
-  baby_id TEXT PRIMARY KEY REFERENCES babies(id),
-  next_seq INTEGER NOT NULL
-);
 
 CREATE TABLE movements (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -119,6 +112,11 @@ CREATE TABLE babies (
   updated_at INTEGER NOT NULL
 );
 CREATE INDEX idx_babies_household ON babies(household_id);
+
+CREATE TABLE baby_sequences (
+  baby_id TEXT PRIMARY KEY REFERENCES babies(id),
+  next_seq INTEGER NOT NULL
+);
 
 CREATE TABLE locations (
   id TEXT PRIMARY KEY,
