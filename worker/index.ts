@@ -612,7 +612,456 @@ const handleHouseholdStatus = async (
   return json({ user: auth.user, household, users })
 }
 
-const handleInvite = async (
+const handleInvite = async (request: Request, env: Env): Promise<Response> => {
+  const auth = await authenticate(request, env)
+  if (auth instanceof Response) return auth
+  const householdId = requireHousehold(auth)
+  if (householdId instanceof Response) return householdId
+  const count = await env.DB.prepare('SELECT COUNT(*) AS count FROM users WHERE household_id=?1').bind(householdId).first<{ count: number }>()
+  if ((count?.count ?? 0) >= 2) return json({ error: 'household full' }, 409)
+  let body: unknown
+  try { body = await request.json() } catch { return json({ error: 'invalid JSON' }, 400) }
+  if (typeof body !== 'object' || body === null) return json({ error: 'invalid payload' }, 400)
+  const email = typeof (body as Record<string, unknown>).email === 'string'
+    ? normalizeEmail(String((body as Record<string, unknown>).email))
+    : ''
+  if (!email || !email.includes('@')) return json({ error: 'invalid email' }, 400)
+  const household = await env.DB.prepare('SELECT name FROM households WHERE id=?1').bind(householdId).first<{ name: string }>()
+  const existing = await env.DB.prepare(
+    'SELECT code FROM invites WHERE household_id=?1 AND email=?2 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?3'
+  ).bind(householdId, email, Date.now()).first<{ code: string }>()
+  const code = existing?.code ?? inviteCode()
+  if (!existing) {
+    await env.DB.prepare(
+      'INSERT INTO invites (code,household_id,created_by,email,created_at,expires_at) VALUES (?1,?2,?3,?4,?5,?6)'
+    ).bind(code, householdId, auth.user.id, email, Date.now(), Date.now() + 72 * 60 * 60 * 1000).run()
+  }
+  return json({
+    status: 'created',
+    code,
+    inviteUrl: `${env.APP_URL}/invite/${code}`,
+    householdName: household?.name ?? 'Cacotas',
+    expiresAt: Date.now() + 72 * 60 * 60 * 1000,
+  })
+}
+
+const handleAcceptInvite = async (
+  request: Request,
+  env: Env,
+): Promise<Response> => {
+  const auth = await authenticate(request, env)
+  if (auth instanceof Response) return auth
+  if (auth.user.household_id !== null) {
+    return json({ error: 'already in household' }, 409)
+  }
+  if (await inviteRateLimited(request, env)) {
+    return json({ error: 'invalid invitation' }, 400)
+  }
+
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'invalid JSON' }, 400)
+  }
+  if (typeof body !== 'object' || body === null) {
+    return json({ error: 'invalid payload' }, 400)
+  }
+
+  const code =
+    typeof (body as Record<string, unknown>).code === 'string'
+      ? String((body as Record<string, unknown>).code)
+      : ''
+  const invite = await env.DB.prepare(
+    'SELECT code,household_id,email FROM invites WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?2',
+  )
+    .bind(code, Date.now())
+    .first<{ code: string; household_id: string; email: string }>()
+
+  if (!invite || invite.email !== normalizeEmail(auth.user.email ?? '')) {
+    await recordInviteFailure(request, env)
+    return json({ error: 'invalid invitation' }, 400)
+  }
+
+  const count = await env.DB.prepare(
+    'SELECT COUNT(*) AS count FROM users WHERE household_id=?1',
+  )
+    .bind(invite.household_id)
+    .first<{ count: number }>()
+  if ((count?.count ?? 0) >= 2) {
+    return json({ error: 'household full' }, 409)
+  }
+
+  try {
+    const result = await env.DB.batch([
+      env.DB.prepare(
+        'UPDATE users SET household_id=?1 WHERE id=?2 AND household_id IS NULL',
+      ).bind(invite.household_id, auth.user.id),
+      env.DB.prepare(
+        'UPDATE invites SET redeemed_at=?2,redeemed_by=?3 WHERE code=?1 AND redeemed_at IS NULL',
+      ).bind(code, Date.now(), auth.user.id),
+    ])
+    if (result[0].meta.changes !== 1 || result[1].meta.changes !== 1) {
+      return json({ error: 'invalid invitation' }, 400)
+    }
+  } catch {
+    return json({ error: 'household full' }, 409)
+  }
+
+  return json({ householdId: invite.household_id })
+}
+
+const handleRejectInvite = async (
+  request: Request,
+  env: Env,
+): Promise<Response> => {
+  const auth = await authenticate(request, env)
+  if (auth instanceof Response) return auth
+  if (auth.user.household_id !== null) {
+    return json({ error: 'already in household' }, 409)
+  }
+
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'invalid JSON' }, 400)
+  }
+  if (typeof body !== 'object' || body === null) {
+    return json({ error: 'invalid payload' }, 400)
+  }
+
+  const code =
+    typeof (body as Record<string, unknown>).code === 'string'
+      ? String((body as Record<string, unknown>).code)
+      : ''
+  const result = await env.DB.prepare(
+    'UPDATE invites SET rejected_at=?2,rejected_by=?3 WHERE code=?1 AND email=?4 AND redeemed_at IS NULL AND rejected_at IS NULL',
+  )
+    .bind(
+      code,
+      Date.now(),
+      auth.user.id,
+      normalizeEmail(auth.user.email ?? ''),
+    )
+    .run()
+
+  return result.meta.changes === 0
+    ? json({ error: 'invalid invitation' }, 400)
+    : json({ status: 'rejected' })
+}
+
+const deleteHouseholdData = (env: Env, householdId: string) => [
+  env.DB.prepare('DELETE FROM invites WHERE household_id=?1').bind(householdId),
+  env.DB.prepare('DELETE FROM notification_log WHERE household_id=?1').bind(householdId),
+  env.DB.prepare(
+    'DELETE FROM push_subscriptions WHERE user_id IN (SELECT id FROM users WHERE household_id=?1)',
+  ).bind(householdId),
+  env.DB.prepare('DELETE FROM baby_sequences WHERE baby_id IN (SELECT id FROM babies WHERE household_id=?1)').bind(householdId),
+  env.DB.prepare('DELETE FROM movements WHERE household_id=?1').bind(householdId),
+  env.DB.prepare('DELETE FROM weights WHERE household_id=?1').bind(householdId),
+  env.DB.prepare('DELETE FROM locations WHERE household_id=?1').bind(householdId),
+  env.DB.prepare('DELETE FROM babies WHERE household_id=?1').bind(householdId),
+  env.DB.prepare(
+    'DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE household_id=?1)',
+  ).bind(householdId),
+  env.DB.prepare('DELETE FROM users WHERE household_id=?1').bind(householdId),
+  env.DB.prepare('DELETE FROM households WHERE id=?1').bind(householdId),
+]
+
+const handleLeaveHousehold = async (
+  request: Request,
+  env: Env,
+): Promise<Response> => {
+  const auth = await authenticate(request, env)
+  if (auth instanceof Response) return auth
+  const householdId = requireHousehold(auth)
+  if (householdId instanceof Response) return householdId
+
+  const other = await env.DB.prepare(
+    'SELECT id FROM users WHERE household_id=?1 AND id<>?2 LIMIT 1',
+  )
+    .bind(householdId, auth.user.id)
+    .first()
+
+  if (other) {
+    await env.DB.batch([
+      env.DB.prepare('UPDATE users SET household_id=NULL WHERE id=?1').bind(
+        auth.user.id,
+      ),
+      env.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(
+        auth.user.id,
+      ),
+    ])
+  } else {
+    await env.DB.batch(deleteHouseholdData(env, householdId))
+  }
+
+  return json({ status: 'left' })
+}
+
+const handleDeleteAccount = async (
+  request: Request,
+  env: Env,
+): Promise<Response> => {
+  const auth = await authenticate(request, env)
+  if (auth instanceof Response) return auth
+
+  const householdId = auth.user.household_id
+  if (householdId === null) {
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(auth.user.id),
+      env.DB.prepare('DELETE FROM users WHERE id=?1').bind(auth.user.id),
+    ])
+    return json({ status: 'deleted' })
+  }
+
+  const other = await env.DB.prepare(
+    'SELECT id FROM users WHERE household_id=?1 AND id<>?2 LIMIT 1',
+  )
+    .bind(householdId, auth.user.id)
+    .first()
+
+  if (other) {
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(auth.user.id),
+      env.DB.prepare('UPDATE users SET household_id=NULL WHERE id=?1').bind(
+        auth.user.id,
+      ),
+    ])
+  } else {
+    await env.DB.batch(deleteHouseholdData(env, householdId))
+  }
+
+  return json({ status: 'deleted' })
+}
+
+export const handleSingleMovement = async (
+  request: Request,
+  env: Env
+): Promise<Response> => {
+  const auth = await authenticate(request, env)
+  if (auth instanceof Response) return auth
+  const householdId = requireHousehold(auth)
+  if (householdId instanceof Response) return householdId
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'invalid JSON' }, 400)
+  }
+  if (typeof body !== 'object' || body === null) { return json({ error: 'invalid payload' }, 400) }
+
+  const r = body as Record<string, unknown>
+  if (r.type !== 'USAGE') { return json({ error: 'only USAGE supported' }, 400) }
+  if (r.usageSource !== 'OWN_STOCK' && r.usageSource !== 'EXTERNAL') { return json({ error: 'usageSource required' }, 400) }
+  if (typeof r.deviceId !== 'string' || r.deviceId === '') { return json({ error: 'deviceId required' }, 400) }
+  if (r.locationId !== undefined && (typeof r.locationId !== 'string' || r.locationId === '')) {
+    return json({ error: 'invalid locationId' }, 400)
+  }
+
+  const now = Date.now()
+
+  // Debounce 60 s per deviceId (§9.4): measured from the last recorded
+  // usage of that device — ignored requests do not extend the window.
+  const last = await env.DB.prepare(
+    `SELECT recorded_at FROM movements
+     WHERE device_id = ?1 AND type = 'USAGE'
+     ORDER BY seq DESC LIMIT 1`
+  )
+    .bind(r.deviceId)
+    .first<{ recorded_at: number }>()
+  if (last && now - last.recorded_at < DEBOUNCE_MS) {
+    return json({ status: 'debounced' }, 200)
+  }
+
+  const babyRow = await env.DB.prepare(
+    'SELECT id FROM babies WHERE household_id=?1 ORDER BY created_at,id LIMIT 1',
+  )
+    .bind(householdId)
+    .first<{ id: string }>()
+  if (!babyRow) return json({ error: 'no baby configured yet' }, 400)
+
+  const sizeRow = await env.DB.prepare(
+    `SELECT size_id FROM movements WHERE household_id=?1 AND baby_id=?2 AND type = 'SIZE_CHANGE'
+     ORDER BY occurred_at DESC LIMIT 1`
+  ).bind(householdId, babyRow.id).first<{ size_id: number }>()
+  if (!sizeRow) return json({ error: 'no size configured yet' }, 400)
+
+  const locationId = resolveMovementLocationId(babyRow.id, typeof r.locationId === 'string' ? r.locationId : undefined)
+  const location = await env.DB.prepare('SELECT id FROM locations WHERE id = ?1 AND household_id = ?2').bind(locationId, householdId).first<{ id: string }>()
+  if (!location) return json({ error: 'location not found' }, 400)
+
+  const movement = createMovement(
+    {
+      id: crypto.randomUUID(),
+      babyId: babyRow.id,
+      sizeId: sizeRow.size_id,
+      locationId,
+      deviceId: r.deviceId,
+      occurredAt: now,
+      recordedAt: now,
+    },
+    { type: 'USAGE', usageSource: r.usageSource, quantity: 1 }
+  )
+
+  await env.DB.prepare(
+    `INSERT INTO movements
+       (id, baby_id, size_id, type, usage_source, quantity, delta,
+        occurred_at, recorded_at, device_id, location_id)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`
+  )
+    .bind(
+      movement.id,
+      movement.babyId,
+      movement.sizeId,
+      movement.type,
+      movement.usageSource ?? null,
+      movement.quantity,
+      movement.delta,
+      movement.occurredAt,
+      movement.recordedAt,
+      movement.deviceId,
+      movement.locationId ?? null
+    )
+    .run()
+
+  return json({ movement: { ...movement, serverSeq: 0 } }, 200)
+}
+
+const handlePushSubscribe = async (
+  request: Request,
+  env: Env
+): Promise<Response> => {
+  const auth = await authenticate(request, env)
+  if (auth instanceof Response) return auth
+  if (auth.user.household_id === null) return json({ error: 'household required' }, 409)
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'invalid JSON' }, 400)
+  }
+  if (typeof body !== 'object' || body === null) { return json({ error: 'invalid payload' }, 400) }
+  const r = body as Record<string, unknown>
+  const keys = r.keys as Record<string, unknown> | undefined
+  if (
+    typeof r.deviceId !== 'string' ||
+    typeof r.endpoint !== 'string' ||
+    typeof keys?.p256dh !== 'string' ||
+    typeof keys?.auth !== 'string'
+  ) {
+    return json({ error: 'deviceId, endpoint and keys required' }, 400)
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO push_subscriptions (device_id, user_id, endpoint, keys_json)
+     VALUES (?1, ?2, ?3, ?4)
+     ON CONFLICT(device_id) DO UPDATE SET
+       user_id = excluded.user_id,
+       endpoint = excluded.endpoint,
+       keys_json = excluded.keys_json`
+  )
+    .bind(r.deviceId, auth.user.id, r.endpoint, JSON.stringify(keys))
+    .run()
+  return json({ status: 'subscribed' })
+}
+
+const handleSnooze = async (
+  request: Request,
+  env: Env
+): Promise<Response> => {
+  const auth = await authenticate(request, env)
+  if (auth instanceof Response) return auth
+  const householdId = requireHousehold(auth)
+  if (householdId instanceof Response) return householdId
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'invalid JSON' }, 400)
+  }
+  if (typeof body !== 'object' || body === null) { return json({ error: 'invalid payload' }, 400) }
+  const r = body as Record<string, unknown>
+  if (
+    typeof r.babyId !== 'string' ||
+    typeof r.kind !== 'string' ||
+    !Number.isInteger(r.sizeId) ||
+    !Number.isInteger(r.snoozedUntil)
+  ) {
+    return json({ error: 'babyId, kind, sizeId, snoozedUntil required' }, 400)
+  }
+
+  await env.DB.prepare(
+    `UPDATE notification_log SET snoozed_until = ?4
+     WHERE baby_id = ?1 AND size_id = ?2 AND kind = ?3 AND household_id = ?5`
+  )
+    .bind(r.babyId, r.sizeId, r.kind, r.snoozedUntil, householdId)
+    .run()
+  return json({ status: 'snoozed' })
+}
+
+export default {
+  // Hourly cron; the notification pass only runs during the 20:00 hour in
+  // Europe/Madrid (cron triggers are UTC-only).
+  async scheduled (
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
+    const { hour } = madridNow()
+    if (hour !== 20) return
+
+    const result = await runNotifications(env)
+
+    // healthchecks.io heartbeat — silence here means "out of diapers soon"
+    if (env.HEARTBEAT_URL !== undefined && env.HEARTBEAT_URL !== '') {
+      ctx.waitUntil(fetch(env.HEARTBEAT_URL).catch(() => undefined))
+    }
+    console.log('notifications:', JSON.stringify(result))
+  },
+
+  fetch (request: Request, env: Env): Promise<Response> {
+    return (async () => {
+      const url = new URL(request.url)
+      if (request.method !== 'POST') return json({ error: 'not found' }, 404)
+
+      switch (url.pathname) {
+        case '/auth/google':
+          return handleGoogleAuth(request, env)
+        case '/sync':
+          return handleSync(request, env)
+        case '/household/status':
+          return handleHouseholdStatus(request, env)
+        case '/household/create':
+          return handleCreateHousehold(request, env)
+        case '/household/invite':
+          return handleInvite(request, env)
+        case '/household/invite/accept':
+          return handleAcceptInvite(request, env)
+        case '/household/invite/reject':
+          return handleRejectInvite(request, env)
+        case '/household/leave':
+          return handleLeaveHousehold(request, env)
+        case '/account/delete':
+          return handleDeleteAccount(request, env)
+        case '/movement':
+          return handleSingleMovement(request, env)
+        case '/push-subscribe':
+          return handlePushSubscribe(request, env)
+        case '/snooze':
+          return handleSnooze(request, env)
+        case '/run-notifications': {
+          const auth = await authenticate(request, env)
+          if (auth instanceof Response) return auth
+          return runNotifications(env).then((result) => json(result))
+        }
+        default:
+          return json({ error: 'not found' }, 404)
+      }
+    })()
+  },
+}const handleInvite = async (
   request: Request,
   env: Env,
 ): Promise<Response> => {
