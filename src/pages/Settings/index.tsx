@@ -230,6 +230,7 @@ export const Settings = () => {
         <h2>Hogar</h2>
         <p>{householdName ?? 'Sin hogar'}</p>
         <p className='muted small'>{memberCount} de 2 miembros</p>
+        {memberCount < 2 && <p className='muted small'>La invitación aparecerá en Cacotas cuando la otra persona inicie sesión con esa cuenta de Google.</p>}
         {memberCount < 2 && (
           <>
             <label htmlFor='invite-email'>Invitar a mi pareja</label>
@@ -251,11 +252,11 @@ export const Settings = () => {
                 })
                   .then(() => {
                     setInviteEmail('')
-                    setError(null)
+                    setError('Invitación creada. La otra persona la verá al iniciar sesión con esa cuenta de Google.')
                   })
                   .catch((err: unknown) => {
                     setError(
-                      err instanceof Error ? err.message : 'No se pudo enviar',
+                      err instanceof Error ? err.message : 'No se pudo crear la invitación',
                     )
                   })
               }}
