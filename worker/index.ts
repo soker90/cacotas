@@ -596,10 +596,9 @@ const handleHouseholdStatus = async (
   if (auth.user.household_id === null) {
     let inviteCode: string | null = null
     try {
-      const body: unknown = JSON.parse(await request.text()) as unknown
-      if (typeof body === 'object' && body !== null && typeof body.inviteCode === 'string') {
-        inviteCode = body.inviteCode
-      }
+      const rawBody = await request.text()
+      const match = rawBody.match(/"inviteCode"\s*:\s*"([A-Za-z0-9]+)"/)
+      inviteCode = match?.[1] ?? null
     } catch {
       // Empty request body is valid when there is no invitation link.
     }
