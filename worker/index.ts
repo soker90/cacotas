@@ -1072,6 +1072,40 @@ const handleSnooze = async (
   return json({ status: 'snoozed' })
 }
 
+export default {
+  async scheduled (
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
+    const { hour } = madridNow()
+    if (hour !== 20) return
+    const result = await runNotifications(env)
+    if (env.HEARTBEAT_URL !== undefined && env.HEARTBEAT_URL !== '') {
+      ctx.waitUntil(fetch(env.HEARTBEAT_URL).catch(() => undefined))
+    }
+    console.log('notifications:', JSON.stringify(result))
+  },
 
-
-
+  fetch (request: Request, env: Env): Promise<Response> {
+    return (async () => {
+      const url = new URL(request.url)
+      if (request.method !== 'POST') return json({ error: 'not found' }, 404)
+      switch (url.pathname) {
+        case '/auth/google': return handleGoogleAuth(request, env)
+        case '/sync': return handleSync(request, env)
+        case '/household/status': return handleHouseholdStatus(request, env)
+        case '/household/create': return handleCreateHousehold(request, env)
+        case '/household/invite': return handleInvite(request, env)
+        case '/household/invite/accept': return handleAcceptInvite(request, env)
+        case '/household/invite/reject': return handleRejectInvite(request, env)
+        case '/household/leave': return handleLeaveHousehold(request, env)
+        case '/account/delete': return handleDeleteAccount(request, env)
+        case '/movement': return handleSingleMovement(request, env)
+        case '/push-subscribe': return handlePushSubscribe(request, env)
+        case '/snooze': return handleSnooze(request, env)
+        default: return json({ error: 'not found' }, 404)
+      }
+    })()
+  },
+}
