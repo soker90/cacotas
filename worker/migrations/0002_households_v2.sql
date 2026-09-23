@@ -147,8 +147,8 @@ CREATE TABLE notification_log (
   PRIMARY KEY (baby_id, size_id, kind)
 );
 
-
-CREATE TRIGGER enforce_household_two_users_update ON users
+CREATE TRIGGER enforce_household_two_users_update
+BEFORE UPDATE OF household_id ON users
 WHEN NEW.household_id IS NOT NULL
   AND (SELECT COUNT(*) FROM users WHERE household_id = NEW.household_id) >= 2
   AND OLD.household_id IS NOT NEW.household_id
