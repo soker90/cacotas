@@ -27,12 +27,31 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
   useEffect(() => { load() }, [load])
 
   if (loading) return <main className='loading'>…</main>
-  if (inviteCode && !loading && !invites.some((invite) => invite.code === inviteCode)) {
+  if (error) {
+    return (
+      <main className='onboarding'>
+        <h1>Bienvenido a Cacotas</h1>
+        <p role='alert' className='error'>{error}</p>
+        <button
+          type='button'
+          className='primary'
+          onClick={() => {
+            setError(null)
+            setLoading(true)
+            load()
+          }}
+        >
+          Reintentar
+        </button>
+        <button type='button' onClick={onDone}>Continuar</button>
+      </main>
+    )
+  }
+  if (inviteCode && !invites.some((invite) => invite.code === inviteCode)) {
     return (
       <main className='onboarding'>
         <h1>Invitación a Cacotas</h1>
         <p>Esta invitación no aparece como pendiente. Puede haber caducado o ya haber sido utilizada.</p>
-        {error && <p role='alert' className='error'>{error}</p>}
         <button type='button' onClick={onDone}>Continuar</button>
       </main>
     )
