@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   BrowserRouter,
   Navigate,
@@ -52,7 +52,7 @@ const AppRoutes = () => {
   // undefined = still loading; null = no baby yet (§9.7)
   const localBaby = useBaby()
   const [, rerender] = useState(0)
-  const backend = createBackend()
+  const backend = useMemo(() => createBackend(), [sessionToken])
   const sessionToken = getSessionToken()
 
   if (sessionToken === null) {
@@ -111,7 +111,7 @@ const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null;
     return () => {
       cancelled = true
     }
-  }, [entry])
+  }, [entry, backend])
 
   // Adoption path: a remote baby was found, persist it and go straight to
   // Home, skipping the onboarding entirely. Unreachable while backend is
