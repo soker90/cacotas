@@ -52,8 +52,8 @@ const AppRoutes = () => {
   // undefined = still loading; null = no baby yet (§9.7)
   const localBaby = useBaby()
   const [, rerender] = useState(0)
-  const backend = useMemo(() => createBackend(), [sessionToken])
   const sessionToken = getSessionToken()
+  const backend = useMemo(() => createBackend(), [sessionToken])
 
   if (sessionToken === null) {
     return <Login onLogin={() => { rerender((value) => value + 1) }} />
