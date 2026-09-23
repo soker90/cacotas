@@ -476,13 +476,27 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
   const nextCursors: Record<string, number> = { ...cursors }
   for (const b of babies) {
     const cursor = cursors[b.id] ?? 0
-    const rows = await env.DB.prepare('SELECT * FROM movements WHERE household_id=?1 AND baby_id=?2 AND baby_seq>?3 ORDER BY baby_seq LIMIT ?4').bind(householdId, b.id, cursor, PAGE_SIZE).all<MovementRow>()
-    const weightRows = await env.DB.prepare('SELECT * FROM weights WHERE household_id=?1 AND baby_id=?2 AND baby_seq>?3 ORDER BY baby_seq LIMIT ?4').bind(householdId, b.id, cursor, PAGE_SIZE).all<WeightRow>()
-    movements.push(...(rows.results ?? []).map(rowToMovement))
-    weights.push(...(weightRows.results ?? []).map(rowToWeight))
-    const maxSeq = Math.max(cursor, ...(rows.results ?? []).map((row) => row.baby_seq), ...(weightRows.results ?? []).map((row) => row.baby_seq))
+    const rows = await env.DB.prepare(
+      `SELECT * FROM (
+         SELECT baby_seq, 'movement' AS row_kind, seq, id, household_id, baby_id, size_id, type, usage_source, quantity, delta, undoes_movement_id, note, occurred_at, recorded_at, device_id, location_id, NULL AS weight_kg, NULL AS length_cm
+         FROM movements WHERE household_id=?1 AND baby_id=?2 AND baby_seq>?3
+         UNION ALL
+         SELECT baby_seq, 'weight' AS row_kind, seq, id, household_id, baby_id, NULL AS size_id, NULL AS type, NULL AS usage_source, NULL AS quantity, NULL AS delta, NULL AS undoes_movement_id, NULL AS note, NULL AS occurred_at, recorded_at, device_id, NULL AS location_id, weight_kg, length_cm
+         FROM weights WHERE household_id=?1 AND baby_id=?2 AND baby_seq>?3
+       ) ORDER BY baby_seq LIMIT ?4`,
+    ).bind(householdId, b.id, cursor, PAGE_SIZE).all<Record<string, unknown>>()
+    const page = rows.results ?? []
+    for (const row of page) {
+      if (row.row_kind === 'movement') {
+        movements.push(rowToMovement(row as unknown as MovementRow))
+      } else {
+        weights.push(rowToWeight(row as unknown as WeightRow))
+      }
+    }
+    const maxSeq = Math.max(cursor, ...page.map((row) => Number(row.baby_seq)))
     nextCursors[b.id] = maxSeq
-    hasMore[b.id] = (rows.results?.length ?? 0) === PAGE_SIZE || (weightRows.results?.length ?? 0) === PAGE_SIZE
+    const more = page.length === PAGE_SIZE
+    hasMore[b.id] = more
   }
   const locationRows = await env.DB.prepare('SELECT * FROM locations WHERE household_id=?1 ORDER BY created_at,id').bind(householdId).all<LocationRow>()
   return json({ babies, cursors: nextCursors, hasMore, movements, weights, locations: locationRows.results ?? [], accepted })
@@ -852,28 +866,15 @@ export const handleSingleMovement = async (
     { type: 'USAGE', usageSource: r.usageSource, quantity: 1 }
   )
 
-  await env.DB.prepare(
-    `INSERT INTO movements
-       (id, baby_id, size_id, type, usage_source, quantity, delta,
-        occurred_at, recorded_at, device_id, location_id)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`
-  )
-    .bind(
-      movement.id,
-      movement.babyId,
-      movement.sizeId,
-      movement.type,
-      movement.usageSource ?? null,
-      movement.quantity,
-      movement.delta,
-      movement.occurredAt,
-      movement.recordedAt,
-      movement.deviceId,
-      movement.locationId ?? null
-    )
-    .run()
-
-  return json({ movement: { ...movement, serverSeq: 0 } }, 200)
+  const seqResult = await env.DB.batch([
+    env.DB.prepare('INSERT INTO baby_sequences (baby_id,next_seq) VALUES (?1,2) ON CONFLICT(baby_id) DO UPDATE SET next_seq=next_seq+1').bind(movement.babyId),
+    env.DB.prepare(
+      `INSERT INTO movements (id,household_id,baby_id,baby_seq,size_id,type,usage_source,quantity,delta,occurred_at,recorded_at,device_id,location_id)
+       VALUES (?1,?2,?3,(SELECT next_seq-1 FROM baby_sequences WHERE baby_id=?3),?4,?5,?6,?7,?8,?9,?10,?11,?12)`,
+    ).bind(movement.id, householdId, movement.babyId, movement.sizeId, movement.type, movement.usageSource ?? null, movement.quantity, movement.delta, movement.occurredAt, movement.recordedAt, movement.deviceId, movement.locationId ?? null),
+  ])
+  const serverSeq = Number((await env.DB.prepare('SELECT baby_seq FROM movements WHERE id=?1').bind(movement.id).first<{ baby_seq: number }>())?.baby_seq ?? 0)
+  return json({ movement: { ...movement, serverSeq } }, 200)
 }
 
 const handlePushSubscribe = async (
@@ -998,11 +999,6 @@ export default {
           return handlePushSubscribe(request, env)
         case '/snooze':
           return handleSnooze(request, env)
-        case '/run-notifications': {
-          const auth = await authenticate(request, env)
-          if (auth instanceof Response) return auth
-          return runNotifications(env).then((result) => json(result))
-        }
         default:
           return json({ error: 'not found' }, 404)
       }
