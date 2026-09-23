@@ -61,7 +61,7 @@ export const Onboarding = () => {
       return
     }
     if (sizeId === null) return
-    if (premature && gestationalWeeks === null) {
+    if (premature && gestationalWeeks === undefined) {
       setError('Las semanas de gestación deben ser un número entre 20 y 43')
       setStep(0)
       return
@@ -249,18 +249,18 @@ export const Onboarding = () => {
                 ¿Nació antes de tiempo?
               </label>
               {premature && (
-            <>
-              <label htmlFor='baby-gestational-weeks'>
-                Semanas de gestación
-              </label>
-              <input
-                id='baby-gestational-weeks'
-                inputMode='numeric'
-                value={weeksText}
-                onChange={(e) => { setWeeksText(e.target.value) }}
-                placeholder='34'
-              />
-              </>
+                <>
+                  <label htmlFor='baby-gestational-weeks'>
+                    Semanas de gestación
+                  </label>
+                  <input
+                    id='baby-gestational-weeks'
+                    inputMode='numeric'
+                    value={weeksText}
+                    onChange={(e) => { setWeeksText(e.target.value) }}
+                    placeholder='34'
+                  />
+                </>
               )}
             </>
           )}
