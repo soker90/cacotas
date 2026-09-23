@@ -596,7 +596,7 @@ const handleHouseholdStatus = async (
   if (auth.user.household_id === null) {
     let inviteCode: string | null = null
     try {
-      const body = await request.json()
+      const body: unknown = JSON.parse(await request.text()) as unknown
       if (typeof body === 'object' && body !== null && typeof body.inviteCode === 'string') {
         inviteCode = body.inviteCode
       }
