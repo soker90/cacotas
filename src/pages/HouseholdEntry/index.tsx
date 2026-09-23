@@ -38,7 +38,6 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
     )
   }
 
-
   const accept = (code: string): void => {
     void apiRequest('/household/invite/accept', {
       method: 'POST',
