@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { exportJSON, importJSON } from '../../lib/backup.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
