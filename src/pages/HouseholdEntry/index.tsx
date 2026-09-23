@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { apiRequest } from '../../auth/api.ts'
 import { clearSessionToken } from '../../auth/session.ts'
 
@@ -15,7 +15,7 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = (): void => {
+  const load = useCallback((): void => {
     void apiRequest<{ invites: Invite[] }>('/household/status', inviteCode ? { method: 'POST', body: JSON.stringify({ inviteCode }) } : { method: 'POST', body: '{}' })
       .then((result) => { setInvites(result.invites); setLoading(false) })
       .catch((err: unknown) => {
