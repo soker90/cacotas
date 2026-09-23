@@ -24,7 +24,7 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inv
       })
   }
 
-  useEffect(() => { load() }, [])
+  }, [inviteCode])\n\n  useEffect(() => { load() }, [load])
 
   if (loading) return <main className='loading'>…</main>
   if (inviteCode && !loading && !invites.some((invite) => invite.code === inviteCode)) {
