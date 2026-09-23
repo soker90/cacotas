@@ -19,13 +19,15 @@ const parseDecimal = (text: string): number | null => {
  * The baby step also collects the fields that feed the size-transition
  * estimators (§8.8): birth date (required), birth weight, sex and, only if
  * born premature, weeks of gestation. Everything but the date can be
- * skipped — each empty field is a null and the model degrades gracefully.
+ * skipped — each empty field is a null and the model degrades gracefully. The birth date
+ * may be left empty when the baby has not been born yet.
  */
 export const Onboarding = () => {
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
   const [householdName, setHouseholdName] = useState('Nuestro hogar')
   const [birthDate, setBirthDate] = useState('')
+  const [unborn, setUnborn] = useState(false)
   const [birthWeightText, setBirthWeightText] = useState('')
   const [sex, setSex] = useState<Sex | null>(null)
   const [premature, setPremature] = useState(false)
@@ -48,7 +50,7 @@ export const Onboarding = () => {
     : undefined
 
   const canNext =
-    (step === 0 && name.trim().length > 0 && birthDate !== '' && householdName.trim().length > 0) ||
+    (step === 0 && name.trim().length > 0 && householdName.trim().length > 0 && (unborn || birthDate !== '')) ||
     (step === 1 && sizeId !== null) ||
     step === 2
 
@@ -77,7 +79,7 @@ export const Onboarding = () => {
     const baby: Baby = {
       id: babyId,
       name: name.trim(),
-      birthDate,
+      ...(birthDate !== '' ? { birthDate } : {}),
       zoneId: ZONE,
       createdAt: now,
       updatedAt: now,
@@ -183,14 +185,29 @@ export const Onboarding = () => {
             autoFocus
           />
 
-          <label htmlFor='baby-birth-date'>¿Cuándo nació?</label>
-          <input
-            id='baby-birth-date'
-            type='date'
-            value={birthDate}
-            max={new Date().toISOString().slice(0, 10)}
-            onChange={(e) => { setBirthDate(e.target.value) }}
-          />
+          <label className='check-row'>
+            <input
+              type='checkbox'
+              checked={unborn}
+              onChange={(e) => {
+                setUnborn(e.target.checked)
+                if (e.target.checked) setBirthDate('')
+              }}
+            />
+            Todavía no ha nacido
+          </label>
+          {!unborn && (
+            <>
+              <label htmlFor='baby-birth-date'>¿Cuándo nació?</label>
+              <input
+                id='baby-birth-date'
+                type='date'
+                value={birthDate}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => { setBirthDate(e.target.value) }}
+              />
+            </>
+          )}
 
           <label htmlFor='baby-birth-weight'>Peso al nacer en kg (opcional)</label>
           <input
