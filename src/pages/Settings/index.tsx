@@ -36,7 +36,7 @@ export const Settings = () => {
   const locations = useLiveQuery(() => db.locations.toArray())
   const [newLocationName, setNewLocationName] = useState('')
   const [newLocationPoint, setNewLocationPoint] = useState('10')
-  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [householdName, setHouseholdName] = useState<string | null>(null)
   const [memberCount, setMemberCount] = useState(0)
   const [inviteMessage, setInviteMessage] = useState<string | null>(null)
@@ -234,38 +234,39 @@ export const Settings = () => {
         {memberCount < 2 && <p className='muted small'>La invitación aparecerá en Cacotas cuando la otra persona inicie sesión con esa cuenta de Google.</p>}
         {memberCount < 2 && (
           <>
-            <label htmlFor='invite-email'>Invitar a mi pareja</label>
-            <input
-              id='invite-email'
-              type='email'
-              value={inviteEmail}
-              onChange={(e) => {
-                setInviteEmail(e.target.value)
-              }}
-              placeholder='correo@gmail.com'
-            />
+            <p className='muted small'>Genera un enlace y compártelo con la otra persona. No enviamos correos desde Cacotas.</p>
             <button
               type='button'
               onClick={() => {
-                void apiRequest('/household/invite', {
-                  method: 'POST',
-                  body: JSON.stringify({ email: inviteEmail }),
-                })
-                  .then(() => {
-                    setInviteEmail('')
-                    setInviteMessage('Invitación creada. La otra persona la verá al iniciar sesión con esa cuenta de Google.')
+                void apiRequest<{ inviteUrl: string }>('/household/invite', { method: 'POST', body: '{}' })
+                  .then((result) => {
+                    setInviteLink(result.inviteUrl)
+                    setInviteMessage('Invitación creada.')
                     setError(null)
                   })
                   .catch((err: unknown) => {
                     setInviteMessage(null)
-                    setError(
-                      err instanceof Error ? err.message : 'No se pudo crear la invitación',
-                    )
+                    setError(err instanceof Error ? err.message : 'No se pudo crear la invitación')
                   })
               }}
             >
-              Enviar invitación
+              Generar enlace de invitación
             </button>
+            {inviteLink && (
+              <div className='form-row'>
+                <label htmlFor='invite-link'>Enlace de invitación</label>
+                <input id='invite-link' value={inviteLink} readOnly />
+                <button type='button' onClick={() => {
+                  void navigator.clipboard?.writeText(inviteLink)
+                  setInviteMessage('Enlace copiado.')
+                }}>Copiar enlace</button>
+                {navigator.share && (
+                  <button type='button' onClick={() => {
+                    void navigator.share({ title: 'Invitación a Cacotas', text: 'Únete a nuestro hogar en Cacotas', url: inviteLink }).catch(() => {})
+                  }}>Compartir</button>
+                )}
+              </div>
+            )}
             {inviteMessage && <p className='muted small' role='status'>{inviteMessage}</p>}
           </>
         )}
