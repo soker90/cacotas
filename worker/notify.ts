@@ -88,225 +88,103 @@ const madridNow = (): { hour: number; weekday: number } => {
  * engine from /shared — never a copy.
  */
 export const runNotifications = async (env: Env): Promise<NotifyResult> => {
-  const result: NotifyResult = {
-    checkedAt: Date.now(),
-    sent: [],
-    skipped: [],
-  }
+  const result: NotifyResult = { checkedAt: Date.now(), sent: [], skipped: [] }
+  const babies = (await env.DB.prepare(
+    'SELECT id,name,household_id FROM babies ORDER BY created_at,id'
+  ).all<{ id: string; name: string; household_id: string }>()).results ?? []
 
-  // ── Gather ledger state ───────────────────────────────
-  const movementRows = await env.DB.prepare(
-    'SELECT * FROM movements ORDER BY seq'
-  ).all<MovementRow>()
-  const all = (movementRows.results ?? []).map(rowToMovement)
+  for (const babyRow of babies) {
+    const movementRows = await env.DB.prepare(
+      'SELECT * FROM movements WHERE household_id=?1 AND baby_id=?2 ORDER BY baby_seq'
+    ).bind(babyRow.household_id, babyRow.id).all<MovementRow>()
+    const all = (movementRows.results ?? []).map(rowToMovement)
+    const subscriptions = (await env.DB.prepare(
+      'SELECT ps.endpoint, ps.keys_json FROM push_subscriptions ps JOIN users u ON u.id=ps.user_id WHERE u.household_id=?1'
+    ).bind(babyRow.household_id).all<{ endpoint: string; keys_json: string }>()).results ?? []
+    if (subscriptions.length === 0 || env.VAPID_PRIVATE_KEY === '') continue
 
-  const babyRow = await env.DB.prepare(
-    'SELECT * FROM babies ORDER BY created_at,id LIMIT 1'
-  ).first<{ id: string; name: string; household_id: string }>()
-
-  let subscriptions: {
-    results: Array<{ endpoint: string; keys_json: string }>
-  }
-  if (babyRow === null) {
-    subscriptions = { results: [] }
-  } else {
-    subscriptions = await env.DB.prepare(
-      'SELECT ps.endpoint, ps.keys_json FROM push_subscriptions ps JOIN users u ON u.id=ps.user_id WHERE u.household_id=?1',
-    )
-      .bind(babyRow.household_id)
-      .all<{ endpoint: string; keys_json: string }>()
-  }
-
-  const vapid = {
-    privateKeyB64url: env.VAPID_PRIVATE_KEY,
-    publicKeyB64url: env.VAPID_PUBLIC_KEY,
-    subject: env.VAPID_SUBJECT,
-  }
-
-  if (
-    babyRow === null ||
-    (subscriptions.results?.length ?? 0) === 0 ||
-    env.VAPID_PRIVATE_KEY === ''
-  ) {
-    return result
-  }
-  const devices = (subscriptions.results ?? []).map((row) => ({
-    endpoint: row.endpoint,
-    keys: JSON.parse(row.keys_json) as { p256dh: string; auth: string },
-  }))
-
-  // ── Live ledger view (undone excluded, §6) ────────────
-  const undone = new Set(
-    all.filter((m) => m.type === 'UNDO').map((m) => m.undoesMovementId ?? '')
-  )
-  const liveUsage = all.filter(
-    (m) => m.type === 'USAGE' && !undone.has(m.id)
-  )
-  const stockBySize = new Map<number, number>()
-  for (const m of all) {
-    stockBySize.set(m.sizeId, (stockBySize.get(m.sizeId) ?? 0) + m.delta)
-  }
-  const sizeChanges = all
-    .filter((m) => m.type === 'SIZE_CHANGE')
-    .sort((a, b) => a.occurredAt - b.occurredAt)
-  const currentSize = sizeChanges.at(-1)?.sizeId
-
-  if (currentSize === undefined) return result
-  const currentStock = stockBySize.get(currentSize) ?? 0
-
-  // Signals are device-local (§17) and not synced — transition stays null
-  // server-side and BUY_BOTH_SIZES degrades to plain BUY_NOW. The size
-  // table is not synced either (§17), but the manufacturer seed lives in
-  // /shared, so the cold start (§7.2.1) works server-side too (issue #11).
-  const forecast = computeForecast({
-    stock: currentStock,
-    usage: liveUsage,
-    now: Date.now(),
-    transition: null,
-    currentSize:
-      DODOT_SIZES.find((s) => s.id === currentSize) ?? null,
-    warningDays: 7,
-    coverageDays: 21,
-  })
-
-  const madrid = madridNow()
-  const now = Date.now()
-
-  // ── Candidate notifications ───────────────────────────
-  const candidates: Array<{
-    kind: string
-    sizeId: number
-    condition: boolean
-    body: string
-    hashParts: unknown
-  }> = [
-    {
-      kind: 'STOCK_LOW',
-      sizeId: currentSize,
-      condition:
-        forecast.daysRemaining !== null &&
-        forecast.daysRemaining <= 7 &&
-        forecast.status !== 'NO_DATA',
-      body: `Quedan ≈ ${String(forecast.daysRemaining ?? 0)} días de pañales (talla ${String(currentSize)}).`,
-      hashParts: {
+    const devices = subscriptions.map((row) => ({
+      endpoint: row.endpoint,
+      keys: JSON.parse(row.keys_json) as { p256dh: string; auth: string },
+    }))
+    const undone = new Set(all.filter((m) => m.type === 'UNDO').map((m) => m.undoesMovementId ?? ''))
+    const liveUsage = all.filter((m) => m.type === 'USAGE' && !undone.has(m.id))
+    const stockBySize = new Map<number, number>()
+    for (const m of all) stockBySize.set(m.sizeId, (stockBySize.get(m.sizeId) ?? 0) + m.delta)
+    const currentSize = all.filter((m) => m.type === 'SIZE_CHANGE').sort((a, b) => a.occurredAt - b.occurredAt).at(-1)?.sizeId
+    if (currentSize === undefined) continue
+    const currentStock = stockBySize.get(currentSize) ?? 0
+    const forecast = computeForecast({
+      stock: currentStock,
+      usage: liveUsage,
+      now: Date.now(),
+      transition: null,
+      currentSize: DODOT_SIZES.find((s) => s.id === currentSize) ?? null,
+      warningDays: 7,
+      coverageDays: 21,
+    })
+    const madrid = madridNow()
+    const now = Date.now()
+    const candidates = [
+      {
         kind: 'STOCK_LOW',
-        daysRemaining: forecast.daysRemaining,
-        stock: currentStock,
         sizeId: currentSize,
+        condition: forecast.daysRemaining !== null && forecast.daysRemaining <= 7 && forecast.status !== 'NO_DATA',
+        body: `Quedan ≈ ${String(forecast.daysRemaining ?? 0)} días de pañales (talla ${String(currentSize)}).`,
+        hashParts: { kind: 'STOCK_LOW', daysRemaining: forecast.daysRemaining, stock: currentStock, sizeId: currentSize },
       },
-    },
-    {
-      kind: 'PURCHASE_RECOMMENDED',
-      sizeId: currentSize,
-      condition:
-        (forecast.status === 'BUY_NOW' ||
-          forecast.status === 'BUY_BOTH_SIZES') &&
-        // Thursday anchoring (§12 "a considerar"): Mon-Wed reminders are
-        // forgotten before the big shop
-        isPurchaseDay(madrid.weekday),
-      body:
-        forecast.recommendedDiapers !== null && forecast.recommendedDiapers > 0
+      {
+        kind: 'PURCHASE_RECOMMENDED',
+        sizeId: currentSize,
+        condition: (forecast.status === 'BUY_NOW' || forecast.status === 'BUY_BOTH_SIZES') && isPurchaseDay(madrid.weekday),
+        body: forecast.recommendedDiapers !== null && forecast.recommendedDiapers > 0
           ? `Conviene comprar ≈ ${String(forecast.recommendedDiapers)} pañales de talla ${String(currentSize)}.`
           : `Conviene comprar pañales de talla ${String(currentSize)}.`,
-      hashParts: {
-        kind: 'PURCHASE_RECOMMENDED',
-        recommendedDiapers: forecast.recommendedDiapers,
-        dailyConsumption: forecast.dailyConsumption,
-        sizeId: currentSize,
+        hashParts: { kind: 'PURCHASE_RECOMMENDED', recommendedDiapers: forecast.recommendedDiapers, dailyConsumption: forecast.dailyConsumption, sizeId: currentSize },
       },
-    },
-  ]
+    ]
 
-  for (const candidate of candidates) {
-    if (!candidate.condition) continue
-
-    const stateHash = await hashState(candidate.hashParts)
-    const logRow = await env.DB.prepare(
-      `SELECT state_hash, sent_at, snoozed_until FROM notification_log
-       WHERE baby_id = ?1 AND size_id = ?2 AND kind = ?3`
-    )
-      .bind(babyRow.id, candidate.sizeId, candidate.kind)
-      .first<{ state_hash: string; sent_at: number; snoozed_until: number | null }>()
-
-    const last: LogEntry | null =
-      logRow !== null
-        ? {
-            state_hash: logRow.state_hash,
-            sent_at: logRow.sent_at,
-            snoozed_until: logRow.snoozed_until,
-          }
-        : null
-
-    const decision = shouldNotify(last, stateHash, now)
-    if (!decision.send) {
-      result.skipped.push({
-        kind: candidate.kind,
-        sizeId: candidate.sizeId,
-        reason: decision.reason,
-      })
-      continue
-    }
-
-    let delivered = 0
-    for (const device of devices) {
-      try {
-        const status = await sendPush(
-          device,
-          JSON.stringify({
-            title: 'Cacotas',
-            body: candidate.body,
-            tag: `${candidate.kind}-${String(candidate.sizeId)}`,
-            data: {
-              babyId: babyRow.id,
-              sizeId: candidate.sizeId,
-              kind: candidate.kind,
-            },
-            actions: [{ action: 'snooze', title: 'Me encargo yo' }],
-          }),
-          vapid
-        )
-        // 404/410 = expired subscription: drop it
-        if (status === 404 || status === 410) {
-          await env.DB.prepare(
-            'DELETE FROM push_subscriptions WHERE endpoint = ?1'
-          )
-            .bind(device.endpoint)
-            .run()
-        } else if (status >= 200 && status < 300) {
-          delivered++
-        }
-      } catch {
-        // One failing device never blocks the rest
+    for (const candidate of candidates) {
+      if (!candidate.condition) continue
+      const stateHash = await hashState(candidate.hashParts)
+      const logRow = await env.DB.prepare(
+        'SELECT state_hash,sent_at,snoozed_until FROM notification_log WHERE household_id=?1 AND baby_id=?2 AND size_id=?3 AND kind=?4'
+      ).bind(babyRow.household_id, babyRow.id, candidate.sizeId, candidate.kind).first<{ state_hash: string; sent_at: number; snoozed_until: number | null }>()
+      const last: LogEntry | null = logRow === null ? null : { state_hash: logRow.state_hash, sent_at: logRow.sent_at, snoozed_until: logRow.snoozed_until }
+      const decision = shouldNotify(last, stateHash, now)
+      if (!decision.send) {
+        result.skipped.push({ kind: candidate.kind, sizeId: candidate.sizeId, reason: decision.reason })
+        continue
       }
+      let delivered = 0
+      for (const device of devices) {
+        try {
+          const status = await sendPush(
+            device,
+            JSON.stringify({
+              title: 'Cacotas',
+              body: candidate.body,
+              tag: `${candidate.kind}-${String(candidate.sizeId)}`,
+              data: { babyId: babyRow.id, sizeId: candidate.sizeId, kind: candidate.kind },
+              actions: [{ action: 'snooze', title: 'Me encargo yo' }],
+            }),
+            { privateKeyB64url: env.VAPID_PRIVATE_KEY, publicKeyB64url: env.VAPID_PUBLIC_KEY, subject: env.VAPID_SUBJECT },
+          )
+          if (status === 404 || status === 410) {
+            await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?1').bind(device.endpoint).run()
+          } else if (status >= 200 && status < 300) delivered++
+        } catch {
+          // A failing device never blocks the rest.
+        }
+      }
+      await env.DB.prepare(
+        `INSERT INTO notification_log (household_id,baby_id,size_id,kind,state_hash,sent_at,snoozed_until)
+         VALUES (?1,?2,?3,?4,?5,?6,NULL)
+         ON CONFLICT(baby_id,size_id,kind) DO UPDATE SET state_hash=excluded.state_hash,sent_at=excluded.sent_at,snoozed_until=NULL`,
+      ).bind(babyRow.household_id,babyRow.id,candidate.sizeId,candidate.kind,stateHash,Date.now()).run()
+      result.sent.push({ kind: candidate.kind, sizeId: candidate.sizeId, devices: delivered })
     }
-
-    await env.DB.prepare(
-      `INSERT INTO notification_log
-         (household_id, baby_id, size_id, kind, state_hash, sent_at, snoozed_until)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL)
-       ON CONFLICT(baby_id, size_id, kind) DO UPDATE SET
-         state_hash = excluded.state_hash,
-         sent_at = excluded.sent_at,
-         snoozed_until = NULL`
-    )
-      .bind(
-        babyRow.household_id,
-        babyRow.id,
-        candidate.sizeId,
-        candidate.kind,
-        stateHash,
-        Date.now()
-      )
-      .run()
-
-    result.sent.push({
-      kind: candidate.kind,
-      sizeId: candidate.sizeId,
-      devices: delivered,
-    })
   }
-
   return result
 }
-
 export { madridNow }
