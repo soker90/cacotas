@@ -662,30 +662,14 @@ const handleInvite = async (
     return json({ error: 'invalid email' }, 400)
   }
 
-  const existing = await env.DB.prepare(
-    'SELECT code FROM invites WHERE household_id=?1 AND email=?2 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?3',
-  )
-    .bind(householdId, email, Date.now())
-    .first<{ code: string }>()
-  const code = existing?.code ?? inviteCode()
+  const code = inviteCode()
+  const now = Date.now()
+  const expiresAt = now + 72 * 60 * 60 * 1000
+  await env.DB.prepare(
+    'INSERT INTO invites (code,household_id,created_by,email,created_at,expires_at) VALUES (?1,?2,?3,NULL,?4,?5)',
+  ).bind(code, householdId, auth.user.id, now, expiresAt).run()
 
-  if (!existing) {
-    const now = Date.now()
-    await env.DB.prepare(
-      'INSERT INTO invites (code,household_id,created_by,email,created_at,expires_at) VALUES (?1,?2,?3,?4,?5,?6)',
-    )
-      .bind(
-        code,
-        householdId,
-        auth.user.id,
-        email,
-        now,
-        now + 72 * 60 * 60 * 1000,
-      )
-      .run()
-  }
-
-  return json({ status: existing ? 'already_pending' : 'pending' })
+  return json({ status: 'pending' })
 }
 
 const inviteIp = (request: Request): string =>
