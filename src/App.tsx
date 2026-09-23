@@ -60,10 +60,10 @@ const AppRoutes = () => {
 
     let cancelled = false
     void db.babies.get(localBabyId).then((currentLocalBaby) => {
-      if (currentLocalBaby === undefined) return null
+      if (currentLocalBaby === undefined) return undefined
       return resolveStartup(currentLocalBaby, backend, getDeviceId())
     }).then(async (decision) => {
-      if (cancelled || decision.remote === undefined) {
+      if (cancelled || decision === undefined || decision.remote === undefined) {
         if (!cancelled) setStartupReady(true)
         return
       }
