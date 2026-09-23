@@ -10,7 +10,7 @@ interface Invite {
   expires_at: number
 }
 
-export const HouseholdEntry = ({ onDone }: { onDone: () => void }) => {
+export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: () => void; inviteCode?: string }) => {
   const [invites, setInvites] = useState<Invite[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -26,7 +26,28 @@ export const HouseholdEntry = ({ onDone }: { onDone: () => void }) => {
 
   useEffect(() => { load() }, [])
 
+  useEffect(() => {
+    if (!inviteCode || loading || !invites.some((invite) => invite.code === inviteCode)) return
+    void apiRequest('/household/invite/accept', {
+      method: 'POST',
+      body: JSON.stringify({ code: inviteCode }),
+    }).then(onDone).catch((err: unknown) => {
+      setError(err instanceof Error ? err.message : 'No se pudo aceptar la invitación')
+    })
+  }, [inviteCode, loading, invites, onDone])
+
   if (loading) return <main className='loading'>…</main>
+  if (inviteCode && !loading && !invites.some((invite) => invite.code === inviteCode)) {
+    return (
+      <main className='onboarding'>
+        <h1>Invitación a Cacotas</h1>
+        <p>Esta invitación no aparece como pendiente. Puede haber caducado o ya haber sido utilizada.</p>
+        {error && <p role='alert' className='error'>{error}</p>}
+        <button type='button' onClick={onDone}>Continuar</button>
+      </main>
+    )
+  }
+
 
   const accept = (code: string): void => {
     void apiRequest('/household/invite/accept', {
