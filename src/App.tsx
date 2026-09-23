@@ -148,13 +148,10 @@ const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null;
   const [entry, setEntry] = useState(true)
   const [entryAction, setEntryAction] = useState<HouseholdEntryAction | null>(null)
   const [decision, setDecision] = useState<StartupDecision | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
-    if (entry || entryAction === null) return
-    if (entryAction === 'CREATE') {
-      setDecision({ route: 'ONBOARDING' })
-      return
-    }
+    if (entry || entryAction !== 'JOIN') return
     let cancelled = false
     void resolveStartup(null, backend, getDeviceId()).then((d) => {
       if (!cancelled) setDecision(d)
@@ -162,7 +159,7 @@ const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null;
     return () => {
       cancelled = true
     }
-  }, [entry, entryAction, backend])
+  }, [entry, entryAction, backend, retryCount])
 
   useEffect(() => {
     if (decision?.route !== 'HOME' || !decision.remote) return
@@ -180,6 +177,10 @@ const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null;
       : <HouseholdEntry inviteCode={inviteCode} onDone={(action) => { setEntryAction(action); setEntry(false) }} />
   }
 
+  if (entryAction === 'CREATE') {
+    return <Onboarding />
+  }
+
   if (decision === null) {
     return <main className='loading'>…</main>
   }
@@ -195,6 +196,7 @@ const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null;
           type='button'
           onClick={() => {
             setDecision(null)
+            setRetryCount((value) => value + 1)
           }}
         >
           Reintentar
