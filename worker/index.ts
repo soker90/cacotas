@@ -602,7 +602,7 @@ const handleHouseholdStatus = async (
         if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
           return json({ error: 'invalid payload' }, 400)
         }
-        payload = parsed as { inviteCode?: unknown }
+        payload = parsed
       } catch {
         return json({ error: 'invalid JSON' }, 400)
       }
