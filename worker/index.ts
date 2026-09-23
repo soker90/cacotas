@@ -648,11 +648,6 @@ const handleInvite = async (
     return json({ error: 'invalid email' }, 400)
   }
 
-  const household = await env.DB.prepare(
-    'SELECT name FROM households WHERE id=?1',
-  )
-    .bind(householdId)
-    .first<{ name: string }>()
   const existing = await env.DB.prepare(
     'SELECT code FROM invites WHERE household_id=?1 AND email=?2 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?3',
   )
