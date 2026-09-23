@@ -181,7 +181,7 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
         `INSERT INTO notification_log (household_id,baby_id,size_id,kind,state_hash,sent_at,snoozed_until)
          VALUES (?1,?2,?3,?4,?5,?6,NULL)
          ON CONFLICT(baby_id,size_id,kind) DO UPDATE SET state_hash=excluded.state_hash,sent_at=excluded.sent_at,snoozed_until=NULL`,
-      ).bind(babyRow.household_id,babyRow.id,candidate.sizeId,candidate.kind,stateHash,Date.now()).run()
+      ).bind(babyRow.household_id, babyRow.id, candidate.sizeId, candidate.kind, stateHash, Date.now()).run()
       result.sent.push({ kind: candidate.kind, sizeId: candidate.sizeId, devices: delivered })
     }
   }
