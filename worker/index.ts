@@ -594,22 +594,28 @@ const handleHouseholdStatus = async (
   if (auth instanceof Response) return auth
 
   if (auth.user.household_id === null) {
-    let inviteCode: string | null = null
-    try {
-      const rawBody = await request.text()
-      const match = rawBody.match(/"inviteCode"\s*:\s*"([A-Za-z0-9]+)"/)
-      inviteCode = match?.[1] ?? null
-    } catch {
-      // Empty request body is valid when there is no invitation link.
+    const rawBody = await request.text()
+    let payload: { inviteCode?: unknown } = {}
+    if (rawBody.trim() !== '') {
+      try {
+        const parsed: unknown = JSON.parse(rawBody)
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+          return json({ error: 'invalid payload' }, 400)
+        }
+        payload = parsed as { inviteCode?: unknown }
+      } catch {
+        return json({ error: 'invalid JSON' }, 400)
+      }
     }
+    const requestedInviteCode = typeof payload.inviteCode === 'string' ? payload.inviteCode : null
 
-    const invites = inviteCode === null
+    const invites = requestedInviteCode === null
       ? []
       : (
           await env.DB.prepare(
             'SELECT i.code,i.expires_at,h.id AS household_id,h.name,u.display_name AS inviter_name FROM invites i JOIN households h ON h.id=i.household_id LEFT JOIN users u ON u.id=i.created_by WHERE i.code=?1 AND i.redeemed_at IS NULL AND i.rejected_at IS NULL AND i.expires_at>?2'
           )
-            .bind(inviteCode, Date.now())
+            .bind(requestedInviteCode, Date.now())
             .all()
         ).results ?? []
 
@@ -721,10 +727,11 @@ const handleAcceptInvite = async (
     typeof (body as Record<string, unknown>).code === 'string'
       ? String((body as Record<string, unknown>).code)
       : ''
+  const now = Date.now()
   const invite = await env.DB.prepare(
     'SELECT code,household_id FROM invites WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?2'
   )
-    .bind(code, Date.now())
+    .bind(code, now)
     .first<{ code: string; household_id: string }>()
 
   if (!invite) {
@@ -744,11 +751,11 @@ const handleAcceptInvite = async (
   try {
     const result = await env.DB.batch([
       env.DB.prepare(
-        'UPDATE users SET household_id=?1 WHERE id=?2 AND household_id IS NULL'
-      ).bind(invite.household_id, auth.user.id),
+        'UPDATE users SET household_id=?1 WHERE id=?2 AND household_id IS NULL AND EXISTS (SELECT 1 FROM invites WHERE code=?3 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?4)'
+      ).bind(invite.household_id, auth.user.id, code, now),
       env.DB.prepare(
         'UPDATE invites SET redeemed_at=?2,redeemed_by=?3 WHERE code=?1 AND redeemed_at IS NULL AND rejected_at IS NULL AND expires_at>?4'
-      ).bind(code, Date.now(), auth.user.id, Date.now()),
+      ).bind(code, now, auth.user.id, now),
     ])
     if (result[0].meta.changes !== 1 || result[1].meta.changes !== 1) {
       return json({ error: 'invalid invitation' }, 400)
