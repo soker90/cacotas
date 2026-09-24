@@ -6,6 +6,7 @@
  */
 
 import { getDeviceId } from '../sync/device-id.ts'
+import { apiRequest } from '../auth/api.ts'
 
 const urlBase64ToUint8Array = (base64: string): Uint8Array<ArrayBuffer> => {
   // Typed as ArrayBuffer-backed for pushManager's applicationServerKey
@@ -41,24 +42,14 @@ const saveSubscription = async (
   subscription: PushSubscription
 ): Promise<void> => {
   const json = subscription.toJSON()
-  const response = await fetch('/api/push-subscribe', {
+  await apiRequest('/push-subscribe', {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'X-Auth': import.meta.env.VITE_SYNC_SECRET ?? '',
-    },
     body: JSON.stringify({
       deviceId: getDeviceId(),
       endpoint: subscription.endpoint,
       keys: json.keys,
     }),
   })
-  if (!response.ok) {
-    const body = await response.text().catch(() => '')
-    throw new Error(
-      `No se pudo guardar la suscripción (HTTP ${String(response.status)}${body ? `: ${body}` : ''})`
-    )
-  }
 }
 
 export const subscribeToPush = async (
