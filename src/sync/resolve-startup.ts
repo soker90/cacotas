@@ -1,4 +1,4 @@
-import type { Baby, Location, Movement } from '../../shared/types.ts'
+import type { Baby, Location, Movement, WeightRecord } from '../../shared/types.ts'
 import type { SyncBackend } from './backend.ts'
 
 export type StartupRoute = 'HOME' | 'ONBOARDING' | 'JOIN_RETRY'
@@ -13,6 +13,7 @@ export interface StartupDecision {
   remote?: {
     baby: Baby
     movements: Movement[]
+    weights: WeightRecord[]
     locations: Location[]
   }
   /** Failure detail for JOIN_RETRY — shown discreetly to aid diagnosis. */
@@ -44,14 +45,21 @@ export const resolveStartup = async (
     if (res.babies[0]) {
       return {
         route: 'HOME',
-        remote: { baby: res.babies[0], movements: res.movements, locations: res.locations ?? [] },
+        remote: {
+          baby: res.babies[0],
+          movements: res.movements,
+          weights: res.weights,
+          locations: res.locations ?? [],
+        },
       }
     }
-    if (localBaby) return { route: 'HOME' }
+    // A server-authenticated household without a baby is the source of truth.
+    // The caller must clear any stale local baby before entering onboarding.
     return { route: 'ONBOARDING' }
   } catch (err) {
-    // Keep the local app usable offline when there is already a baby.
-    if (localBaby) return { route: 'HOME' }
+    // With an authenticated household, local data is not authoritative.
+    // Showing it after a failed remote check can expose stale data from a
+    // previous household/device state. Force an explicit retry instead.
     return {
       route: 'JOIN_RETRY',
       reason: err instanceof Error ? err.message : String(err),
