@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 /**
  * Update prompt for registerType: 'prompt' (§11), hand-rolled over the raw
  * service worker API. The plugin's workbox-window wrapper kept firing the
  * prompt spuriously (stuck needRefresh with no waiting worker).
  *
- * Flow: register /sw.js · when an updated worker reaches `installed` show
- * the banner · Actualizar posts SKIP_WAITING and reloads on controllerchange.
+ * Flow: register /sw.js · when an updated worker reaches `installed`,
+ * activate it immediately and reload when it takes control.
  */
 export const UpdatePrompt = () => {
 
