@@ -25,6 +25,7 @@ import { HttpSyncBackend } from './sync/http-backend.ts'
 import { startSyncLoop } from './sync/scheduler.ts'
 import { getDeviceId } from './sync/device-id.ts'
 import { getSessionToken } from './auth/session.ts'
+import { apiRequest } from './auth/api.ts'
 import { Login } from './pages/Login/index.tsx'
 import { HouseholdEntry, type HouseholdEntryAction } from './pages/HouseholdEntry/index.tsx'
 
@@ -46,20 +47,48 @@ export const App = () => (
 
 const AppRoutes = () => {
   const localBaby = useBaby()
-  const [session, setSession] = useState<{ token: string; hasHousehold: boolean } | null>(() => {
+  const [session, setSession] = useState<{ token: string; hasHousehold: boolean; householdChecked: boolean } | null>(() => {
     const token = getSessionToken()
-    return token === null ? null : { token, hasHousehold: false }
+    return token === null ? null : { token, hasHousehold: false, householdChecked: false }
   })
   const sessionToken = session?.token ?? null
   const backend = useMemo(() => createBackend(sessionToken), [sessionToken])
   const [startupReady, setStartupReady] = useState(false)
   const [startupDecision, setStartupDecision] = useState<StartupDecision | null>(null)
   const handleLogin = useCallback((auth: { token: string; householdId: string | null }) => {
-    setSession({ token: auth.token, hasHousehold: auth.householdId !== null })
+    setSession({ token: auth.token, hasHousehold: auth.householdId !== null, householdChecked: true })
   }, [])
 
   useEffect(() => {
-    if (sessionToken === null || localBaby === undefined || backend === null) {
+    if (session === null || session.householdChecked) return
+    let cancelled = false
+    void apiRequest<{ user: { household_id: string | null }; invites: unknown[] }>('/household/status', {
+      method: 'POST',
+      body: '{}',
+    }).then((result) => {
+      if (!cancelled) {
+        setSession((current) => current === null
+          ? null
+          : { ...current, hasHousehold: result.user.household_id !== null, householdChecked: true })
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setSession((current) => current === null
+          ? null
+          : { ...current, householdChecked: true })
+      }
+    })
+    return () => { cancelled = true }
+  }, [session])
+
+  useEffect(() => {
+    if (
+      sessionToken === null ||
+      localBaby === undefined ||
+      backend === null ||
+      session?.householdChecked !== true ||
+      session.hasHousehold !== true
+    ) {
       return
     }
 
@@ -120,13 +149,17 @@ const AppRoutes = () => {
     return () => {
       cancelled = true
     }
-  }, [backend, localBaby, sessionToken])
+  }, [backend, localBaby, session, sessionToken])
 
   if (sessionToken === null) {
     return <Login onLogin={handleLogin} />
   }
 
-  if (localBaby !== undefined && backend !== null && !startupReady) {
+  if (session.householdChecked !== true) {
+    return <main className='loading'>…</main>
+  }
+
+  if (localBaby !== undefined && backend !== null && session.hasHousehold && !startupReady) {
     return <main className='loading'>…</main>
   }
   if (startupDecision?.route === 'JOIN_RETRY') {
@@ -148,7 +181,7 @@ const AppRoutes = () => {
 
   return (
     <>
-      <SyncLoop backend={backend} />
+      <SyncLoop backend={session.hasHousehold ? backend : null} />
       <Routes>
         <Route element={<AppLayout />}>
           <Route path='/' element={<Home baby={localBaby} />} />
