@@ -205,44 +205,46 @@ export const Onboarding = () => {
 
               <p className='muted small'>Sexo (opcional, afina la estimación de peso)</p>
               <div className='sex-options'>
-            <button
-              type='button'
-              className={sex === 'male' ? 'size selected' : 'size'}
-              aria-pressed={sex === 'male'}
-              onClick={() => { setSex(sex === 'male' ? null : 'male') }}
-            >
-              Niño
-            </button>
-            <button
-              type='button'
-              className={sex === 'female' ? 'size selected' : 'size'}
-              aria-pressed={sex === 'female'}
-              onClick={() => { setSex(sex === 'female' ? null : 'female') }}
-            >
-              Niña
-            </button>
+                <button
+                  type='button'
+                  className={sex === 'male' ? 'size selected' : 'size'}
+                  aria-pressed={sex === 'male'}
+                  onClick={() => { setSex(sex === 'male' ? null : 'male') }}
+                >
+                  Niño
+                </button>
+                <button
+                  type='button'
+                  className={sex === 'female' ? 'size selected' : 'size'}
+                  aria-pressed={sex === 'female'}
+                  onClick={() => { setSex(sex === 'female' ? null : 'female') }}
+                >
+                  Niña
+                </button>
               </div>
 
               <label className='check-row'>
-            <input
-              type='checkbox'
-              checked={premature}
-              onChange={(e) => { setPremature(e.target.checked) }}
-            />
-            ¿Nació antes de tiempo?
+                <input
+                  type='checkbox'
+                  checked={premature}
+                  onChange={(e) => { setPremature(e.target.checked) }}
+                />
+                ¿Nació antes de tiempo?
               </label>
               {premature && (
                 <>
-              <label htmlFor='baby-gestational-weeks'>
-                Semanas de gestación
-              </label>
-              <input
-                id='baby-gestational-weeks'
-                inputMode='numeric'
-                value={weeksText}
-                onChange={(e) => { setWeeksText(e.target.value) }}
-                placeholder='34'
-              />
+                  <label htmlFor='baby-gestational-weeks'>
+                    Semanas de gestación
+                  </label>
+                  <input
+                    id='baby-gestational-weeks'
+                    inputMode='numeric'
+                    value={weeksText}
+                    onChange={(e) => { setWeeksText(e.target.value) }}
+                    placeholder='34'
+                  />
+                </>
+              )}
             </>
           )}
         </section>
