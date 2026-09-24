@@ -32,6 +32,7 @@ export const Onboarding = () => {
   const [premature, setPremature] = useState(false)
   const [weeksText, setWeeksText] = useState('')
   const [sizeId, setSizeId] = useState<number | null>(1) // talla 1 preseleccionada (§10)
+  const [locationName, setLocationName] = useState('')
   const [stockText, setStockText] = useState('0')
   const [error, setError] = useState<string | null>(null)
 
@@ -51,10 +52,15 @@ export const Onboarding = () => {
   const canNext =
     (step === 0 && name.trim().length > 0 && (unborn || birthDate !== '')) ||
     (step === 1 && sizeId !== null) ||
-    step === 2
+    (step === 2 && locationName.trim().length > 0) ||
+    false
 
   const finish = async (): Promise<void> => {
     const stock = Number.parseInt(stockText, 10)
+    if (locationName.trim().length === 0) {
+      setError('El nombre de la ubicación es obligatorio')
+      return
+    }
     if (!Number.isInteger(stock) || stock < 0) {
       setError('El stock inicial debe ser un número entero mayor o igual a 0')
       return
@@ -143,7 +149,7 @@ export const Onboarding = () => {
 
       const location: Location = {
         id: locationId,
-        name: 'Casa',
+        name: locationName.trim(),
         reorderPoint: 40,
         createdAt: now,
         updatedAt: now,
@@ -294,7 +300,15 @@ export const Onboarding = () => {
 
       {step === 2 && (
         <section>
-          <label htmlFor='initial-stock'>¿Cuántos pañales tenéis en casa?</label>
+          <label htmlFor='location-name'>¿Cómo se llama esta ubicación?</label>
+          <input
+            id='location-name'
+            value={locationName}
+            onChange={(e) => { setLocationName(e.target.value) }}
+            placeholder='Casa'
+            autoFocus
+          />
+          <label htmlFor='initial-stock'>¿Cuántos pañales tenéis en esta ubicación?</label>
           <input
             id='initial-stock'
             inputMode='numeric'
