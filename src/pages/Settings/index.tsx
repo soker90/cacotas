@@ -177,17 +177,17 @@ export const Settings = () => {
               const weeks = babyPremature ? Number.parseInt(babyWeeks, 10) : undefined
               if (babyPremature && (!Number.isInteger(weeks) || (weeks ?? 0) < 20 || (weeks ?? 0) > 43)) { setError('Las semanas de gestación deben ser un número entre 20 y 43'); return }
               void db.babies.update(baby.id, {
-              name: babyName.trim(),
-              updatedAt: Date.now(),
-              ...(babyUnborn ? { birthDate: undefined } : { birthDate: babyBirthDate }),
-              ...(weight !== undefined ? { birthWeightKg: weight } : { birthWeightKg: undefined }),
-              ...(babySex !== null ? { sex: babySex } : { sex: undefined }),
-              ...(weeks !== undefined ? { gestationalWeeks: weeks } : { gestationalWeeks: undefined }),
+                name: babyName.trim(),
+                updatedAt: Date.now(),
+                ...(babyUnborn ? { birthDate: undefined } : { birthDate: babyBirthDate }),
+                ...(weight !== undefined ? { birthWeightKg: weight } : { birthWeightKg: undefined }),
+                ...(babySex !== null ? { sex: babySex } : { sex: undefined }),
+                ...(weeks !== undefined ? { gestationalWeeks: weeks } : { gestationalWeeks: undefined }),
               }).then(() => { setError(null); notifyWrite() }).catch((err: unknown) => {
-              setError(err instanceof Error ? err.message : 'No se pudieron guardar los datos del bebé')
+                setError(err instanceof Error ? err.message : 'No se pudieron guardar los datos del bebé')
               })
-              }}
-              >
+            }}
+          >
             Guardar datos del bebé
           </button>
 
