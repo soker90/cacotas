@@ -58,18 +58,13 @@ const AppRoutes = () => {
     setSession({ token: auth.token, hasHousehold: auth.householdId !== null })
   }, [])
 
-  const localBabyId = localBaby?.id
-
   useEffect(() => {
-    if (sessionToken === null || localBabyId === undefined || backend === null) {
+    if (sessionToken === null || localBaby === undefined || backend === null) {
       return
     }
 
     let cancelled = false
-    void db.babies.get(localBabyId).then((currentLocalBaby) => {
-      if (currentLocalBaby === undefined) return undefined
-      return resolveStartup(currentLocalBaby, backend, getDeviceId())
-    }).then(async (decision) => {
+    void resolveStartup(localBaby, backend, getDeviceId()).then(async (decision) => {
       if (cancelled || decision === undefined) {
         if (!cancelled) setStartupReady(true)
         return
@@ -95,15 +90,15 @@ const AppRoutes = () => {
       }
 
       const { baby, movements, weights, locations } = decision.remote
-      const currentLocalBaby = await db.babies.get(localBabyId)
-      if (currentLocalBaby === undefined) {
-        if (!cancelled) setStartupReady(true)
-        return
-      }
+      const currentLocalBaby = localBaby
       await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
-        const localMovements = await db.movements.where('babyId').equals(currentLocalBaby.id).toArray()
-        const localWeights = await db.weights.where('babyId').equals(currentLocalBaby.id).toArray()
-        if (baby.id !== currentLocalBaby.id) {
+        const localMovements = currentLocalBaby === null
+          ? []
+          : await db.movements.where('babyId').equals(currentLocalBaby.id).toArray()
+        const localWeights = currentLocalBaby === null
+          ? []
+          : await db.weights.where('babyId').equals(currentLocalBaby.id).toArray()
+        if (currentLocalBaby === null || baby.id !== currentLocalBaby.id) {
           await db.movements.clear()
           await db.weights.clear()
           await db.babies.clear()
@@ -125,7 +120,7 @@ const AppRoutes = () => {
     return () => {
       cancelled = true
     }
-  }, [backend, localBabyId, sessionToken])
+  }, [backend, localBaby, sessionToken])
 
   if (sessionToken === null) {
     return <Login onLogin={handleLogin} />
