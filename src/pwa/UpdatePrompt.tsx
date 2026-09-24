@@ -78,7 +78,7 @@ export const UpdatePrompt = () => {
       clearInterval(interval)
       navigator.serviceWorker.removeEventListener(
         'controllerchange',
-        reloadOnControllerChange,
+        reloadOnControllerChange
       )
     }
   }, [])
