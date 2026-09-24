@@ -7,7 +7,7 @@ const request: SyncRequest = {
   cursors: {},
   movements: [],
   weights: [],
-  locations: {},
+  locations: [],
 }
 
 describe('HttpSyncBackend', () => {
