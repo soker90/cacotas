@@ -317,14 +317,17 @@ export const Settings = () => {
         </div>
       </section>
 
-      <section className='card'>
+      <section className='card household-card'>
         <h2>Hogar</h2>
-        <p>{householdName ?? 'Sin hogar'}</p>
-        <p className='muted small'>{memberCount} de 2 miembros</p>
+        <div className='household-summary'>
+          <strong>{householdName ?? 'Nuestro hogar'}</strong>
+          <span className='muted small'>{memberCount} de 2 miembros</span>
+        </div>
         {memberCount < 2 && <p className='muted small'>Genera un enlace y compártelo con la otra persona. Para aceptar la invitación tendrá que abrir ese enlace e iniciar sesión con Google.</p>}
         {memberCount < 2 && (
           <>
-            <button
+            <div className='household-actions'>
+              <button
               type='button'
               onClick={() => {
                 void apiRequest<{ inviteUrl: string }>('/household/invite', { method: 'POST', body: '{}' })
@@ -340,9 +343,9 @@ export const Settings = () => {
               }}
             >
               Generar enlace de invitación
-            </button>
-            {inviteLink && (
-              <div className='form-row'>
+              </button>
+              {inviteLink && (
+                <div className='form-row'>
                 <label htmlFor='invite-link'>Enlace de invitación</label>
                 <input
                   id='invite-link'
@@ -382,11 +385,13 @@ export const Settings = () => {
                     Compartir
                   </button>
                 )}
-              </div>
-            )}
-            {inviteMessage && <p className='muted small' role='status'>{inviteMessage}</p>}
+                </div>
+              )}
+              {inviteMessage && <p className='muted small' role='status'>{inviteMessage}</p>}
+            </div>
           </>
         )}
+        <div className='household-account-actions'>
         <button
           type='button'
           onClick={() => {
@@ -483,6 +488,7 @@ export const Settings = () => {
         >
           Borrar cuenta
         </button>
+        </div>
       </section>
 
       <section className='card'>
