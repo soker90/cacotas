@@ -67,7 +67,12 @@ export const renderGoogleButton = async (
   google.accounts.id.renderButton(element, { theme: 'outline', size: 'large', width: 280 })
 }
 
-export const authenticateGoogle = async (idToken: string): Promise<string> => {
+export interface GoogleAuthResult {
+  token: string
+  householdId: string | null
+}
+
+export const authenticateGoogle = async (idToken: string): Promise<GoogleAuthResult> => {
   const url = import.meta.env.VITE_SYNC_URL
   if (typeof url !== 'string' || url === '') throw new Error('Falta VITE_SYNC_URL')
   const response = await fetch(`${url}/auth/google`, {
@@ -76,8 +81,8 @@ export const authenticateGoogle = async (idToken: string): Promise<string> => {
     body: JSON.stringify({ idToken, deviceId: localStorage.getItem('cacotas.deviceId') ?? 'web' }),
   })
   if (!response.ok) throw new Error('No se pudo iniciar sesión con Google')
-  const body = await response.json() as { token?: string }
+  const body = await response.json() as { token?: string; user?: { household_id?: string | null } }
   if (!body.token) throw new Error('Google no devolvió una sesión')
   setSessionToken(body.token)
-  return body.token
+  return { token: body.token, householdId: body.user?.household_id ?? null }
 }

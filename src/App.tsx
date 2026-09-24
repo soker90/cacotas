@@ -46,11 +46,17 @@ export const App = () => (
 
 const AppRoutes = () => {
   const localBaby = useBaby()
-  const [sessionToken, setSessionToken] = useState<string | null>(() => getSessionToken())
+  const [session, setSession] = useState<{ token: string; hasHousehold: boolean } | null>(() => {
+    const token = getSessionToken()
+    return token === null ? null : { token, hasHousehold: false }
+  })
+  const sessionToken = session?.token ?? null
   const backend = useMemo(() => createBackend(sessionToken), [sessionToken])
   const [startupReady, setStartupReady] = useState(false)
   const [startupDecision, setStartupDecision] = useState<StartupDecision | null>(null)
-  const handleLogin = useCallback((token: string) => { setSessionToken(token) }, [])
+  const handleLogin = useCallback((auth: { token: string; householdId: string | null }) => {
+    setSession({ token: auth.token, hasHousehold: auth.householdId !== null })
+  }, [])
 
   const localBabyId = localBaby?.id
 
@@ -141,8 +147,8 @@ const AppRoutes = () => {
     const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)$/)
     const inviteCode = inviteMatch?.[1]
     return inviteCode === undefined
-      ? <FirstLaunch backend={backend} />
-      : <FirstLaunch backend={backend} inviteCode={inviteCode} />
+      ? <FirstLaunch backend={backend} hasHousehold={session?.hasHousehold === true} />
+      : <FirstLaunch backend={backend} inviteCode={inviteCode} hasHousehold={session?.hasHousehold === true} />
   }
 
   return (
@@ -174,8 +180,8 @@ const SyncLoop = ({ backend }: { backend: HttpSyncBackend | null }) => {
   return null
 }
 
-const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null; inviteCode?: string }) => {
-  const [entry, setEntry] = useState(true)
+const FirstLaunch = ({ backend, inviteCode, hasHousehold }: { backend: HttpSyncBackend | null; inviteCode?: string; hasHousehold: boolean }) => {
+  const [entry, setEntry] = useState(!hasHousehold)
   const [entryAction, setEntryAction] = useState<HouseholdEntryAction | null>(null)
   const [decision, setDecision] = useState<StartupDecision | null>(null)
   const [retryCount, setRetryCount] = useState(0)
@@ -185,7 +191,7 @@ const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null;
   }, [])
 
   useEffect(() => {
-    if (entry || entryAction !== 'JOIN') return
+    if (entry || (!hasHousehold && entryAction !== 'JOIN')) return
     let cancelled = false
     void resolveStartup(null, backend, getDeviceId()).then((d) => {
       if (!cancelled) setDecision(d)
@@ -193,7 +199,7 @@ const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null;
     return () => {
       cancelled = true
     }
-  }, [entry, entryAction, backend, retryCount])
+  }, [entry, entryAction, backend, retryCount, hasHousehold])
 
   useEffect(() => {
     if (decision?.route !== 'HOME' || !decision.remote) return
