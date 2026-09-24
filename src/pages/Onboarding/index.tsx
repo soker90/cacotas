@@ -189,7 +189,16 @@ export const Onboarding = () => {
             type='date'
             value={birthDate}
             max={new Date().toISOString().slice(0, 10)}
-            onChange={(e) => { setBirthDate(e.target.value) }}
+            onChange={(e) => {
+              const value = e.target.value
+              setBirthDate(value)
+              if (value === '') {
+                setBirthWeightText('')
+                setSex(null)
+                setPremature(false)
+                setWeeksText('')
+              }
+            }}
           />
 
           {birthDate !== '' && (
