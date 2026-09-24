@@ -170,24 +170,24 @@ export const Settings = () => {
             type='button'
             className='primary'
             onClick={() => {
-            if (babyName.trim() === '') { setError('El nombre del bebé no puede estar vacío'); return }
-            if (!babyUnborn && babyBirthDate === '') { setError('Indica la fecha de nacimiento o marca que todavía no ha nacido'); return }
-            const weight = babyBirthWeight.trim() === '' ? undefined : Number.parseFloat(babyBirthWeight.replace(',', '.'))
-            if (babyBirthWeight.trim() !== '' && (!Number.isFinite(weight) || (weight ?? 0) <= 0)) { setError('El peso al nacer debe ser un número mayor que 0'); return }
-            const weeks = babyPremature ? Number.parseInt(babyWeeks, 10) : undefined
-            if (babyPremature && (!Number.isInteger(weeks) || (weeks ?? 0) < 20 || (weeks ?? 0) > 43)) { setError('Las semanas de gestación deben ser un número entre 20 y 43'); return }
-            void db.babies.update(baby.id, {
+              if (babyName.trim() === '') { setError('El nombre del bebé no puede estar vacío'); return }
+              if (!babyUnborn && babyBirthDate === '') { setError('Indica la fecha de nacimiento o marca que todavía no ha nacido'); return }
+              const weight = babyBirthWeight.trim() === '' ? undefined : Number.parseFloat(babyBirthWeight.replace(',', '.'))
+              if (babyBirthWeight.trim() !== '' && (!Number.isFinite(weight) || (weight ?? 0) <= 0)) { setError('El peso al nacer debe ser un número mayor que 0'); return }
+              const weeks = babyPremature ? Number.parseInt(babyWeeks, 10) : undefined
+              if (babyPremature && (!Number.isInteger(weeks) || (weeks ?? 0) < 20 || (weeks ?? 0) > 43)) { setError('Las semanas de gestación deben ser un número entre 20 y 43'); return }
+              void db.babies.update(baby.id, {
               name: babyName.trim(),
               updatedAt: Date.now(),
               ...(babyUnborn ? { birthDate: undefined } : { birthDate: babyBirthDate }),
               ...(weight !== undefined ? { birthWeightKg: weight } : { birthWeightKg: undefined }),
               ...(babySex !== null ? { sex: babySex } : { sex: undefined }),
               ...(weeks !== undefined ? { gestationalWeeks: weeks } : { gestationalWeeks: undefined }),
-            }).then(() => { setError(null); notifyWrite() }).catch((err: unknown) => {
+              }).then(() => { setError(null); notifyWrite() }).catch((err: unknown) => {
               setError(err instanceof Error ? err.message : 'No se pudieron guardar los datos del bebé')
-            })
-            }}
-          >
+              })
+              }}
+              >
             Guardar datos del bebé
           </button>
 
