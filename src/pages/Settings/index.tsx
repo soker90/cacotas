@@ -51,6 +51,9 @@ export const Settings = () => {
   const [babyPremature, setBabyPremature] = useState(false)
   const [babyWeeks, setBabyWeeks] = useState('')
 
+  /* The form is editable, so its local state must be initialized when
+   * Dexie finishes loading the baby. This is intentionally a state sync. */
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (baby === undefined) return
     setBabyName(baby.name)
