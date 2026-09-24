@@ -209,6 +209,8 @@ const FirstLaunch = ({ backend, inviteCode, hasHousehold }: { backend: HttpSyncB
       await db.movements.bulkPut(movements)
       await db.weights.bulkPut(weights)
       await db.locations.bulkPut(locations)
+    }).then(() => {
+      window.location.reload()
     })
   }, [decision])
 
