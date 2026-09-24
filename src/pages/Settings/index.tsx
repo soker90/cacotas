@@ -294,9 +294,16 @@ export const Settings = () => {
                 type='button'
                 onClick={() => {
                   if (locations?.length === 1) return
-                  void db.locations.delete(location.id).then(() => {
-                    notifyWrite()
-                    setError(null)
+                  if (!window.confirm(`¿Quitar la ubicación "${location.name}"?`)) return
+                  void db.movements.where('locationId').equals(location.id).count().then((movementCount) => {
+                    if (movementCount > 0) {
+                      setError('No se puede quitar una ubicación que tiene movimientos registrados')
+                      return
+                    }
+                    return db.locations.delete(location.id).then(() => {
+                      notifyWrite()
+                      setError(null)
+                    })
                   }).catch((err: unknown) => {
                     setError(err instanceof Error ? err.message : 'No se pudo eliminar la ubicación')
                   })
