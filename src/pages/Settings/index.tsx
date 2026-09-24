@@ -570,7 +570,7 @@ export const Settings = () => {
 
       <section className='card'>
         <h2>Copia de seguridad</h2>
-        <div className='row'>
+        <div className='backup-actions'>
           <button
             type='button'
             onClick={() => {
