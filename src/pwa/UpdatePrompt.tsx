@@ -9,7 +9,6 @@ import { useEffect } from 'react'
  * activate it immediately and reload when it takes control.
  */
 export const UpdatePrompt = () => {
-
   useEffect(() => {
     let cancelled = false
 
@@ -62,7 +61,10 @@ export const UpdatePrompt = () => {
     const reloadOnControllerChange = (): void => {
       location.reload()
     }
-    navigator.serviceWorker.addEventListener('controllerchange', reloadOnControllerChange)
+    navigator.serviceWorker.addEventListener(
+      'controllerchange',
+      reloadOnControllerChange,
+    )
 
     // Periodic update check while open.
     const interval = setInterval(() => {
@@ -74,7 +76,10 @@ export const UpdatePrompt = () => {
     return () => {
       cancelled = true
       clearInterval(interval)
-      navigator.serviceWorker.removeEventListener('controllerchange', reloadOnControllerChange)
+      navigator.serviceWorker.removeEventListener(
+        'controllerchange',
+        reloadOnControllerChange,
+      )
     }
   }, [])
 
