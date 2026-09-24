@@ -59,6 +59,7 @@ describe('resolveStartup (§9.7)', () => {
     expect(d.route).toBe('HOME')
     expect(d.remote?.baby.id).toBe('baby-remote')
     expect(d.remote?.movements).toHaveLength(1)
+    expect(d.remote?.weights).toHaveLength(0)
   })
 
   it('goes ONBOARDING when the server has no baby (first device)', async () => {
@@ -66,12 +67,38 @@ describe('resolveStartup (§9.7)', () => {
     expect(d.route).toBe('ONBOARDING')
   })
 
-  it('returns JOIN_RETRY on network failure', async () => {
+  it('returns JOIN_RETRY on network failure even when stale local data exists', async () => {
     const failing = {
       sync: () => Promise.reject(new Error('network down')),
     }
-    const d = await resolveStartup(null, failing, 'device-a')
+    const d = await resolveStartup(localBaby, failing, 'device-a')
     expect(d.route).toBe('JOIN_RETRY')
+    expect(d.remote).toBeUndefined()
+  })
+
+  it('downloads weights during startup reconciliation', async () => {
+    const backend = new FakeSyncBackend()
+    backend.setBaby(remoteBaby())
+    backend.pushRemoteWeight({
+      id: 'w-remote',
+      babyId: 'baby-remote',
+      weightKg: 4.2,
+      recordedAt: Date.now(),
+      deviceId: 'other-device',
+      serverSeq: 0,
+    })
+
+    const d = await resolveStartup(null, backend, 'device-a')
+
+    expect(d.route).toBe('HOME')
+    expect(d.remote?.weights).toHaveLength(1)
+    expect(d.remote?.weights[0]?.id).toBe('w-remote')
+  })
+
+  it('does not trust a stale local baby when the server has no baby', async () => {
+    const d = await resolveStartup(localBaby, new FakeSyncBackend(), 'device-a')
+    expect(d.route).toBe('ONBOARDING')
+    expect(d.remote).toBeUndefined()
   })
 })
 
