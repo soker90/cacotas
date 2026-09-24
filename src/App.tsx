@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   BrowserRouter,
   Navigate,
@@ -51,6 +51,7 @@ const AppRoutes = () => {
   const backend = useMemo(() => createBackend(sessionToken), [sessionToken])
   const [startupReady, setStartupReady] = useState(false)
   const [startupDecision, setStartupDecision] = useState<StartupDecision | null>(null)
+  const handleLogin = useCallback(() => { rerender((value) => value + 1) }, [])
 
   const localBabyId = localBaby?.id
 
@@ -122,7 +123,7 @@ const AppRoutes = () => {
   }, [backend, localBabyId, sessionToken])
 
   if (sessionToken === null) {
-    return <Login onLogin={() => { rerender((value) => value + 1) }} />
+    return <Login onLogin={handleLogin} />
   }
 
   if (localBaby !== undefined && backend !== null && !startupReady) {
@@ -179,6 +180,10 @@ const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null;
   const [entryAction, setEntryAction] = useState<HouseholdEntryAction | null>(null)
   const [decision, setDecision] = useState<StartupDecision | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const handleEntryDone = useCallback((action: HouseholdEntryAction): void => {
+    setEntryAction(action)
+    setEntry(false)
+  }, [])
 
   useEffect(() => {
     if (entry || entryAction !== 'JOIN') return
@@ -204,8 +209,8 @@ const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null;
 
   if (entry) {
     return inviteCode === undefined
-      ? <HouseholdEntry onDone={(action) => { setEntryAction(action); setEntry(false) }} />
-      : <HouseholdEntry inviteCode={inviteCode} onDone={(action) => { setEntryAction(action); setEntry(false) }} />
+      ? <HouseholdEntry onDone={handleEntryDone} />
+      : <HouseholdEntry inviteCode={inviteCode} onDone={handleEntryDone} />
   }
 
   if (entryAction === 'CREATE') {
