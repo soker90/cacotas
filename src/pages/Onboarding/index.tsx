@@ -52,7 +52,7 @@ export const Onboarding = () => {
   const canNext =
     (step === 0 && name.trim().length > 0 && (unborn || birthDate !== '')) ||
     (step === 1 && sizeId !== null) ||
-    step === 2 && locationName.trim().length > 0
+    (step === 2 && locationName.trim().length > 0)
 
   const finish = async (): Promise<void> => {
     const stock = Number.parseInt(stockText, 10)
