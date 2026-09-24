@@ -44,7 +44,7 @@ export const UpdatePrompt = () => {
       try {
         const registration = await navigator.serviceWorker.register('/sw.js', {
           scope: '/',
-          updateViaCache: 'none',
+          updateViaCache: 'none'
         })
         await registration.update()
         await detect()
@@ -63,7 +63,7 @@ export const UpdatePrompt = () => {
     }
     navigator.serviceWorker.addEventListener(
       'controllerchange',
-      reloadOnControllerChange,
+      reloadOnControllerChange
     )
 
     // Periodic update check while open.
