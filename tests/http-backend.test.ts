@@ -7,7 +7,7 @@ const request: SyncRequest = {
   cursors: {},
   movements: [],
   weights: [],
-  locations: [],
+  locations: {},
 }
 
 describe('HttpSyncBackend', () => {
@@ -18,15 +18,7 @@ describe('HttpSyncBackend', () => {
   it('posts sync requests to /sync when given the Worker base URL', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(
-        new Response(JSON.stringify({
-          movements: [],
-          weights: [],
-          locations: [],
-          cursors: {},
-          hasMore: {},
-        }), { status: 200 })
-      )
+      .mockResolvedValue(new Response('{}', { status: 200 }))
 
     await new HttpSyncBackend(
       'https://cacotas-sync.soker.workers.dev/',
