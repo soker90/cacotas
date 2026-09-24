@@ -217,6 +217,9 @@ export const Settings = () => {
 
       <section className='card'>
         <h2>Predicciones</h2>
+        <p className='muted small'>
+          La predicción estima cuántos días de pañales os quedan según el consumo registrado y el stock disponible de la ubicación activa.
+        </p>
         <div className='form-row'>
           <label htmlFor='warning-days'>
             Avisar cuando queden menos días de stock

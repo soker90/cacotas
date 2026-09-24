@@ -1385,3 +1385,19 @@ input[type='datetime-local'] {
     grid-template-columns: 1fr;
   }
 }
+
+
+.location-settings-row {
+  gap: 0.65rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.location-settings-row:last-of-type {
+  border-bottom: 0;
+}
+
+.location-settings-row button {
+  margin-top: 0.25rem;
+}
