@@ -18,8 +18,8 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: (action: Househ
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback((): void => {
-    void apiRequest<{ invites: Invite[] }>('/household/status', inviteCode ? { method: 'POST', body: JSON.stringify({ inviteCode }) } : { method: 'POST', body: '{}' })
-      .then((result) => { setInvites(result.invites); setLoading(false) })
+    void apiRequest<{ user: { household_id: string | null }; invites: Invite[] }>('/household/status', inviteCode ? { method: 'POST', body: JSON.stringify({ inviteCode }) } : { method: 'POST', body: '{}' })
+      .then((result) => { if (result.user.household_id !== null) { onDone('JOIN'); return } setInvites(result.invites); setLoading(false) })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'No se pudo comprobar las invitaciones')
         setLoading(false)
