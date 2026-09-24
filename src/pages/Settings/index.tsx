@@ -53,7 +53,7 @@ export const Settings = () => {
 
   /* The form is editable, so its local state must be initialized when
    * Dexie finishes loading the baby. This is intentionally a state sync. */
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (baby === undefined) return
     setBabyName(baby.name)
@@ -64,6 +64,8 @@ export const Settings = () => {
     setBabyPremature(baby.gestationalWeeks !== undefined && baby.gestationalWeeks < 37)
     setBabyWeeks(baby.gestationalWeeks === undefined ? '' : String(baby.gestationalWeeks))
   }, [baby])
+
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     void apiRequest<{ household?: { name?: string }; users?: unknown[] }>('/household/status').then((status) => {
