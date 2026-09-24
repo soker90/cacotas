@@ -12,14 +12,14 @@ export class HttpSyncBackend implements SyncBackend {
   readonly #token: string
 
   constructor (url: string, token: string) {
-    this.#url = url
+    this.#url = url.replace(/\/$/, '')
     this.#token = token
   }
 
   async sync (req: SyncRequest): Promise<SyncResponse> {
     let response: Response
     try {
-      response = await fetch(this.#url, {
+      response = await fetch(`${this.#url}/sync`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
