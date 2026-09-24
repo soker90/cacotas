@@ -19,7 +19,7 @@ import {
 import { notifyWrite } from '../../sync/scheduler.ts'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db/index.ts'
-import { createLocation } from '../../lib/locations.ts'
+import { createLocation, defaultLocationId } from '../../lib/locations.ts'
 import { apiRequest } from '../../auth/api.ts'
 import { clearSessionToken } from '../../auth/session.ts'
 import { clearSyncState } from '../../sync/engine.ts'
@@ -269,7 +269,7 @@ export const Settings = () => {
         <h2>Ubicaciones</h2>
         <p className='muted small'>Cada ubicación tiene su propio punto de pedido. La ubicación activa se elige arriba en Home.</p>
         {locations?.map((location) => (
-          <div className='form-row' key={location.id}>
+          <div className='form-row location-settings-row' key={location.id}>
             <label htmlFor={`location-name-${location.id}`}>Nombre</label>
             <input
               id={`location-name-${location.id}`}
@@ -289,6 +289,22 @@ export const Settings = () => {
                 void db.locations.update(location.id, { reorderPoint: value, updatedAt: Date.now(), deviceId: getDeviceId() }).then(() => notifyWrite())
               }}
             />
+            {location.id !== defaultLocationId(baby?.id ?? '') && (
+              <button
+                type='button'
+                onClick={() => {
+                  if (locations?.length === 1) return
+                  void db.locations.delete(location.id).then(() => {
+                    notifyWrite()
+                    setError(null)
+                  }).catch((err: unknown) => {
+                    setError(err instanceof Error ? err.message : 'No se pudo eliminar la ubicación')
+                  })
+                }}
+              >
+                Quitar ubicación
+              </button>
+            )}
           </div>
         ))}
         <div className='form-row'>
