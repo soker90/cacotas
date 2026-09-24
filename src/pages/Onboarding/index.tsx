@@ -174,7 +174,12 @@ export const Onboarding = () => {
       {step === 0 && (
         <section>
           <label htmlFor='household-name'>¿Cómo se llama vuestro hogar?</label>
-          <input id='household-name' value={householdName} onChange={(e) => { setHouseholdName(e.target.value) }} placeholder='Nuestra casa' />
+          <input
+            id='household-name'
+            value={householdName}
+            onChange={(e) => { setHouseholdName(e.target.value) }}
+            placeholder='Nuestra casa'
+          />
 
           <label htmlFor='baby-name'>¿Cómo se llama el bebé?</label>
           <input
