@@ -50,6 +50,7 @@ const AppRoutes = () => {
   const sessionToken = getSessionToken()
   const backend = useMemo(() => createBackend(sessionToken), [sessionToken])
   const [startupReady, setStartupReady] = useState(false)
+  const [startupDecision, setStartupDecision] = useState<StartupDecision | null>(null)
 
   const localBabyId = localBaby?.id
 
@@ -64,6 +65,11 @@ const AppRoutes = () => {
       return resolveStartup(currentLocalBaby, backend, getDeviceId())
     }).then(async (decision) => {
       if (cancelled || decision === undefined) {
+        if (!cancelled) setStartupReady(true)
+        return
+      }
+      setStartupDecision(decision)
+      if (decision.route === 'JOIN_RETRY') {
         if (!cancelled) setStartupReady(true)
         return
       }
@@ -119,8 +125,17 @@ const AppRoutes = () => {
     return <Login onLogin={() => { rerender((value) => value + 1) }} />
   }
 
-  if (localBaby === undefined || (localBaby !== null && backend !== null && !startupReady)) {
+  if (localBaby !== undefined && backend !== null && !startupReady) {
     return <main className='loading'>…</main>
+  }
+  if (startupDecision?.route === 'JOIN_RETRY') {
+    return (
+      <main className='onboarding'>
+        <p>No se han podido cargar los datos actuales de tu hogar.</p>
+        {startupDecision.reason && <p className='muted small'>{startupDecision.reason}</p>}
+        <button type='button' onClick={() => { window.location.reload() }}>Reintentar</button>
+      </main>
+    )
   }
   if (!localBaby) {
     const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)$/)
