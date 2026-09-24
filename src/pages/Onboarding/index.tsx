@@ -17,8 +17,8 @@ const parseDecimal = (text: string): number | null => {
 /**
  * Three steps, no more (§10): baby data → current size → initial stock.
  * The baby step also collects the fields that feed the size-transition
- * estimators (§8.8): birth date, birth weight, sex and, only if born premature,
- * weeks of gestation. Birth date can be omitted before birth; everything else can be
+ * estimators (§8.8): birth date, sex and, after birth, birth weight and
+ * gestational weeks. Birth date can be omitted before birth; everything else can be
  * skipped — each empty field is a null and the model degrades gracefully. The birth date
  * may be left empty when the baby has not been born yet.
  */
