@@ -468,6 +468,9 @@ export const Settings = () => {
           <button
             type='button'
             onClick={() => {
+              if (!window.confirm('¿Cerrar sesión? Tendrás que iniciar sesión de nuevo para acceder a Cacotas.')) {
+                return
+              }
               clearSessionToken()
               window.location.reload()
             }}
