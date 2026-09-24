@@ -193,12 +193,20 @@ const handleGoogleAuth = async (
     return json({ error: 'invalid google token' }, 401)
   }
 
+  // The verified Google email is the cross-device recovery key. A Google
+  // subject can differ when the same account is seen through another OAuth
+  // client, so do not silently create a second Cacotas user when the email
+  // already belongs to a household.
   const googleEmail = typeof google.email === 'string' ? normalizeEmail(google.email) : null
+  if (googleEmail === null) {
+    return json({ error: 'google email required' }, 401)
+  }
+
   const existing = await env.DB.prepare(
     `SELECT id, household_id, email, display_name
      FROM users
      WHERE provider = ?1
-       AND (provider_sub = ?2 OR (?3 IS NOT NULL AND email = ?3))
+       AND (provider_sub = ?2 OR (?3 IS NOT NULL AND LOWER(TRIM(email)) = ?3))
      ORDER BY CASE WHEN household_id IS NULL THEN 1 ELSE 0 END, created_at, id
      LIMIT 1`
   )
@@ -225,11 +233,13 @@ const handleGoogleAuth = async (
         Date.now()
       )
       .run()
-  } else if (existing.email === googleEmail && existing.email !== null) {
+  } else {
+    // Reconcile an existing account matched by email with the current Google
+    // subject so future devices can authenticate by the canonical subject too.
     await env.DB.prepare(
-      'UPDATE users SET provider_sub=?2, display_name=?3 WHERE id=?1 AND provider=?4'
+      'UPDATE users SET provider_sub=?2, email=?3, display_name=?4 WHERE id=?1 AND provider=?5'
     )
-      .bind(existing.id, google.sub, google.name ?? existing.display_name, 'google')
+      .bind(existing.id, google.sub, googleEmail, google.name ?? existing.display_name, 'google')
       .run()
   }
 
