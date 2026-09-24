@@ -1076,3 +1076,22 @@ input[type='datetime-local'] {
 .onboarding .check-row {
   margin-top: 1.1rem;
 }
+
+.onboarding .sex-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.onboarding .sex-options button {
+  min-height: 3rem;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+}
+
+.onboarding .sex-options button[aria-pressed='true'] {
+  background: var(--green);
+  border-color: var(--green-dark);
+  color: #fff;
+}

@@ -51,6 +51,9 @@ export const Settings = () => {
   const [babyPremature, setBabyPremature] = useState(false)
   const [babyWeeks, setBabyWeeks] = useState('')
 
+  /* The form is editable, so its local state must be initialized when
+   * Dexie finishes loading the baby. This is intentionally a state sync. */
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (baby === undefined) return
     setBabyName(baby.name)
@@ -61,6 +64,8 @@ export const Settings = () => {
     setBabyPremature(baby.gestationalWeeks !== undefined && baby.gestationalWeeks < 37)
     setBabyWeeks(baby.gestationalWeeks === undefined ? '' : String(baby.gestationalWeeks))
   }, [baby])
+
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     void apiRequest<{ household?: { name?: string }; users?: unknown[] }>('/household/status').then((status) => {
@@ -161,24 +166,31 @@ export const Settings = () => {
               <input id='settings-baby-weeks' inputMode='numeric' value={babyWeeks} onChange={(e) => { setBabyWeeks(e.target.value) }} placeholder='34' />
             </div>
           )}
-          <button type='button' className='primary' onClick={() => {
-            if (babyName.trim() === '') { setError('El nombre del bebé no puede estar vacío'); return }
-            if (!babyUnborn && babyBirthDate === '') { setError('Indica la fecha de nacimiento o marca que todavía no ha nacido'); return }
-            const weight = babyBirthWeight.trim() === '' ? undefined : Number.parseFloat(babyBirthWeight.replace(',', '.'))
-            if (babyBirthWeight.trim() !== '' && (!Number.isFinite(weight) || (weight ?? 0) <= 0)) { setError('El peso al nacer debe ser un número mayor que 0'); return }
-            const weeks = babyPremature ? Number.parseInt(babyWeeks, 10) : undefined
-            if (babyPremature && (!Number.isInteger(weeks) || (weeks ?? 0) < 20 || (weeks ?? 0) > 43)) { setError('Las semanas de gestación deben ser un número entre 20 y 43'); return }
-            void db.babies.update(baby.id, {
-              name: babyName.trim(),
-              updatedAt: Date.now(),
-              ...(babyUnborn ? { birthDate: undefined } : { birthDate: babyBirthDate }),
-              ...(weight !== undefined ? { birthWeightKg: weight } : { birthWeightKg: undefined }),
-              ...(babySex !== null ? { sex: babySex } : { sex: undefined }),
-              ...(weeks !== undefined ? { gestationalWeeks: weeks } : { gestationalWeeks: undefined }),
-            }).then(() => { setError(null); notifyWrite() }).catch((err: unknown) => {
-              setError(err instanceof Error ? err.message : 'No se pudieron guardar los datos del bebé')
-            })
-          }}>Guardar datos del bebé</button>
+          <button
+            type='button'
+            className='primary'
+            onClick={() => {
+              if (babyName.trim() === '') { setError('El nombre del bebé no puede estar vacío'); return }
+              if (!babyUnborn && babyBirthDate === '') { setError('Indica la fecha de nacimiento o marca que todavía no ha nacido'); return }
+              const weight = babyBirthWeight.trim() === '' ? undefined : Number.parseFloat(babyBirthWeight.replace(',', '.'))
+              if (babyBirthWeight.trim() !== '' && (!Number.isFinite(weight) || (weight ?? 0) <= 0)) { setError('El peso al nacer debe ser un número mayor que 0'); return }
+              const weeks = babyPremature ? Number.parseInt(babyWeeks, 10) : undefined
+              if (babyPremature && (!Number.isInteger(weeks) || (weeks ?? 0) < 20 || (weeks ?? 0) > 43)) { setError('Las semanas de gestación deben ser un número entre 20 y 43'); return }
+              void db.babies.update(baby.id, {
+                name: babyName.trim(),
+                updatedAt: Date.now(),
+                ...(babyUnborn ? {} : { birthDate: babyBirthDate }),
+                ...(weight !== undefined ? { birthWeightKg: weight } : {}),
+                ...(babySex !== null ? { sex: babySex } : {}),
+                ...(weeks !== undefined ? { gestationalWeeks: weeks } : {}),
+              }).then(() => { setError(null); notifyWrite() }).catch((err: unknown) => {
+                setError(err instanceof Error ? err.message : 'No se pudieron guardar los datos del bebé')
+              })
+            }}
+          >
+            Guardar datos del bebé
+          </button>
+
         </section>
       )}
 
