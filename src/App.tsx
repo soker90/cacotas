@@ -193,10 +193,11 @@ const FirstLaunch = ({ backend, inviteCode }: { backend: HttpSyncBackend | null;
 
   useEffect(() => {
     if (decision?.route !== 'HOME' || !decision.remote) return
-    const { baby, movements, locations } = decision.remote
-    void db.transaction('rw', db.babies, db.movements, db.locations, async () => {
+    const { baby, movements, weights, locations } = decision.remote
+    void db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
       await db.babies.put(baby)
       await db.movements.bulkPut(movements)
+      await db.weights.bulkPut(weights)
       await db.locations.bulkPut(locations)
     })
   }, [decision])
