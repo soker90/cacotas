@@ -63,12 +63,26 @@ const AppRoutes = () => {
       if (currentLocalBaby === undefined) return undefined
       return resolveStartup(currentLocalBaby, backend, getDeviceId())
     }).then(async (decision) => {
-      if (cancelled || decision === undefined || decision.remote === undefined) {
+      if (cancelled || decision === undefined) {
+        if (!cancelled) setStartupReady(true)
+        return
+      }
+      if (decision.route === 'ONBOARDING' && decision.remote === undefined) {
+        await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
+          await db.babies.clear()
+          await db.movements.clear()
+          await db.weights.clear()
+          await db.locations.clear()
+        })
+        if (!cancelled) setStartupReady(true)
+        return
+      }
+      if (decision.remote === undefined) {
         if (!cancelled) setStartupReady(true)
         return
       }
 
-      const { baby, movements, locations } = decision.remote
+      const { baby, movements, weights, locations } = decision.remote
       const currentLocalBaby = await db.babies.get(localBabyId)
       if (currentLocalBaby === undefined) {
         if (!cancelled) setStartupReady(true)
@@ -88,6 +102,7 @@ const AppRoutes = () => {
         }
         await db.babies.put(baby)
         await db.movements.bulkPut(movements)
+        await db.weights.bulkPut(weights)
         await db.locations.bulkPut(locations)
       })
       if (!cancelled) setStartupReady(true)
