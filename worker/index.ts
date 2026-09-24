@@ -205,8 +205,8 @@ const handleGoogleAuth = async (
   const existing = await env.DB.prepare(
     `SELECT id, household_id, email, display_name
      FROM users
-     WHERE provider = ?1
-       AND (provider_sub = ?2 OR (?3 IS NOT NULL AND LOWER(TRIM(email)) = ?3))
+     WHERE (provider = ?1 AND provider_sub = ?2)
+        OR (?3 IS NOT NULL AND LOWER(TRIM(email)) = ?3)
      ORDER BY CASE WHEN household_id IS NULL THEN 1 ELSE 0 END, created_at, id
      LIMIT 1`
   )
