@@ -26,14 +26,13 @@ describe('HttpSyncBackend', () => {
       'test-token'
     ).sync(request)
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://cacotas-sync.soker.workers.dev/sync',
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          Authorization: 'Bearer test-token',
-        }),
-      })
+    const call = fetchMock.mock.calls[0]
+    expect(call?.[0]).toBe(
+      'https://cacotas-sync.soker.workers.dev/sync'
+    )
+    expect(call?.[1]?.method).toBe('POST')
+    expect(new Headers(call?.[1]?.headers).get('Authorization')).toBe(
+      'Bearer test-token'
     )
   })
 })
