@@ -191,7 +191,12 @@ export const Onboarding = () => {
               checked={unborn}
               onChange={(e) => {
                 setUnborn(e.target.checked)
-                if (e.target.checked) { setBirthDate(''); setPremature(false) }
+                if (e.target.checked) {
+                  setBirthDate('')
+                  setBirthWeightText('')
+                  setPremature(false)
+                  setWeeksText('')
+                }
               }}
             />
             Todavía no ha nacido
@@ -209,17 +214,21 @@ export const Onboarding = () => {
             </>
           )}
 
-          <label htmlFor='baby-birth-weight'>Peso al nacer en kg (opcional)</label>
-          <input
-            id='baby-birth-weight'
-            inputMode='decimal'
-            value={birthWeightText}
-            onChange={(e) => { setBirthWeightText(e.target.value) }}
-            placeholder='3,3'
-          />
+          {!unborn && (
+            <>
+              <label htmlFor='baby-birth-weight'>Peso al nacer en kg (opcional)</label>
+              <input
+                id='baby-birth-weight'
+                inputMode='decimal'
+                value={birthWeightText}
+                onChange={(e) => { setBirthWeightText(e.target.value) }}
+                placeholder='3,3'
+              />
+            </>
+          )}
 
           <p className='muted small'>Sexo (opcional, afina la estimación de peso)</p>
-          <div className='row'>
+          <div className='sex-options'>
             <button
               type='button'
               className={sex === 'male' ? 'size selected' : 'size'}
