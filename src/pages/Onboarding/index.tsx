@@ -192,17 +192,19 @@ export const Onboarding = () => {
             onChange={(e) => { setBirthDate(e.target.value) }}
           />
 
-          <label htmlFor='baby-birth-weight'>Peso al nacer en kg (opcional)</label>
-          <input
-            id='baby-birth-weight'
-            inputMode='decimal'
-            value={birthWeightText}
-            onChange={(e) => { setBirthWeightText(e.target.value) }}
-            placeholder='3,3'
-          />
+          {birthDate !== '' && (
+            <>
+              <label htmlFor='baby-birth-weight'>Peso al nacer en kg (opcional)</label>
+              <input
+                id='baby-birth-weight'
+                inputMode='decimal'
+                value={birthWeightText}
+                onChange={(e) => { setBirthWeightText(e.target.value) }}
+                placeholder='3,3'
+              />
 
-          <p className='muted small'>Sexo (opcional, afina la estimación de peso)</p>
-          <div className='row'>
+              <p className='muted small'>Sexo (opcional, afina la estimación de peso)</p>
+              <div className='sex-options'>
             <button
               type='button'
               className={sex === 'male' ? 'size selected' : 'size'}
@@ -219,18 +221,18 @@ export const Onboarding = () => {
             >
               Niña
             </button>
-          </div>
+              </div>
 
-          <label className='check-row'>
+              <label className='check-row'>
             <input
               type='checkbox'
               checked={premature}
               onChange={(e) => { setPremature(e.target.checked) }}
             />
             ¿Nació antes de tiempo?
-          </label>
-          {premature && (
-            <>
+              </label>
+              {premature && (
+                <>
               <label htmlFor='baby-gestational-weeks'>
                 Semanas de gestación
               </label>
