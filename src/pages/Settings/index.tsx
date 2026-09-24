@@ -345,17 +345,17 @@ export const Settings = () => {
               Generar enlace de invitación
               </button>
               {inviteLink && (
-                <div className='form-row'>
-                <label htmlFor='invite-link'>Enlace de invitación</label>
-                <input
-                  id='invite-link'
+                <div className='form-row household-link-actions'>
+                  <label htmlFor='invite-link'>Enlace de invitación</label>
+                  <input
+                    id='invite-link'
                   value={inviteLink}
                   readOnly
                   onFocus={(event) => { event.currentTarget.select() }}
                 />
-                <button
-                  type='button'
-                  onClick={async () => {
+                  <button
+                    type='button'
+                    onClick={async () => {
                     if (navigator.clipboard === undefined) {
                       setInviteMessage('No se pudo copiar. Selecciona el enlace y cópialo manualmente.')
                       return
@@ -368,11 +368,11 @@ export const Settings = () => {
                       setInviteMessage('No se pudo copiar. Selecciona el enlace y cópialo manualmente.')
                     }
                   }}
-                >
-                  Copiar enlace
-                </button>
-                {navigator.share && (
-                  <button
+                  >
+                    Copiar enlace
+                  </button>
+                  {navigator.share && (
+                    <button
                     type='button'
                     onClick={() => {
                       void navigator.share({
@@ -381,10 +381,10 @@ export const Settings = () => {
                         url: inviteLink,
                       }).catch(() => {})
                     }}
-                  >
-                    Compartir
-                  </button>
-                )}
+                    >
+                      Compartir
+                    </button>
+                  )}
                 </div>
               )}
               {inviteMessage && <p className='muted small' role='status'>{inviteMessage}</p>}
@@ -392,7 +392,7 @@ export const Settings = () => {
           </>
         )}
         <div className='household-account-actions'>
-        <button
+          <button
           type='button'
           onClick={() => {
             if (
@@ -487,7 +487,7 @@ export const Settings = () => {
           }}
         >
           Borrar cuenta
-        </button>
+          </button>
         </div>
       </section>
 
