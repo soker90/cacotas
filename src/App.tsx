@@ -151,15 +151,17 @@ const AppRoutes = () => {
     }
   }, [backend, localBaby, session, sessionToken])
 
-  if (sessionToken === null) {
+  if (sessionToken === null || session === null) {
     return <Login onLogin={handleLogin} />
   }
 
-  if (session.householdChecked !== true) {
+  const currentSession = session
+
+  if (currentSession.householdChecked !== true) {
     return <main className='loading'>…</main>
   }
 
-  if (localBaby !== undefined && backend !== null && session.hasHousehold && !startupReady) {
+  if (localBaby !== undefined && backend !== null && currentSession.hasHousehold && !startupReady) {
     return <main className='loading'>…</main>
   }
   if (startupDecision?.route === 'JOIN_RETRY') {
@@ -175,13 +177,13 @@ const AppRoutes = () => {
     const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)$/)
     const inviteCode = inviteMatch?.[1]
     return inviteCode === undefined
-      ? <FirstLaunch backend={backend} hasHousehold={session?.hasHousehold === true} />
-      : <FirstLaunch backend={backend} inviteCode={inviteCode} hasHousehold={session?.hasHousehold === true} />
+      ? <FirstLaunch backend={backend} hasHousehold={currentSession.hasHousehold} />
+      : <FirstLaunch backend={backend} inviteCode={inviteCode} hasHousehold={currentSession.hasHousehold} />
   }
 
   return (
     <>
-      <SyncLoop backend={session.hasHousehold ? backend : null} />
+      <SyncLoop backend={currentSession.hasHousehold ? backend : null} />
       <Routes>
         <Route element={<AppLayout />}>
           <Route path='/' element={<Home baby={localBaby} />} />
