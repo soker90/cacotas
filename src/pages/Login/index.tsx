@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { authenticateGoogle, renderGoogleButton } from '../../auth/session.ts'
 
-export const Login = ({ onLogin }: { onLogin: () => void }) => {
+export const Login = ({ onLogin }: { onLogin: (token: string) => void }) => {
   const buttonRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
 

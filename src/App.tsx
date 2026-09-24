@@ -46,12 +46,11 @@ export const App = () => (
 
 const AppRoutes = () => {
   const localBaby = useBaby()
-  const [, rerender] = useState(0)
-  const sessionToken = getSessionToken()
+  const [sessionToken, setSessionToken] = useState<string | null>(() => getSessionToken())
   const backend = useMemo(() => createBackend(sessionToken), [sessionToken])
   const [startupReady, setStartupReady] = useState(false)
   const [startupDecision, setStartupDecision] = useState<StartupDecision | null>(null)
-  const handleLogin = useCallback(() => { rerender((value) => value + 1) }, [])
+  const handleLogin = useCallback((token: string) => { setSessionToken(token) }, [])
 
   const localBabyId = localBaby?.id
 
