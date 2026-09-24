@@ -39,7 +39,6 @@ export const Settings = () => {
   const [newLocationName, setNewLocationName] = useState('')
   const [newLocationPoint, setNewLocationPoint] = useState('10')
   const [inviteLink, setInviteLink] = useState<string | null>(null)
-  const [householdName, setHouseholdName] = useState<string | null>(null)
   const [memberCount, setMemberCount] = useState(0)
   const [inviteMessage, setInviteMessage] = useState<string | null>(null)
   const baby = useLiveQuery(() => db.babies.toCollection().first())
@@ -68,8 +67,7 @@ export const Settings = () => {
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
-    void apiRequest<{ household?: { name?: string }; users?: unknown[] }>('/household/status').then((status) => {
-      setHouseholdName(status.household?.name ?? null)
+    void apiRequest<{ users?: unknown[] }>('/household/status').then((status) => {
       setMemberCount(status.users?.length ?? 0)
     }).catch(() => {})
     void pushState().then(async (state) => {
@@ -346,7 +344,6 @@ export const Settings = () => {
       <section className='card household-card'>
         <h2>Hogar</h2>
         <div className='household-summary'>
-          <strong>{householdName ?? 'Nuestro hogar'}</strong>
           <span className='muted small'>{memberCount} de 2 miembros</span>
         </div>
         {memberCount < 2 && (
