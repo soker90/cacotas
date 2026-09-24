@@ -24,7 +24,7 @@ export const HouseholdEntry = ({ onDone, inviteCode }: { onDone: (action: Househ
         setError(err instanceof Error ? err.message : 'No se pudo comprobar las invitaciones')
         setLoading(false)
       })
-  }, [inviteCode])
+  }, [inviteCode, onDone])
 
   useEffect(() => { load() }, [load])
 
