@@ -177,15 +177,26 @@ export const Settings = () => {
               void db.babies.update(baby.id, {
                 name: babyName.trim(),
                 updatedAt: Date.now(),
-                ...(babyUnborn
-                  ? { birthDate: undefined, birthWeightKg: undefined, gestationalWeeks: undefined }
-                  : {
+                ...(babySex !== null ? { sex: babySex } : {}),
+                ...(!babyUnborn
+                  ? {
                       birthDate: babyBirthDate,
                       ...(weight !== undefined ? { birthWeightKg: weight } : {}),
                       ...(weeks !== undefined ? { gestationalWeeks: weeks } : {}),
-                    }),
-                ...(babySex !== null ? { sex: babySex } : {}),
-              }).then(() => { setError(null); notifyWrite() }).catch((err: unknown) => {
+                    }
+                  : {}),
+              }).then(async () => {
+                if (babyUnborn) {
+                  const current = await db.babies.get(baby.id)
+                  if (current === undefined) return
+                  delete current.birthDate
+                  delete current.birthWeightKg
+                  delete current.gestationalWeeks
+                  await db.babies.put(current)
+                }
+                setError(null)
+                notifyWrite()
+              }).catch((err: unknown) => {
                 setError(err instanceof Error ? err.message : 'No se pudieron guardar los datos del bebé')
               })
             }}
