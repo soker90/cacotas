@@ -123,23 +123,31 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
           <div className='transfer-route'>
             <label>
               <span>Desde</span>
-              <select aria-label='Ubicación de origen' value={sourceLocationId} onChange={(event) => {
-                setTransferFrom(event.target.value)
-                setTransferTo('')
-                setTransferError(null)
-                setTransferStatus(null)
-              }}>
+              <select
+                aria-label='Ubicación de origen'
+                value={sourceLocationId}
+                onChange={(event) => {
+                  setTransferFrom(event.target.value)
+                  setTransferTo('')
+                  setTransferError(null)
+                  setTransferStatus(null)
+                }}
+              >
                 {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
               </select>
             </label>
             <span className='transfer-arrow' aria-hidden='true'>→</span>
             <label>
               <span>Hasta</span>
-              <select aria-label='Ubicación de destino' value={transferTo} onChange={(event) => {
-                setTransferTo(event.target.value)
-                setTransferError(null)
-                setTransferStatus(null)
-              }}>
+              <select
+                aria-label='Ubicación de destino'
+                value={transferTo}
+                onChange={(event) => {
+                  setTransferTo(event.target.value)
+                  setTransferError(null)
+                  setTransferStatus(null)
+                }}
+              >
                 <option value=''>Elige destino</option>
                 {destinationLocations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
               </select>
@@ -149,12 +157,15 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
           <div className='transfer-fields'>
             <label>
               <span>Talla</span>
-              <select value={transferSizeId === null ? '' : String(transferSizeId)} onChange={(event) => {
-                const value = Number.parseInt(event.target.value, 10)
-                setTransferSizeId(Number.isInteger(value) ? value : null)
-                setTransferError(null)
-                setTransferStatus(null)
-              }}>
+              <select
+                value={transferSizeId === null ? '' : String(transferSizeId)}
+                onChange={(event) => {
+                  const value = Number.parseInt(event.target.value, 10)
+                  setTransferSizeId(Number.isInteger(value) ? value : null)
+                  setTransferError(null)
+                  setTransferStatus(null)
+                }}
+              >
                 <option value=''>Elige talla</option>
                 {sizes.map((size) => <option key={size.id} value={size.id}>{size.name}</option>)}
               </select>
