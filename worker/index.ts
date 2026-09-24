@@ -193,10 +193,16 @@ const handleGoogleAuth = async (
     return json({ error: 'invalid google token' }, 401)
   }
 
+  const googleEmail = typeof google.email === 'string' ? normalizeEmail(google.email) : null
   const existing = await env.DB.prepare(
-    'SELECT id, household_id, email, display_name FROM users WHERE provider = ?1 AND provider_sub = ?2'
+    `SELECT id, household_id, email, display_name
+     FROM users
+     WHERE provider = ?1
+       AND (provider_sub = ?2 OR (?3 IS NOT NULL AND email = ?3))
+     ORDER BY CASE WHEN household_id IS NULL THEN 1 ELSE 0 END, created_at, id
+     LIMIT 1`
   )
-    .bind('google', google.sub)
+    .bind('google', google.sub, googleEmail)
     .first<UserRow>()
 
   const user = existing ?? {
@@ -214,10 +220,16 @@ const handleGoogleAuth = async (
         user.id,
         'google',
         google.sub,
-        user.email,
+        googleEmail,
         user.display_name,
         Date.now()
       )
+      .run()
+  } else if (existing.email === googleEmail && existing.email !== null) {
+    await env.DB.prepare(
+      'UPDATE users SET provider_sub=?2, display_name=?3 WHERE id=?1 AND provider=?4'
+    )
+      .bind(existing.id, google.sub, google.name ?? existing.display_name, 'google')
       .run()
   }
 
