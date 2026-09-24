@@ -46,21 +46,19 @@ jobs:
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
 
-      # VITE_* must be present HERE TOO so the uploaded production bundle keeps
-      # the same runtime configuration as the CI build.
+      # The bundle is already built and verified above. Netlify CLI v21+ runs
+      # the site's configured build command by default, which would rebuild the
+      # app without the GitHub Actions VITE_* environment and overwrite dist.
       - name: Deploy to Netlify (production, fixed site)
         if: github.ref == 'refs/heads/master' && github.event_name == 'push'
         run: |
           pnpm --package=netlify-cli@latest dlx netlify deploy \
             --dir=dist \
+            --no-build \
             --prod \
             --site "$NETLIFY_SITE_ID" \
             --auth "$NETLIFY_AUTH_TOKEN"
         env:
-          VITE_SYNC_URL: ${{ secrets.VITE_SYNC_URL }}
-          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
-          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
-          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
 
