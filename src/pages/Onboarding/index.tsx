@@ -25,7 +25,6 @@ const parseDecimal = (text: string): number | null => {
 export const Onboarding = () => {
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
-  const [householdName, setHouseholdName] = useState('Nuestro hogar')
   const [birthDate, setBirthDate] = useState('')
   const [unborn, setUnborn] = useState(false)
   const [birthWeightText, setBirthWeightText] = useState('')
@@ -50,7 +49,7 @@ export const Onboarding = () => {
     : undefined
 
   const canNext =
-    (step === 0 && name.trim().length > 0 && householdName.trim().length > 0 && (unborn || birthDate !== '')) ||
+    (step === 0 && name.trim().length > 0 && (unborn || birthDate !== '')) ||
     (step === 1 && sizeId !== null) ||
     step === 2
 
@@ -93,7 +92,7 @@ export const Onboarding = () => {
       await apiRequest('/household/create', {
         method: 'POST',
         body: JSON.stringify({
-          name: householdName.trim(),
+          name: 'Nuestro hogar',
           baby: {
             id: babyId,
             name: baby.name,
@@ -173,14 +172,6 @@ export const Onboarding = () => {
 
       {step === 0 && (
         <section>
-          <label htmlFor='household-name'>¿Cómo se llama vuestro hogar?</label>
-          <input
-            id='household-name'
-            value={householdName}
-            onChange={(e) => { setHouseholdName(e.target.value) }}
-            placeholder='Nuestra casa'
-          />
-
           <label htmlFor='baby-name'>¿Cómo se llama el bebé?</label>
           <input
             id='baby-name'
