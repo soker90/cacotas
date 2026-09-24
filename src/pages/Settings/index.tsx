@@ -166,7 +166,10 @@ export const Settings = () => {
               <input id='settings-baby-weeks' inputMode='numeric' value={babyWeeks} onChange={(e) => { setBabyWeeks(e.target.value) }} placeholder='34' />
             </div>
           )}
-          <button type='button' className='primary' onClick={() => {
+          <button
+            type='button'
+            className='primary'
+            onClick={() => {
             if (babyName.trim() === '') { setError('El nombre del bebé no puede estar vacío'); return }
             if (!babyUnborn && babyBirthDate === '') { setError('Indica la fecha de nacimiento o marca que todavía no ha nacido'); return }
             const weight = babyBirthWeight.trim() === '' ? undefined : Number.parseFloat(babyBirthWeight.replace(',', '.'))
@@ -183,7 +186,11 @@ export const Settings = () => {
             }).then(() => { setError(null); notifyWrite() }).catch((err: unknown) => {
               setError(err instanceof Error ? err.message : 'No se pudieron guardar los datos del bebé')
             })
-          }}>Guardar datos del bebé</button>
+            }}
+          >
+            Guardar datos del bebé
+          </button>
+
         </section>
       )}
 
