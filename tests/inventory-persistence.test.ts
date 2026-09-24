@@ -52,4 +52,14 @@ describe('location-scoped inventory persistence', () => {
     expect((await stockBySize(db, 'baby', 'home')).get(2)).toBe(81)
     expect((await stockBySize(db, 'baby', 'grandparents')).get(2)).toBe(20)
   })
+
+  it('shows the combined stock when no location is selected', async () => {
+    await db.movements.bulkAdd([
+      movement({ type: 'INITIAL', quantity: 84 }, 'home'),
+      movement({ type: 'PURCHASE', quantity: 20 }, 'grandparents'),
+      movement({ type: 'USAGE', usageSource: 'OWN_STOCK', quantity: 3 }, 'home'),
+    ])
+
+    expect((await stockBySize(db, 'baby')).get(2)).toBe(101)
+  })
 })
