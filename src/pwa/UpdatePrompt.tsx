@@ -1,17 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 /**
  * Update prompt for registerType: 'prompt' (§11), hand-rolled over the raw
  * service worker API. The plugin's workbox-window wrapper kept firing the
  * prompt spuriously (stuck needRefresh with no waiting worker).
  *
- * Flow: register /sw.js · when an updated worker reaches `installed` show
- * the banner · Actualizar posts SKIP_WAITING and reloads on controllerchange.
+ * Flow: register /sw.js · when an updated worker reaches `installed`,
+ * activate it immediately and reload when it takes control.
  */
 export const UpdatePrompt = () => {
-  const [waiting, setWaiting] = useState(false)
-  const [updating, setUpdating] = useState(false)
-
   useEffect(() => {
     let cancelled = false
 
@@ -24,12 +21,9 @@ export const UpdatePrompt = () => {
       const reg = await navigator.serviceWorker.getRegistration()
       if (cancelled || !reg) return
 
-      if (
-        reg.waiting &&
-        hasController() &&
-        reg.waiting.scriptURL === navigator.serviceWorker.controller?.scriptURL
-      ) {
-        setWaiting(true)
+      if (reg.waiting && hasController()) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' })
+        return
       }
 
       reg.addEventListener('updatefound', () => {
@@ -40,7 +34,7 @@ export const UpdatePrompt = () => {
             installing.state === 'installed' &&
             hasController()
           ) {
-            setWaiting(true)
+            installing.postMessage({ type: 'SKIP_WAITING' })
           }
         })
       })
@@ -61,7 +55,18 @@ export const UpdatePrompt = () => {
 
     void register()
 
-    // Periodic update check (§9.3 spirit): every 60 s while open
+    // Keep long-lived PWA sessions on the latest bundle. This is intentionally
+    // automatic because stale application code can also keep an obsolete
+    // IndexedDB migration path alive.
+    const reloadOnControllerChange = (): void => {
+      location.reload()
+    }
+    navigator.serviceWorker.addEventListener(
+      'controllerchange',
+      reloadOnControllerChange,
+    )
+
+    // Periodic update check while open.
     const interval = setInterval(() => {
       void navigator.serviceWorker.getRegistration().then((reg) => {
         void reg?.update().then(() => detect())
@@ -71,31 +76,12 @@ export const UpdatePrompt = () => {
     return () => {
       cancelled = true
       clearInterval(interval)
+      navigator.serviceWorker.removeEventListener(
+        'controllerchange',
+        reloadOnControllerChange,
+      )
     }
   }, [])
 
-  if (!waiting || updating) return null
-
-  const update = (): void => {
-    setUpdating(true)
-    void navigator.serviceWorker.getRegistration().then((reg) => {
-      navigator.serviceWorker.addEventListener(
-        'controllerchange',
-        () => {
-          location.reload()
-        },
-        { once: true }
-      )
-      reg?.waiting?.postMessage({ type: 'SKIP_WAITING' })
-    })
-  }
-
-  return (
-    <div className='update-banner' role='alert'>
-      <span>Hay una versión nueva disponible</span>
-      <button type='button' onClick={update}>
-        Actualizar
-      </button>
-    </div>
-  )
+  return null
 }
