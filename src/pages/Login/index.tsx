@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import packageJson from '../../../package.json'
 import { authenticateGoogle, renderGoogleButton, type GoogleAuthResult } from '../../auth/session.ts'
 
 export const Login = ({ onLogin }: { onLogin: (auth: GoogleAuthResult) => void }) => {
@@ -23,6 +24,7 @@ export const Login = ({ onLogin }: { onLogin: (auth: GoogleAuthResult) => void }
       <h1>Cacotas</h1>
       <p>Inicia sesión para sincronizar tu hogar entre dispositivos.</p>
       <div ref={buttonRef} />
+      <p className='muted small'>Versión {packageJson.version}</p>
       {error && <p role='alert' className='error'>{error}</p>}
     </main>
   )
