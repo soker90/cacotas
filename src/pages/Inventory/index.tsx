@@ -194,7 +194,7 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
               min='1'
               step='1'
               value={purchaseQuantity}
-              onChange={(event) => setPurchaseQuantity(event.target.value)}
+              onChange={(event) => { setPurchaseQuantity(event.target.value); setPurchaseError(null); setPurchaseStatus(null) }}
             />
           </label>
         </div>
