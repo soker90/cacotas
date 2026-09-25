@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   BrowserRouter,
   Navigate,
@@ -55,6 +55,7 @@ const AppRoutes = () => {
   const backend = useMemo(() => createBackend(sessionToken), [sessionToken])
   const [startupReady, setStartupReady] = useState(false)
   const [startupDecision, setStartupDecision] = useState<StartupDecision | null>(null)
+  const startupRunToken = useRef<string | null>(null)
   const handleLogin = useCallback((auth: { token: string; householdId: string | null }) => {
     setSession({ token: auth.token, hasHousehold: auth.householdId !== null, householdChecked: true })
   }, [])
@@ -87,11 +88,13 @@ const AppRoutes = () => {
       localBaby === undefined ||
       backend === null ||
       session?.householdChecked !== true ||
-      session.hasHousehold !== true
+      session.hasHousehold !== true ||
+      startupRunToken.current === sessionToken
     ) {
       return
     }
 
+    startupRunToken.current = sessionToken
     let cancelled = false
     void resolveStartup(localBaby, backend, getDeviceId()).then(async (decision) => {
       if (cancelled || decision === undefined) {
@@ -149,7 +152,7 @@ const AppRoutes = () => {
     return () => {
       cancelled = true
     }
-  }, [backend, localBaby, session, sessionToken])
+  }, [backend, localBaby, session?.hasHousehold, session?.householdChecked, sessionToken])
 
   if (sessionToken === null || session === null) {
     return <Login onLogin={handleLogin} />
