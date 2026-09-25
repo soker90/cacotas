@@ -395,18 +395,22 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
   for (const location of incomingLocations) {
     if (typeof location !== 'object' || location === null) return json({ error: 'invalid location' }, 400)
     const r = location as Record<string, unknown>
-    if (typeof r.id !== 'string' || typeof r.name !== 'string' || r.name.trim() === '' ||
-        typeof r.reorderPoint !== 'number' || !Number.isInteger(r.reorderPoint) ||
-        typeof r.createdAt !== 'number' || typeof r.updatedAt !== 'number' || typeof r.deviceId !== 'string') {
+    if (typeof r.id !== 'string' || r.id === '' || typeof r.name !== 'string' || r.name.trim() === '' ||
+        typeof r.createdAt !== 'number' || !Number.isInteger(r.createdAt) ||
+        typeof r.updatedAt !== 'number' || !Number.isInteger(r.updatedAt) ||
+        typeof r.deviceId !== 'string' || r.deviceId === '') {
       return json({ error: 'invalid location' }, 400)
     }
+    const reorderPoint = typeof r.reorderPoint === 'number' && Number.isInteger(r.reorderPoint) && r.reorderPoint >= 0
+      ? r.reorderPoint
+      : 10
     const owned = await env.DB.prepare('SELECT id FROM locations WHERE id = ?1 AND household_id = ?2').bind(r.id, householdId).first()
     if (owned === null) {
       await env.DB.prepare(
         'INSERT INTO locations (id, household_id, name, reorder_point, created_at, updated_at, device_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT(id) DO UPDATE SET name=excluded.name, reorder_point=excluded.reorder_point, updated_at=excluded.updated_at, device_id=excluded.device_id WHERE locations.household_id=excluded.household_id AND excluded.updated_at > locations.updated_at'
-      ).bind(r.id, householdId, r.name.trim(), r.reorderPoint, r.createdAt, r.updatedAt, r.deviceId).run()
+      ).bind(r.id, householdId, r.name.trim(), reorderPoint, r.createdAt, r.updatedAt, r.deviceId).run()
     } else {
-      await env.DB.prepare('UPDATE locations SET name=?2, reorder_point=?3, updated_at=?4, device_id=?5 WHERE id=?1 AND household_id=?6 AND updated_at < ?4').bind(r.id, r.name.trim(), r.reorderPoint, r.updatedAt, r.deviceId, householdId).run()
+      await env.DB.prepare('UPDATE locations SET name=?2, reorder_point=?3, updated_at=?4, device_id=?5 WHERE id=?1 AND household_id=?6 AND updated_at < ?4').bind(r.id, r.name.trim(), reorderPoint, r.updatedAt, r.deviceId, householdId).run()
     }
   }
 
