@@ -1331,6 +1331,14 @@ input[type='datetime-local'] {
   .transfer-arrow {
     display: none;
   }
+
+  .purchase-fields {
+    grid-template-columns: minmax(0, 1fr) 6rem;
+  }
+
+  .purchase-fields label:first-child {
+    grid-column: 1 / -1;
+  }
 }
 
 
