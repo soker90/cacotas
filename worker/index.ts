@@ -347,6 +347,15 @@ const rowToMovement = (row: MovementRow) => ({
   serverSeq: row.baby_seq,
 })
 
+const rowToLocation = (row: LocationRow) => ({
+  id: row.id,
+  name: row.name,
+  reorderPoint: row.reorder_point,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+  deviceId: row.device_id,
+})
+
 const rowToWeight = (row: WeightRow) => ({
   id: row.id,
   babyId: row.baby_id,
@@ -525,7 +534,8 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
     hasMore[b.id] = more
   }
   const locationRows = await env.DB.prepare('SELECT * FROM locations WHERE household_id=?1 ORDER BY created_at,id').bind(householdId).all<LocationRow>()
-  return json({ babies, cursors: nextCursors, hasMore, movements, weights, locations: locationRows.results ?? [], accepted })
+  const locations = (locationRows.results ?? []).map(rowToLocation)
+  return json({ babies, cursors: nextCursors, hasMore, movements, weights, locations, accepted })
 }
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase()
