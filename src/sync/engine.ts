@@ -45,7 +45,13 @@ export const runSync = async (
     const pendingMovements = await db.movements.where('serverSeq').equals(0).toArray()
     const pendingWeights = await db.weights.where('serverSeq').equals(0).toArray()
     const localBaby = (await db.babies.toArray()).at(0)
-    const localLocations = await db.locations.toArray()
+    const localLocations = (await db.locations.toArray()).map((location) => ({
+      ...location,
+      reorderPoint: Number.isInteger(location.reorderPoint) && location.reorderPoint >= 0
+        ? location.reorderPoint
+        : 10,
+      deviceId: location.deviceId || deviceId,
+    }))
 
     const res = await backend.sync({
       deviceId,

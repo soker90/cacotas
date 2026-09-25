@@ -14,6 +14,16 @@ import { transferStock } from '../../lib/transfers.ts'
 
 type InventoryView = 'current' | 'all'
 
+const registerPurchase = async (babyId: string, sizeId: number, quantity: number, locationId: string): Promise<void> => {
+  const now = Date.now()
+  const movement = createMovement(
+    { id: uuid(), babyId, sizeId, locationId, deviceId: getDeviceId(), occurredAt: now, recordedAt: now },
+    { type: 'PURCHASE', quantity }
+  )
+  await db.movements.add(movement)
+  notifyWrite()
+}
+
 const quickAdjust = async (babyId: string, sizeId: number, delta: number, locationId: string): Promise<void> => {
   const now = Date.now()
   const movement = createMovement(
@@ -35,6 +45,11 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
   const [transferError, setTransferError] = useState<string | null>(null)
   const [transferStatus, setTransferStatus] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [purchaseLocationId, setPurchaseLocationId] = useState('')
+  const [purchaseSizeId, setPurchaseSizeId] = useState<number | null>(null)
+  const [purchaseQuantity, setPurchaseQuantity] = useState('1')
+  const [purchaseError, setPurchaseError] = useState<string | null>(null)
+  const [purchaseStatus, setPurchaseStatus] = useState<string | null>(null)
 
   const storedLocationId = getActiveLocationId(defaultLocationId(baby.id))
   const locationId = locations === undefined
@@ -51,8 +66,30 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
   }, [baby.id, locations])
   const currentSizeId = useCurrentSize(baby.id)
   const activeLocation = locations?.find((location) => location.id === locationId)
+  const effectivePurchaseLocationId = purchaseLocationId !== '' ? purchaseLocationId : locationId
   const sourceLocationId = transferFrom !== '' ? transferFrom : locationId
   const destinationLocations = locations?.filter((location) => location.id !== sourceLocationId) ?? []
+
+  const submitPurchase = (): void => {
+    if (effectivePurchaseLocationId === undefined || purchaseSizeId === null || isSubmitting) return
+    const quantity = Number(purchaseQuantity)
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      setPurchaseError('La cantidad debe ser un entero ≥ 1')
+      return
+    }
+    setPurchaseError(null)
+    setPurchaseStatus(null)
+    setIsSubmitting(true)
+    void registerPurchase(baby.id, purchaseSizeId, quantity, effectivePurchaseLocationId)
+      .then(() => {
+        setPurchaseQuantity('1')
+        setPurchaseStatus('Compra registrada')
+      })
+      .catch((error: unknown) => {
+        setPurchaseError(error instanceof Error ? error.message : 'No se pudo registrar la compra')
+      })
+      .finally(() => setIsSubmitting(false))
+  }
 
   const submitTransfer = (): void => {
     if (sourceLocationId === undefined || transferSizeId === null || isSubmitting) return
@@ -110,6 +147,64 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
           Todas las ubicaciones
         </button>
       </div>
+
+      <section className='card purchase-card'>
+        <div className='transfer-title'>
+          <div>
+            <h2>🛍️ Registrar compra</h2>
+            <p className='muted small'>Añade pañales comprados en cualquier ubicación.</p>
+          </div>
+        </div>
+
+        <div className='purchase-fields'>
+          <label>
+            <span>Ubicación</span>
+            <select
+              aria-label='Ubicación de la compra'
+              value={effectivePurchaseLocationId}
+              onChange={(event) => {
+                setPurchaseLocationId(event.target.value)
+                setPurchaseError(null)
+                setPurchaseStatus(null)
+              }}
+            >
+              {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Talla</span>
+            <select
+              value={purchaseSizeId === null ? '' : String(purchaseSizeId)}
+              onChange={(event) => {
+                const value = Number.parseInt(event.target.value, 10)
+                setPurchaseSizeId(Number.isInteger(value) ? value : null)
+                setPurchaseError(null)
+                setPurchaseStatus(null)
+              }}
+            >
+              <option value=''>Elige talla</option>
+              {sizes.map((size) => <option key={size.id} value={size.id}>{size.name}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Cantidad</span>
+            <input
+              type='number'
+              inputMode='numeric'
+              min='1'
+              step='1'
+              value={purchaseQuantity}
+              onChange={(event) => { setPurchaseQuantity(event.target.value); setPurchaseError(null); setPurchaseStatus(null) }}
+            />
+          </label>
+        </div>
+
+        <button type='button' className='primary' disabled={isSubmitting || purchaseSizeId === null || effectivePurchaseLocationId === undefined} onClick={submitPurchase}>
+          {isSubmitting ? 'Guardando…' : 'Registrar compra'}
+        </button>
+        {purchaseError !== null && <p className='warn' role='alert'>{purchaseError}</p>}
+        {purchaseStatus !== null && <p className='transfer-success' role='status'>{purchaseStatus}</p>}
+      </section>
 
       {locations.length > 1 && (
         <section className='card transfer-card'>
