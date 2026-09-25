@@ -69,7 +69,7 @@ export const runSync = async (
         : Number.isInteger(legacy.updated_at)
           ? legacy.updated_at as number
           : createdAt
-      const deviceId = typeof location.deviceId === 'string' && location.deviceId !== ''
+      const normalizedDeviceId = typeof location.deviceId === 'string' && location.deviceId !== ''
         ? location.deviceId
         : typeof legacy.device_id === 'string' && legacy.device_id !== ''
           ? legacy.device_id
@@ -81,7 +81,7 @@ export const runSync = async (
         reorderPoint,
         createdAt,
         updatedAt,
-        deviceId,
+        deviceId: normalizedDeviceId,
       }
     })
 
