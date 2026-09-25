@@ -14,6 +14,16 @@ import { transferStock } from '../../lib/transfers.ts'
 
 type InventoryView = 'current' | 'all'
 
+const registerPurchase = async (babyId: string, sizeId: number, quantity: number, locationId: string): Promise<void> => {
+  const now = Date.now()
+  const movement = createMovement(
+    { id: uuid(), babyId, sizeId, locationId, deviceId: getDeviceId(), occurredAt: now, recordedAt: now },
+    { type: 'PURCHASE', quantity }
+  )
+  await db.movements.add(movement)
+  notifyWrite()
+}
+
 const quickAdjust = async (babyId: string, sizeId: number, delta: number, locationId: string): Promise<void> => {
   const now = Date.now()
   const movement = createMovement(
@@ -51,6 +61,7 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
   }, [baby.id, locations])
   const currentSizeId = useCurrentSize(baby.id)
   const activeLocation = locations?.find((location) => location.id === locationId)
+  const effectivePurchaseLocationId = purchaseLocationId || locationId
   const sourceLocationId = transferFrom !== '' ? transferFrom : locationId
   const destinationLocations = locations?.filter((location) => location.id !== sourceLocationId) ?? []
 
