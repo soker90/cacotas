@@ -47,7 +47,9 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
   const locationId = locations === undefined
     ? storedLocationId
     : resolveActiveLocationId(storedLocationId, defaultLocationId(baby.id), locations)
-  const stocks = useStockBySize(baby.id, locationId)
+  const [selectedLocationId, setSelectedLocationId] = useState('')
+  const effectiveLocationId = selectedLocationId !== '' ? selectedLocationId : locationId
+  const stocks = useStockBySize(baby.id, effectiveLocationId)
   const currentSizeId = useCurrentSize(baby.id)
   const forecast = useForecast(baby.id, Number.isInteger(sizeId) ? sizeId : null, locationId)
   const signalSet = useLiveQuery(
@@ -67,8 +69,6 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
     void migrateTransitionLocalState(db, baby.id)
   }, [baby.id])
 
-  const [packagesText, setPackagesText] = useState('1')
-  const [perPackageText, setPerPackageText] = useState('30')
   const [adjustNewText, setAdjustNewText] = useState('')
   const [adjustNote, setAdjustNote] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -85,32 +85,6 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
 
   const stock = stocks.get(sizeId) ?? 0
   const isCurrent = currentSizeId === sizeId
-
-  const addPurchase = async (): Promise<void> => {
-    const packages = parsePositive(packagesText)
-    const perPackage = parsePositive(perPackageText)
-    if (packages === null || perPackage === null) {
-      setError('Paquetes y pañales por paquete deben ser enteros ≥ 1')
-      return
-    }
-    const now = Date.now()
-    const movement = createMovement(
-      {
-        id: uuid(),
-        babyId: baby.id,
-        sizeId,
-        locationId,
-        deviceId: getDeviceId(),
-        occurredAt: now,
-        recordedAt: now,
-      },
-      { type: 'PURCHASE', quantity: packages * perPackage }
-    )
-    await db.movements.add(movement)
-    notifyWrite()
-    setError(null)
-    setPackagesText('1')
-  }
 
   const addAdjustment = async (): Promise<void> => {
     // The delta is computed against the live stock at save time — the form
@@ -135,7 +109,7 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
         deviceId: getDeviceId(),
         occurredAt: now,
         recordedAt: now,
-        locationId,
+        locationId: effectiveLocationId,
         ...(adjustNote.trim() !== '' ? { note: adjustNote.trim() } : {}),
       },
       { type: 'ADJUSTMENT', delta }
@@ -190,42 +164,21 @@ export const SizeDetail = ({ baby }: { baby: Baby }) => {
       </section>
 
       <section className='card'>
-        <h2>🛒 Compra</h2>
-        <div className='form-row'>
-          <label htmlFor='packages'>Paquetes</label>
-          <input
-            id='packages'
-            inputMode='numeric'
-            value={packagesText}
-            onChange={(e) => {
-              setPackagesText(e.target.value)
-            }}
-          />
-        </div>
-        <div className='form-row'>
-          <label htmlFor='per-package'>Pañales por paquete</label>
-          <input
-            id='per-package'
-            inputMode='numeric'
-            value={perPackageText}
-            onChange={(e) => {
-              setPerPackageText(e.target.value)
-            }}
-          />
-        </div>
-        <button
-          type='button'
-          className='primary'
-          onClick={() => {
-            void addPurchase()
-          }}
-        >
-          Añadir compra
-        </button>
-      </section>
-
-      <section className='card'>
         <h2>🧮 Ajustar inventario</h2>
+        <div className='form-row'>
+          <label htmlFor='adjust-location'>Ubicación</label>
+          <select
+            id='adjust-location'
+            value={effectiveLocationId}
+            onChange={(e) => {
+              setSelectedLocationId(e.target.value)
+              setAdjustNewText('')
+              setError(null)
+            }}
+          >
+            {locations?.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+          </select>
+        </div>
         <p className='muted'>
           Guarda la diferencia con el stock real de ahora mismo, no el número
           que vieras al abrir el formulario.
