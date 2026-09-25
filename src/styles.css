@@ -1097,6 +1097,56 @@ input[type='datetime-local'] {
 }
 
 
+/* ── Inventory purchases ────────────────────────────── */
+.purchase-card {
+  margin-top: 0;
+  background:
+    linear-gradient(145deg, var(--surface) 0%, #f4f8f3 100%);
+}
+
+.purchase-title h2 {
+  margin-bottom: 0.2rem;
+}
+
+.purchase-title p {
+  margin: 0 0 0.8rem;
+}
+
+.purchase-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 6rem;
+  gap: 0.6rem;
+  margin-bottom: 0.7rem;
+}
+
+.purchase-fields label {
+  display: block;
+  min-width: 0;
+}
+
+.purchase-fields label > span {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.purchase-fields select,
+.purchase-fields input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.65rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: var(--surface);
+  font: inherit;
+}
+
+.purchase-card > button.primary {
+  margin-top: 0.1rem;
+}
+
 /* ── Inventory locations & transfers ───────────────── */
 .inventory-heading {
   display: flex;
