@@ -50,7 +50,7 @@ export const runSync = async (
       reorderPoint: Number.isInteger(location.reorderPoint) && location.reorderPoint >= 0
         ? location.reorderPoint
         : 10,
-      deviceId: location.deviceId !== '' ? location.deviceId : deviceId,
+      deviceId: location.deviceId || deviceId,
     }))
 
     const res = await backend.sync({
