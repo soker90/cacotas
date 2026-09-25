@@ -1118,9 +1118,10 @@ export default {
           },
         })
       }
-      if (request.method !== 'POST') return json({ error: 'not found' }, 404)
+      const pathname = new URL(request.url).pathname
+      if (request.method !== 'POST' && !(request.method === 'GET' && pathname === '/household/status')) return json({ error: 'not found' }, 404)
       const response = await (async () => {
-        switch (new URL(request.url).pathname) {
+        switch (pathname) {
           case '/auth/google': return handleGoogleAuth(request, env)
           case '/sync': return handleSync(request, env)
           case '/household/status': return handleHouseholdStatus(request, env)
