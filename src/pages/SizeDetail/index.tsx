@@ -32,11 +32,6 @@ import { FitGuide } from '../../components/FitGuide.tsx'
 import { TransitionPrompt } from '../../components/TransitionPrompt.tsx'
 import { defaultLocationId, getActiveLocationId, resolveActiveLocationId } from '../../lib/locations.ts'
 
-const parsePositive = (text: string): number | null => {
-  const value = Number.parseInt(text, 10)
-  return Number.isInteger(value) && value >= 1 ? value : null
-}
-
 export const SizeDetail = ({ baby }: { baby: Baby }) => {
   const { sizeId: rawSizeId } = useParams()
   const navigate = useNavigate()
