@@ -25,9 +25,13 @@ export default defineConfig({
       short_name: 'Cacotas',
       description: 'Inventario y previsión de pañales',
       lang: 'es',
+      id: '/',
       start_url: '/',
       scope: '/',
       display: 'standalone',
+      launch_handler: {
+        client_mode: 'navigate-existing',
+      },
       shortcuts: [
         {
           name: 'Registrar pañal',
