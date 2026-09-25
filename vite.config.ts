@@ -29,6 +29,7 @@ export default defineConfig({
       start_url: '/',
       scope: '/',
       display: 'standalone',
+      handle_links: 'preferred',
       launch_handler: {
         client_mode: 'navigate-existing',
       },
