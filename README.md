@@ -1,6 +1,6 @@
 # Cacotas
 
-Cacotas es una aplicación web progresiva (PWA) para gestionar el inventario de pañales de un bebé, registrar el consumo y estimar cuándo será necesario comprar o cambiar de talla.
+Cacotas es una progressive web app (PWA) para gestionar el inventario de pañales de un bebé, registrar el consumo y estimar cuándo será necesario comprar o cambiar de talla.
 
 Está diseñada con un enfoque **offline-first**: registrar un pañal no depende de tener conexión. La red se utiliza principalmente para sincronizar los datos entre los dispositivos de un mismo hogar.
 
@@ -19,12 +19,6 @@ Está diseñada con un enfoque **offline-first**: registrar un pañal no depende
 - Inicio de sesión con Google.
 - PWA instalable en dispositivos compatibles.
 - Exportación de datos en JSON.
-
-## Demo
-
-La instancia pública actual está disponible en:
-
-https://cacotas.netlify.app/
 
 El código fuente está en:
 
