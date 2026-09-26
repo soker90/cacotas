@@ -30,11 +30,11 @@ const readRecord = (): HouseholdSettings | null => {
       typeof r.deviceId !== 'string'
     ) return null
     return {
-      warningDays: r.warningDays as number,
-      coverageDays: r.coverageDays as number,
-      stayMode: r.stayMode as boolean,
-      updatedAt: r.updatedAt as number,
-      deviceId: r.deviceId as string,
+      warningDays: r.warningDays,
+      coverageDays: r.coverageDays,
+      stayMode: r.stayMode,
+      updatedAt: r.updatedAt,
+      deviceId: r.deviceId,
     }
   } catch {
     return null

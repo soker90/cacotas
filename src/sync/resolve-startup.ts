@@ -1,5 +1,5 @@
 import type { Baby, Location, Movement, WeightRecord } from '../../shared/types.ts'
-import type { HouseholdSettings } from '../lib/settings.ts'
+import type { HouseholdSettings } from '../../shared/types.ts'
 import type { SyncBackend } from './backend.ts'
 
 export type StartupRoute = 'HOME' | 'ONBOARDING' | 'JOIN_RETRY'
