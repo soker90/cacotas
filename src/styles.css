@@ -1459,3 +1459,13 @@ input[type='datetime-local'] {
 .location-settings-row button {
   margin-top: 0.25rem;
 }
+
+
+/* ── Current size picker ───────────────────────────── */
+.settings-size-picker { margin: 0.8rem 0 1rem; padding: 0.8rem; background: #f8f5ed; border: 1px solid var(--line); border-radius: 0.85rem; }
+.settings-size-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.65rem; }
+.settings-size-heading label { display: block; margin-bottom: 0.1rem; font-size: 0.9rem; font-weight: 700; color: var(--ink); }
+.settings-size-current { flex-shrink: 0; padding: 0.25rem 0.55rem; border-radius: 999px; background: var(--green-soft); color: var(--green-dark); font-size: 0.75rem; font-weight: 700; }
+.settings-size-picker .size-grid { margin: 0; }
+.settings-size-picker .size-grid .size { min-height: 3rem; padding: 0.7rem 0.2rem; font-size: 0.85rem; }
+@media (max-width: 24rem) { .settings-size-picker .size-grid { gap: 0.4rem; } }

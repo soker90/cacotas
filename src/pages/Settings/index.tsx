@@ -139,36 +139,45 @@ export const Settings = () => {
             <label htmlFor='settings-baby-name'>Nombre</label>
             <input id='settings-baby-name' value={babyName} onChange={(e) => { setBabyName(e.target.value) }} />
           </div>
-          <div className='form-row'>
-            <label htmlFor='settings-baby-size'>Talla actual</label>
-            <select
-              id='settings-baby-size'
-              value={currentSizeId === undefined || currentSizeId === null ? '' : String(currentSizeId)}
-              onChange={(e) => {
-                const sizeId = Number.parseInt(e.target.value, 10)
-                if (!Number.isInteger(sizeId) || sizeId < 0 || sizeId > 7 || baby === undefined) return
-                if (currentSizeId === sizeId) return
-                const now = Date.now()
-                void db.movements.add(createMovement(
-                  {
-                    id: uuid(),
-                    babyId: baby.id,
-                    sizeId,
-                    deviceId: getDeviceId(),
-                    occurredAt: now,
-                    recordedAt: now,
-                  },
-                  { type: 'SIZE_CHANGE' }
-                )).then(notifyWrite).catch((err: unknown) => {
-                  setError(err instanceof Error ? err.message : 'No se pudo cambiar la talla')
-                })
-              }}
-            >
-              <option value='' disabled>Selecciona una talla</option>
+          <div className='settings-size-picker'>
+            <div className='settings-size-heading'>
+              <div>
+                <label id='settings-baby-size-label'>Talla actual</label>
+                <span className='muted small'>Elige la talla que está usando ahora.</span>
+              </div>
+              {currentSizeId !== undefined && currentSizeId !== null && (
+                <span className='settings-size-current'>Talla {currentSizeId}</span>
+              )}
+            </div>
+            <div className='size-grid' role='group' aria-labelledby='settings-baby-size-label'>
               {Array.from({ length: 8 }, (_, sizeId) => (
-                <option key={sizeId} value={String(sizeId)}>Talla {String(sizeId)}</option>
+                <button
+                  key={sizeId}
+                  type='button'
+                  className={currentSizeId === sizeId ? 'size selected' : 'size'}
+                  aria-pressed={currentSizeId === sizeId}
+                  onClick={() => {
+                    if (currentSizeId === sizeId || baby === undefined) return
+                    const now = Date.now()
+                    void db.movements.add(createMovement(
+                      {
+                        id: uuid(),
+                        babyId: baby.id,
+                        sizeId,
+                        deviceId: getDeviceId(),
+                        occurredAt: now,
+                        recordedAt: now,
+                      },
+                      { type: 'SIZE_CHANGE' }
+                    )).then(notifyWrite).catch((err: unknown) => {
+                      setError(err instanceof Error ? err.message : 'No se pudo cambiar la talla')
+                    })
+                  }}
+                >
+                  Talla {sizeId}
+                </button>
               ))}
-            </select>
+            </div>
             <span className='muted small'>Puedes cambiarla manualmente cuando empiece a usar otra talla.</span>
           </div>
           <label className='check-row'>
