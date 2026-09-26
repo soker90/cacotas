@@ -301,7 +301,7 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
                 </Link>
                 {view === 'current' && (
                   <div className='quick-adjust' aria-label={'Ajuste rápido ' + size.name}>
-                    <button type='button' aria-label={'Quitar uno de ' + size.name} onClick={() => { void quickAdjust(baby.id, size.id, -1, locationId) }}>−</button>
+                    <button type='button' aria-label={'Quitar uno de ' + size.name} onClick={() => { void quickAdjust(baby.id, size.id, -1, locationId) }}>-</button>
                     <span>{stock}</span>
                     <button type='button' aria-label={'Añadir uno a ' + size.name} onClick={() => { void quickAdjust(baby.id, size.id, +1, locationId) }}>+</button>
                   </div>
@@ -316,7 +316,7 @@ export const Inventory = ({ baby }: { baby: Baby }) => {
                       <div key={location.id} className='inventory-location-row'>
                         <span className='inventory-location-name'>📍 {location.name}</span>
                         <div className='quick-adjust' aria-label={'Ajuste de ' + size.name + ' en ' + location.name}>
-                          <button type='button' aria-label={'Quitar uno de ' + size.name + ' en ' + location.name} onClick={() => { void quickAdjust(baby.id, size.id, -1, location.id) }}>−</button>
+                          <button type='button' aria-label={'Quitar uno de ' + size.name + ' en ' + location.name} onClick={() => { void quickAdjust(baby.id, size.id, -1, location.id) }}>-</button>
                           <span>{locationStock}</span>
                           <button type='button' aria-label={'Añadir uno a ' + size.name + ' en ' + location.name} onClick={() => { void quickAdjust(baby.id, size.id, +1, location.id) }}>+</button>
                         </div>
