@@ -1,4 +1,5 @@
 import type { Baby, Location, Movement, WeightRecord } from '../../shared/types.ts'
+import type { HouseholdSettings } from '../lib/settings.ts'
 import type { SyncBackend } from './backend.ts'
 
 export type StartupRoute = 'HOME' | 'ONBOARDING' | 'JOIN_RETRY'
@@ -15,6 +16,7 @@ export interface StartupDecision {
     movements: Movement[]
     weights: WeightRecord[]
     locations: Location[]
+    settings?: HouseholdSettings
   }
   /** Failure detail for JOIN_RETRY — shown discreetly to aid diagnosis. */
   reason?: string
@@ -41,6 +43,7 @@ export const resolveStartup = async (
       movements: [],
       weights: [],
       locations: [],
+      settings: undefined,
     })
     if (res.babies[0]) {
       return {
@@ -50,6 +53,7 @@ export const resolveStartup = async (
           movements: res.movements,
           weights: res.weights,
           locations: res.locations ?? [],
+          ...(res.settings !== undefined ? { settings: res.settings } : {}),
         },
       }
     }

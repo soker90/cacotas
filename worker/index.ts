@@ -1,6 +1,7 @@
 import { createMovement } from '../shared/factory.ts'
 import { madridNow, runNotifications } from './notify.ts'
 import type { MovementType } from '../shared/types.ts'
+import type { HouseholdSettings } from '../src/lib/settings.ts'
 
 /**
  * Cacotas sync worker (SPEC.md §9). Append-only ledger on D1 (D-02):
@@ -41,6 +42,14 @@ interface LocationRow {
   name: string
   reorder_point: number
   created_at: number
+  updated_at: number
+  device_id: string
+}
+
+interface HouseholdSettingsRow {
+  warning_days: number
+  coverage_days: number
+  stay_mode: number
   updated_at: number
   device_id: string
 }
@@ -400,6 +409,31 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
     cursors[babyId] = value as number
   }
 
+  const incomingSettings = req.settings
+  if (incomingSettings !== undefined) {
+    if (
+      typeof incomingSettings !== 'object' || incomingSettings === null ||
+      !Number.isInteger((incomingSettings as Record<string, unknown>).warningDays) ||
+      !Number.isInteger((incomingSettings as Record<string, unknown>).coverageDays) ||
+      typeof (incomingSettings as Record<string, unknown>).stayMode !== 'boolean' ||
+      !Number.isInteger((incomingSettings as Record<string, unknown>).updatedAt) ||
+      (incomingSettings as Record<string, unknown>).updatedAt as number < 0 ||
+      typeof (incomingSettings as Record<string, unknown>).deviceId !== 'string'
+    ) return json({ error: 'invalid settings' }, 400)
+    const s = incomingSettings as HouseholdSettings
+    if (s.warningDays < 1 || s.coverageDays < 1 || s.deviceId === '') return json({ error: 'invalid settings' }, 400)
+    const current = await env.DB.prepare('SELECT warning_days, coverage_days, stay_mode, updated_at, device_id FROM household_settings WHERE household_id=?1').bind(householdId).first<HouseholdSettingsRow>()
+    if (current === null) {
+      await env.DB.prepare(
+        'INSERT INTO household_settings (household_id, warning_days, coverage_days, stay_mode, updated_at, device_id) VALUES (?1,?2,?3,?4,?5,?6)'
+      ).bind(householdId, s.warningDays, s.coverageDays, s.stayMode ? 1 : 0, s.updatedAt, s.deviceId).run()
+    } else if (s.updatedAt > current.updated_at) {
+      await env.DB.prepare(
+        'UPDATE household_settings SET warning_days=?2, coverage_days=?3, stay_mode=?4, updated_at=?5, device_id=?6 WHERE household_id=?1'
+      ).bind(householdId, s.warningDays, s.coverageDays, s.stayMode ? 1 : 0, s.updatedAt, s.deviceId).run()
+    }
+  }
+
   const incomingLocations = Array.isArray(req.locations) ? req.locations : []
   for (const location of incomingLocations) {
     if (typeof location !== 'object' || location === null) return json({ error: 'invalid location' }, 400)
@@ -535,7 +569,17 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
   }
   const locationRows = await env.DB.prepare('SELECT * FROM locations WHERE household_id=?1 ORDER BY created_at,id').bind(householdId).all<LocationRow>()
   const locations = (locationRows.results ?? []).map(rowToLocation)
-  return json({ babies, cursors: nextCursors, hasMore, movements, weights, locations, accepted })
+  const settingsRow = await env.DB.prepare('SELECT warning_days, coverage_days, stay_mode, updated_at, device_id FROM household_settings WHERE household_id=?1').bind(householdId).first<HouseholdSettingsRow>()
+  const responseSettings = settingsRow === null
+    ? undefined
+    : {
+        warningDays: settingsRow.warning_days,
+        coverageDays: settingsRow.coverage_days,
+        stayMode: settingsRow.stay_mode === 1,
+        updatedAt: settingsRow.updated_at,
+        deviceId: settingsRow.device_id,
+      }
+  return json({ babies, cursors: nextCursors, hasMore, movements, weights, locations, accepted, ...(responseSettings !== undefined ? { settings: responseSettings } : {}) })
 }
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase()

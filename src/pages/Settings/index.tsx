@@ -3,7 +3,8 @@ import type { ChangeEvent } from 'react'
 import type { Sex } from '../../../shared/types.ts'
 import { exportJSON, importJSON } from '../../lib/backup.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
-import { isStayMode, setStayMode } from '../../lib/stay-mode.ts'
+import { isStayMode } from '../../lib/stay-mode.ts'
+import { setStayMode } from '../../lib/settings.ts'
 import {
   getCoverageDays,
   getWarningDays,
@@ -25,6 +26,7 @@ import { clearSessionToken } from '../../auth/session.ts'
 import { clearSyncState } from '../../sync/engine.ts'
 import { createMovement } from '../../../shared/factory.ts'
 import { currentSize } from '../../db/derive.ts'
+import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
 
 export const Settings = () => {
@@ -112,7 +114,7 @@ export const Settings = () => {
   }
 
   const toggleStayMode = (checked: boolean): void => {
-    setStayMode(checked)
+    setStayMode(checked, getDeviceId())
     setStayModeState(checked)
   }
 
@@ -317,8 +319,8 @@ export const Settings = () => {
               setError('Ambos valores deben ser enteros ≥ 1')
               return
             }
-            setWarningDays(warning)
-            setCoverageDays(coverage)
+            setWarningDays(warning, getDeviceId())
+            setCoverageDays(coverage, getDeviceId())
             setError(null)
           }}
         >

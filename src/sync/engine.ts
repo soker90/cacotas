@@ -2,6 +2,7 @@ import type { CacotasDB } from '../db/index.ts'
 import { BabyMismatchError } from './errors.ts'
 import type { SyncBackend } from './backend.ts'
 import type { BabyCursors } from './types.ts'
+import { applyHouseholdSettings, getHouseholdSettings } from '../lib/settings.ts'
 
 const CURSOR_KEY = 'cacotas.syncCursors'
 const LAST_SYNC_KEY = 'cacotas.lastSyncAt'
@@ -91,6 +92,7 @@ export const runSync = async (
       movements: pendingMovements,
       weights: pendingWeights,
       locations: localLocations,
+      settings: getHouseholdSettings(deviceId),
       ...(localBaby !== undefined ? { baby: localBaby } : {}),
     })
 
@@ -101,6 +103,8 @@ export const runSync = async (
     ) {
       throw new BabyMismatchError()
     }
+
+    if (res.settings !== undefined) applyHouseholdSettings(res.settings)
 
     await db.transaction(
       'rw', db.movements, db.weights, db.babies, db.locations,

@@ -25,6 +25,7 @@ import { HttpSyncBackend } from './sync/http-backend.ts'
 import { startSyncLoop } from './sync/scheduler.ts'
 import { getDeviceId } from './sync/device-id.ts'
 import { getSessionToken } from './auth/session.ts'
+import { applyHouseholdSettings } from './lib/settings.ts'
 import { apiRequest } from './auth/api.ts'
 import { Login } from './pages/Login/index.tsx'
 import { HouseholdEntry, type HouseholdEntryAction } from './pages/HouseholdEntry/index.tsx'
@@ -107,7 +108,8 @@ const AppRoutes = () => {
         return
       }
       if (decision.route === 'ONBOARDING' && decision.remote === undefined) {
-        await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
+        if (settings !== undefined) applyHouseholdSettings(settings)
+      await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
           await db.babies.clear()
           await db.movements.clear()
           await db.weights.clear()
@@ -121,7 +123,7 @@ const AppRoutes = () => {
         return
       }
 
-      const { baby, movements, weights, locations } = decision.remote
+      const { baby, movements, weights, locations, settings } = decision.remote
       const currentLocalBaby = localBaby
       await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
         const localMovements = currentLocalBaby === null
@@ -236,7 +238,8 @@ const FirstLaunch = ({ backend, inviteCode, hasHousehold }: { backend: HttpSyncB
 
   useEffect(() => {
     if (decision?.route !== 'HOME' || !decision.remote) return
-    const { baby, movements, weights, locations } = decision.remote
+    const { baby, movements, weights, locations, settings } = decision.remote
+    if (settings !== undefined) applyHouseholdSettings(settings)
     void db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
       await db.babies.put(baby)
       await db.movements.bulkPut(movements)

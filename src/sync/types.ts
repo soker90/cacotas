@@ -5,6 +5,7 @@ import type {
   UUID,
   WeightRecord,
 } from '../../shared/types.ts'
+import type { HouseholdSettings } from '../lib/settings.ts'
 
 /** Cursor is independent for every baby. */
 export type BabyCursors = Record<UUID, number>
@@ -19,6 +20,7 @@ export interface SyncRequest {
   weights: WeightRecord[];
   locations?: Location[];
   baby?: Baby;
+  settings?: HouseholdSettings;
 }
 
 export interface SyncResponse {
@@ -34,4 +36,5 @@ export interface SyncResponse {
   baby?: Baby;
   /** Ids the server confirms having — including duplicates. */
   accepted: UUID[];
+  settings?: HouseholdSettings;
 }
