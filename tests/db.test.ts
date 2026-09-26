@@ -247,7 +247,12 @@ describe('currentSize', () => {
     expect(await currentSize(db, BABY)).toBe(2)
   })
 
-  it('returns null when there is no SIZE_CHANGE', async () => {
+  it('returns the initial stock size when SIZE_CHANGE is missing', async () => {
+    await db.movements.add(mov({ type: 'INITIAL', sizeId: 1, quantity: 84 }))
+    expect(await currentSize(db, BABY)).toBe(1)
+  })
+
+  it('returns null when there is no SIZE_CHANGE or INITIAL', async () => {
     expect(await currentSize(db, BABY)).toBeNull()
   })
 })
