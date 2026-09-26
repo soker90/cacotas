@@ -17,11 +17,25 @@ export const stockBySize = async (
   return out
 }
 
-/** Current size = sizeId of the last SIZE_CHANGE by occurredAt. null if none. */
+/**
+ * Current size = sizeId of the last SIZE_CHANGE by occurredAt.
+ * Legacy households created while sync was unavailable can have an
+ * INITIAL movement without its companion SIZE_CHANGE; in that case the
+ * initial stock movement is the authoritative starting size.
+ */
 export const currentSize = async (
   database: CacotasDB,
   babyId: UUID
-): Promise<number | null> => (await lastSizeChange(database, babyId))?.sizeId ?? null
+): Promise<number | null> => {
+  const change = await lastSizeChange(database, babyId)
+  if (change !== null) return change.sizeId
+
+  const initial = await database.movements
+    .where('[babyId+type]')
+    .equals([babyId, 'INITIAL'])
+    .sortBy('occurredAt')
+  return initial.at(-1)?.sizeId ?? null
+}
 
 /** The last SIZE_CHANGE event: current sizeId and when it started (§8.4). */
 export const lastSizeChange = async (
