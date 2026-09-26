@@ -1,11 +1,12 @@
 /// <reference types='vite-plugin-pwa/client' />
 /// <reference types='vite-plugin-pwa/react' />
 
-/** Injected by Vite `define` from package.json version. */
+/** Injected by Vite define from package.json version. */
 declare const __APP_VERSION__: string
 
 interface ImportMetaEnv {
   readonly VITE_SYNC_URL?: string
+  readonly VITE_GOOGLE_CLIENT_ID?: string
   readonly VITE_SYNC_SECRET?: string
   readonly VITE_VAPID_PUBLIC_KEY?: string
   readonly VITE_SENTRY_DSN?: string
