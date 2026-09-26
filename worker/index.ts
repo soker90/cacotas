@@ -1,7 +1,7 @@
 import { createMovement } from '../shared/factory.ts'
 import { madridNow, runNotifications } from './notify.ts'
 import type { MovementType } from '../shared/types.ts'
-import type { HouseholdSettings } from '../src/lib/settings.ts'
+import type { HouseholdSettings } from '../shared/types.ts'
 
 /**
  * Cacotas sync worker (SPEC.md §9). Append-only ledger on D1 (D-02):
@@ -417,7 +417,7 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
       !Number.isInteger((incomingSettings as Record<string, unknown>).coverageDays) ||
       typeof (incomingSettings as Record<string, unknown>).stayMode !== 'boolean' ||
       !Number.isInteger((incomingSettings as Record<string, unknown>).updatedAt) ||
-      (incomingSettings as Record<string, unknown>).updatedAt as number < 0 ||
+      ((incomingSettings as Record<string, unknown>).updatedAt as number) < 0 ||
       typeof (incomingSettings as Record<string, unknown>).deviceId !== 'string'
     ) return json({ error: 'invalid settings' }, 400)
     const s = incomingSettings as HouseholdSettings

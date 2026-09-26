@@ -72,6 +72,14 @@ export interface DiaperSize {
   typicalMonths?: number;
 }
 
+export interface HouseholdSettings {
+  warningDays: number;
+  coverageDays: number;
+  stayMode: boolean;
+  updatedAt: number;
+  deviceId: string;
+}
+
 export interface TransitionSignals {
   tabsNotCentered: boolean;
   noTwoFingers: boolean;

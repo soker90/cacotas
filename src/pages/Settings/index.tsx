@@ -26,7 +26,6 @@ import { clearSessionToken } from '../../auth/session.ts'
 import { clearSyncState } from '../../sync/engine.ts'
 import { createMovement } from '../../../shared/factory.ts'
 import { currentSize } from '../../db/derive.ts'
-import { getDeviceId } from '../../sync/device-id.ts'
 import { uuid } from '../../lib/uuid.ts'
 
 export const Settings = () => {
@@ -116,6 +115,7 @@ export const Settings = () => {
   const toggleStayMode = (checked: boolean): void => {
     setStayMode(checked, getDeviceId())
     setStayModeState(checked)
+    notifyWrite()
   }
 
   const onImport = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
@@ -321,6 +321,7 @@ export const Settings = () => {
             }
             setWarningDays(warning, getDeviceId())
             setCoverageDays(coverage, getDeviceId())
+            notifyWrite()
             setError(null)
           }}
         >

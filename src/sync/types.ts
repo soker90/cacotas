@@ -5,7 +5,7 @@ import type {
   UUID,
   WeightRecord,
 } from '../../shared/types.ts'
-import type { HouseholdSettings } from '../lib/settings.ts'
+import type { HouseholdSettings } from '../../shared/types.ts'
 
 /** Cursor is independent for every baby. */
 export type BabyCursors = Record<UUID, number>

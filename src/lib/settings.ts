@@ -1,10 +1,4 @@
-export interface HouseholdSettings {
-  warningDays: number
-  coverageDays: number
-  stayMode: boolean
-  updatedAt: number
-  deviceId: string
-}
+import type { HouseholdSettings } from '../../shared/types.ts'
 
 const KEY = 'cacotas.householdSettings'
 const WARNING_KEY = 'cacotas.warningDays'

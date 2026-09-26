@@ -108,8 +108,7 @@ const AppRoutes = () => {
         return
       }
       if (decision.route === 'ONBOARDING' && decision.remote === undefined) {
-        if (settings !== undefined) applyHouseholdSettings(settings)
-      await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
+        await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
           await db.babies.clear()
           await db.movements.clear()
           await db.weights.clear()
@@ -124,6 +123,7 @@ const AppRoutes = () => {
       }
 
       const { baby, movements, weights, locations, settings } = decision.remote
+      if (settings !== undefined) applyHouseholdSettings(settings)
       const currentLocalBaby = localBaby
       await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
         const localMovements = currentLocalBaby === null
