@@ -1,43 +1,29 @@
 name: CI + Deploy
-
 on:
   push:
     branches: [master]
   pull_request:
     branches: [master]
-
 jobs:
   verify-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
       - uses: pnpm/action-setup@v6
-        # Reads the exact version from packageManager in package.json
-
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
       - name: Lint
         run: pnpm lint
-
       - name: Typecheck
         run: pnpm typecheck
-
       - name: Worker typecheck
         run: pnpm typecheck:worker
-
       - name: Tests
         run: pnpm test
-
-      # Deploy only happens if every step above passed.
-      # VITE_* vars are baked into the bundle at build time. Google client id is
-      # public OAuth configuration; the session itself is created by the Worker.
       - name: Build
         run: pnpm build
         env:
@@ -45,42 +31,31 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
-
-      # The bundle is already built and verified above. Netlify CLI v21+ runs
-      # the site's configured build command by default, which would rebuild the
-      # app without the GitHub Actions VITE_* environment and overwrite dist.
       - name: Deploy to Netlify (production, fixed site)
         if: github.ref == 'refs/heads/master' && github.event_name == 'push'
         run: |
-          pnpm --package=netlify-cli@latest dlx netlify deploy \
-            --dir=dist \
-            --no-build \
-            --prod \
-            --site "$NETLIFY_SITE_ID" \
-            --auth "$NETLIFY_AUTH_TOKEN"
+          pnpm --package=netlify-cli@latest dlx netlify deploy --dir=dist --no-build --prod --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN"
         env:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-
-      # The Worker owns D1. Do not contact Cloudflare on frontend-only commits.
       - name: Detect Worker changes
         id: worker-changes
         if: github.ref == 'refs/heads/master' && github.event_name == 'push'
         shell: bash
         run: |
-          if git diff --quiet "${{ github.event.before }}" "${{ github.sha }}" -- worker/ shared/; then
-            echo "worker_changed=false" >> "$GITHUB_OUTPUT"
-          else
+          changed_files="$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA")"
+          echo "$changed_files"
+          if printf '%s\n' "$changed_files" | grep -Eq '^(worker/|shared/)'; then
             echo "worker_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "worker_changed=false" >> "$GITHUB_OUTPUT"
           fi
-
       - name: Apply Cloudflare D1 migrations
         if: github.ref == 'refs/heads/master' && github.event_name == 'push' && steps.worker-changes.outputs.worker_changed == 'true'
         run: pnpm exec wrangler d1 migrations apply DB --remote --config worker/wrangler.jsonc
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
       - name: Deploy Cloudflare Worker
         if: github.ref == 'refs/heads/master' && github.event_name == 'push' && steps.worker-changes.outputs.worker_changed == 'true'
         run: pnpm exec wrangler deploy --config worker/wrangler.jsonc
