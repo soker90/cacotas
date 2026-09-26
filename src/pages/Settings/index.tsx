@@ -23,6 +23,9 @@ import { createLocation, defaultLocationId } from '../../lib/locations.ts'
 import { apiRequest } from '../../auth/api.ts'
 import { clearSessionToken } from '../../auth/session.ts'
 import { clearSyncState } from '../../sync/engine.ts'
+import { createMovement } from '../../../shared/factory.ts'
+import { currentSize } from '../../db/derive.ts'
+import { uuid } from '../../lib/uuid.ts'
 
 export const Settings = () => {
   const [stayMode, setStayModeState] = useState(() => isStayMode())
@@ -42,6 +45,7 @@ export const Settings = () => {
   const [memberCount, setMemberCount] = useState(0)
   const [inviteMessage, setInviteMessage] = useState<string | null>(null)
   const baby = useLiveQuery(() => db.babies.toCollection().first())
+  const currentSizeId = useLiveQuery(async () => baby === undefined ? undefined : currentSize(db, baby.id), [baby?.id])
   const [babyName, setBabyName] = useState('')
   const [babyBirthDate, setBabyBirthDate] = useState('')
   const [babyUnborn, setBabyUnborn] = useState(false)
@@ -134,6 +138,38 @@ export const Settings = () => {
           <div className='form-row'>
             <label htmlFor='settings-baby-name'>Nombre</label>
             <input id='settings-baby-name' value={babyName} onChange={(e) => { setBabyName(e.target.value) }} />
+          </div>
+          <div className='form-row'>
+            <label htmlFor='settings-baby-size'>Talla actual</label>
+            <select
+              id='settings-baby-size'
+              value={currentSizeId === undefined || currentSizeId === null ? '' : String(currentSizeId)}
+              onChange={(e) => {
+                const sizeId = Number.parseInt(e.target.value, 10)
+                if (!Number.isInteger(sizeId) || sizeId < 0 || sizeId > 7 || baby === undefined) return
+                if (currentSizeId === sizeId) return
+                const now = Date.now()
+                void db.movements.add(createMovement(
+                  {
+                    id: uuid(),
+                    babyId: baby.id,
+                    sizeId,
+                    deviceId: getDeviceId(),
+                    occurredAt: now,
+                    recordedAt: now,
+                  },
+                  { type: 'SIZE_CHANGE' }
+                )).then(notifyWrite).catch((err: unknown) => {
+                  setError(err instanceof Error ? err.message : 'No se pudo cambiar la talla')
+                })
+              }}
+            >
+              <option value='' disabled>Selecciona una talla</option>
+              {Array.from({ length: 8 }, (_, sizeId) => (
+                <option key={sizeId} value={String(sizeId)}>Talla {String(sizeId)}</option>
+              ))}
+            </select>
+            <span className='muted small'>Puedes cambiarla manualmente cuando empiece a usar otra talla.</span>
           </div>
           <label className='check-row'>
             <input type='checkbox' checked={babyUnborn} onChange={(e) => { setBabyUnborn(e.target.checked); if (e.target.checked) { setBabyBirthDate(''); setBabyPremature(false) } }} />
