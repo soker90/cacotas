@@ -1,3 +1,8 @@
-# Local development secrets — never commit the real values.
-# Copy to .dev.vars (git-ignored) and fill in.
-AUTH_SECRET=change-me
+# Variables locales del Worker.
+# Copia este archivo a .dev.vars y rellena los valores.
+# Nunca comitees el archivo .dev.vars real.
+
+GOOGLE_CLIENT_ID=
+VAPID_PRIVATE_KEY=
+VAPID_PUBLIC_KEY=
+VAPID_SUBJECT=mailto:tu-email@example.com
