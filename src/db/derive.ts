@@ -30,10 +30,13 @@ export const currentSize = async (
   const change = await lastSizeChange(database, babyId)
   if (change !== null) return change.sizeId
 
-  const initial = await database.movements
-    .where('[babyId+type]')
-    .equals([babyId, 'INITIAL'])
-    .sortBy('occurredAt')
+  const movements = await database.movements
+    .where('babyId')
+    .equals(babyId)
+    .toArray()
+  const initial = movements
+    .filter((movement) => movement.type === 'INITIAL')
+    .sort((a, b) => a.occurredAt - b.occurredAt)
   return initial.at(-1)?.sizeId ?? null
 }
 
