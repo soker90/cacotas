@@ -29,12 +29,22 @@ const readRecord = (): HouseholdSettings | null => {
       !Number.isInteger(r.updatedAt) || (r.updatedAt as number) < 0 ||
       typeof r.deviceId !== 'string'
     ) return null
+    const warningDays = r.warningDays
+    const coverageDays = r.coverageDays
+    const updatedAt = r.updatedAt
+    const deviceId = r.deviceId
+    if (
+      typeof warningDays !== 'number' ||
+      typeof coverageDays !== 'number' ||
+      typeof updatedAt !== 'number' ||
+      typeof deviceId !== 'string'
+    ) return null
     return {
-      warningDays: r.warningDays,
-      coverageDays: r.coverageDays,
+      warningDays,
+      coverageDays,
       stayMode: r.stayMode,
-      updatedAt: r.updatedAt,
-      deviceId: r.deviceId,
+      updatedAt,
+      deviceId,
     }
   } catch {
     return null
