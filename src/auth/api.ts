@@ -1,5 +1,7 @@
 import { getSessionToken, clearSessionToken } from './session.ts'
 
+const REQUEST_TIMEOUT_MS = 5000
+
 const syncUrl = (): string => {
   const value = import.meta.env.VITE_SYNC_URL
   if (typeof value !== 'string' || value === '') throw new Error('Falta VITE_SYNC_URL')
@@ -11,6 +13,7 @@ export const apiRequest = async <T>(path: string, init?: RequestInit): Promise<T
   if (!token) throw new Error('Sesión no iniciada')
   const response = await fetch(`${syncUrl()}${path}`, {
     ...init,
+    signal: init?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     headers: {
       'content-type': 'application/json',
       Authorization: `Bearer ${token}`,
