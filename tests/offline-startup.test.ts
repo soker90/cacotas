@@ -1,27 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { Baby } from '../shared/types.ts'
 import { shouldUseCachedApp } from '../src/lib/offline-startup.ts'
 
-const baby: Baby = {
-  id: 'baby-local',
-  name: 'Mateo',
-  zoneId: 'Europe/Madrid',
-  createdAt: 1,
-  updatedAt: 1,
-  serverSeq: 1,
-}
-
 describe('shouldUseCachedApp', () => {
-  it('uses local data immediately when offline', () => {
-    expect(shouldUseCachedApp(false, baby)).toBe(true)
+  it('uses the local app while offline', () => {
+    expect(shouldUseCachedApp(false)).toBe(true)
   })
 
-  it('waits for the server while online', () => {
-    expect(shouldUseCachedApp(true, baby)).toBe(false)
-  })
-
-  it('does not treat an unloaded database as cached data', () => {
-    expect(shouldUseCachedApp(false, undefined)).toBe(false)
-    expect(shouldUseCachedApp(false, null)).toBe(false)
+  it('uses the remote startup flow while online', () => {
+    expect(shouldUseCachedApp(true)).toBe(false)
   })
 })

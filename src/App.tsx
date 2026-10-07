@@ -56,7 +56,7 @@ const AppRoutes = () => {
   })
   const sessionToken = session?.token ?? null
   const backend = useMemo(() => createBackend(sessionToken), [sessionToken])
-  const useCachedApp = shouldUseCachedApp(isOnline, localBaby)
+  const useCachedApp = shouldUseCachedApp(isOnline)
   const [startupReady, setStartupReady] = useState(false)
   const [startupDecision, setStartupDecision] = useState<StartupDecision | null>(null)
   const startupRunToken = useRef<string | null>(null)
