@@ -50,7 +50,6 @@ export const App = () => (
 const AppRoutes = () => {
   const localBaby = useBaby()
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
-  const wasOffline = useRef(!navigator.onLine)
   const [session, setSession] = useState<{ token: string; hasHousehold: boolean; householdChecked: boolean } | null>(() => {
     const token = getSessionToken()
     return token === null ? null : { token, hasHousehold: false, householdChecked: false }
@@ -68,11 +67,12 @@ const AppRoutes = () => {
   useEffect(() => {
     const handleOnline = (): void => {
       setIsOnline(true)
-      wasOffline.current = true
+      setSession((current) => current === null
+        ? null
+        : { ...current, householdChecked: false })
     }
     const handleOffline = (): void => {
       setIsOnline(false)
-      wasOffline.current = true
     }
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
@@ -83,29 +83,7 @@ const AppRoutes = () => {
   }, [])
 
   useEffect(() => {
-    if (!isOnline) {
-      if (
-        session !== null &&
-        localBaby !== undefined &&
-        (
-          session.householdChecked !== true ||
-          session.hasHousehold !== (localBaby !== null)
-        )
-      ) {
-        setSession((current) => current === null
-          ? null
-          : { ...current, hasHousehold: localBaby !== null, householdChecked: true })
-      }
-      return
-    }
-    if (session !== null && wasOffline.current) {
-      wasOffline.current = false
-      setSession((current) => current === null
-        ? null
-        : { ...current, householdChecked: false })
-      return
-    }
-    if (session === null || session.householdChecked) return
+    if (!isOnline || session === null || session.householdChecked) return
     let cancelled = false
     void apiRequest<{ user: { household_id: string | null }; invites: unknown[] }>('/household/status', {
       method: 'POST',
@@ -124,7 +102,7 @@ const AppRoutes = () => {
       }
     })
     return () => { cancelled = true }
-  }, [isOnline, localBaby, session])
+  }, [isOnline, session])
 
   useEffect(() => {
     if (
