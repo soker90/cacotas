@@ -84,7 +84,14 @@ const AppRoutes = () => {
 
   useEffect(() => {
     if (!isOnline) {
-      if (session !== null && localBaby !== undefined) {
+      if (
+        session !== null &&
+        localBaby !== undefined &&
+        (
+          session.householdChecked !== true ||
+          session.hasHousehold !== (localBaby !== null)
+        )
+      ) {
         setSession((current) => current === null
           ? null
           : { ...current, hasHousehold: localBaby !== null, householdChecked: true })
