@@ -29,6 +29,7 @@ import { applyHouseholdSettings } from './lib/settings.ts'
 import { apiRequest } from './auth/api.ts'
 import { Login } from './pages/Login/index.tsx'
 import { HouseholdEntry, type HouseholdEntryAction } from './pages/HouseholdEntry/index.tsx'
+import { shouldUseCachedApp } from './lib/offline-startup.ts'
 
 void seedSizes(db)
 
@@ -56,6 +57,7 @@ const AppRoutes = () => {
   })
   const sessionToken = session?.token ?? null
   const backend = useMemo(() => createBackend(sessionToken), [sessionToken])
+  const useCachedApp = shouldUseCachedApp(isOnline, localBaby)
   const [startupReady, setStartupReady] = useState(false)
   const [startupDecision, setStartupDecision] = useState<StartupDecision | null>(null)
   const startupRunToken = useRef<string | null>(null)
@@ -197,11 +199,11 @@ const AppRoutes = () => {
 
   const currentSession = session
 
-  if (isOnline && currentSession.householdChecked !== true) {
+  if (!useCachedApp && currentSession.householdChecked !== true) {
     return <main className='loading'>…</main>
   }
 
-  if (isOnline && localBaby !== undefined && backend !== null && currentSession.hasHousehold && !startupReady) {
+  if (!useCachedApp && localBaby !== undefined && backend !== null && currentSession.hasHousehold && !startupReady) {
     return <main className='loading'>…</main>
   }
   if (startupDecision?.route === 'JOIN_RETRY') {
