@@ -1,6 +1,8 @@
 import type { SyncBackend } from './backend.ts'
 import type { SyncRequest, SyncResponse } from './types.ts'
 
+const SYNC_TIMEOUT_MS = 5000
+
 /** 401/400: retrying will not help (§9.1). */
 export class PermanentSyncError extends Error {}
 
@@ -21,6 +23,7 @@ export class HttpSyncBackend implements SyncBackend {
     try {
       response = await fetch(`${this.#url}/sync`, {
         method: 'POST',
+        signal: AbortSignal.timeout(SYNC_TIMEOUT_MS),
         headers: {
           'content-type': 'application/json',
           Authorization: `Bearer ${this.#token}`,
