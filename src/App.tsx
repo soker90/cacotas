@@ -29,6 +29,7 @@ import { applyHouseholdSettings } from './lib/settings.ts'
 import { apiRequest } from './auth/api.ts'
 import { Login } from './pages/Login/index.tsx'
 import { HouseholdEntry, type HouseholdEntryAction } from './pages/HouseholdEntry/index.tsx'
+import { shouldUseCachedApp } from './lib/offline-startup.ts'
 
 void seedSizes(db)
 
@@ -48,12 +49,14 @@ export const App = () => (
 
 const AppRoutes = () => {
   const localBaby = useBaby()
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [session, setSession] = useState<{ token: string; hasHousehold: boolean; householdChecked: boolean } | null>(() => {
     const token = getSessionToken()
     return token === null ? null : { token, hasHousehold: false, householdChecked: false }
   })
   const sessionToken = session?.token ?? null
   const backend = useMemo(() => createBackend(sessionToken), [sessionToken])
+  const useCachedApp = shouldUseCachedApp(isOnline, localBaby)
   const [startupReady, setStartupReady] = useState(false)
   const [startupDecision, setStartupDecision] = useState<StartupDecision | null>(null)
   const startupRunToken = useRef<string | null>(null)
@@ -62,7 +65,25 @@ const AppRoutes = () => {
   }, [])
 
   useEffect(() => {
-    if (session === null || session.householdChecked) return
+    const handleOnline = (): void => {
+      setIsOnline(true)
+      setSession((current) => current === null
+        ? null
+        : { ...current, householdChecked: false })
+    }
+    const handleOffline = (): void => {
+      setIsOnline(false)
+    }
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isOnline || session === null || session.householdChecked) return
     let cancelled = false
     void apiRequest<{ user: { household_id: string | null }; invites: unknown[] }>('/household/status', {
       method: 'POST',
@@ -81,10 +102,11 @@ const AppRoutes = () => {
       }
     })
     return () => { cancelled = true }
-  }, [session])
+  }, [isOnline, session])
 
   useEffect(() => {
     if (
+      !isOnline ||
       sessionToken === null ||
       localBaby === undefined ||
       backend === null ||
@@ -154,7 +176,7 @@ const AppRoutes = () => {
     return () => {
       cancelled = true
     }
-  }, [backend, localBaby, session?.hasHousehold, session?.householdChecked, sessionToken])
+  }, [backend, isOnline, localBaby, session?.hasHousehold, session?.householdChecked, sessionToken])
 
   if (sessionToken === null || session === null) {
     return <Login onLogin={handleLogin} />
@@ -162,11 +184,11 @@ const AppRoutes = () => {
 
   const currentSession = session
 
-  if (currentSession.householdChecked !== true) {
+  if (!useCachedApp && currentSession.householdChecked !== true) {
     return <main className='loading'>…</main>
   }
 
-  if (localBaby !== undefined && backend !== null && currentSession.hasHousehold && !startupReady) {
+  if (!useCachedApp && localBaby !== undefined && backend !== null && currentSession.hasHousehold && !startupReady) {
     return <main className='loading'>…</main>
   }
   if (startupDecision?.route === 'JOIN_RETRY') {
@@ -188,7 +210,7 @@ const AppRoutes = () => {
 
   return (
     <>
-      <SyncLoop backend={currentSession.hasHousehold ? backend : null} />
+      <SyncLoop backend={isOnline && currentSession.hasHousehold ? backend : null} />
       <Routes>
         <Route element={<AppLayout />}>
           <Route path='/' element={<Home baby={localBaby} />} />
