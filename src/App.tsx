@@ -48,6 +48,8 @@ export const App = () => (
 
 const AppRoutes = () => {
   const localBaby = useBaby()
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine)
+  const wasOffline = useRef(!navigator.onLine)
   const [session, setSession] = useState<{ token: string; hasHousehold: boolean; householdChecked: boolean } | null>(() => {
     const token = getSessionToken()
     return token === null ? null : { token, hasHousehold: false, householdChecked: false }
@@ -62,6 +64,38 @@ const AppRoutes = () => {
   }, [])
 
   useEffect(() => {
+    const handleOnline = (): void => {
+      setIsOnline(true)
+      wasOffline.current = true
+    }
+    const handleOffline = (): void => {
+      setIsOnline(false)
+      wasOffline.current = true
+    }
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isOnline) {
+      if (session !== null && localBaby !== undefined) {
+        setSession((current) => current === null
+          ? null
+          : { ...current, hasHousehold: localBaby !== null, householdChecked: true })
+      }
+      return
+    }
+    if (session !== null && wasOffline.current) {
+      wasOffline.current = false
+      setSession((current) => current === null
+        ? null
+        : { ...current, householdChecked: false })
+      return
+    }
     if (session === null || session.householdChecked) return
     let cancelled = false
     void apiRequest<{ user: { household_id: string | null }; invites: unknown[] }>('/household/status', {
@@ -81,10 +115,11 @@ const AppRoutes = () => {
       }
     })
     return () => { cancelled = true }
-  }, [session])
+  }, [isOnline, localBaby, session])
 
   useEffect(() => {
     if (
+      !isOnline ||
       sessionToken === null ||
       localBaby === undefined ||
       backend === null ||
@@ -154,7 +189,7 @@ const AppRoutes = () => {
     return () => {
       cancelled = true
     }
-  }, [backend, localBaby, session?.hasHousehold, session?.householdChecked, sessionToken])
+  }, [backend, isOnline, localBaby, session?.hasHousehold, session?.householdChecked, sessionToken])
 
   if (sessionToken === null || session === null) {
     return <Login onLogin={handleLogin} />
@@ -162,11 +197,11 @@ const AppRoutes = () => {
 
   const currentSession = session
 
-  if (currentSession.householdChecked !== true) {
+  if (isOnline && currentSession.householdChecked !== true) {
     return <main className='loading'>…</main>
   }
 
-  if (localBaby !== undefined && backend !== null && currentSession.hasHousehold && !startupReady) {
+  if (isOnline && localBaby !== undefined && backend !== null && currentSession.hasHousehold && !startupReady) {
     return <main className='loading'>…</main>
   }
   if (startupDecision?.route === 'JOIN_RETRY') {
@@ -188,7 +223,7 @@ const AppRoutes = () => {
 
   return (
     <>
-      <SyncLoop backend={currentSession.hasHousehold ? backend : null} />
+      <SyncLoop backend={isOnline && currentSession.hasHousehold ? backend : null} />
       <Routes>
         <Route element={<AppLayout />}>
           <Route path='/' element={<Home baby={localBaby} />} />
