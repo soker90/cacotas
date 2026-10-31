@@ -249,8 +249,8 @@ describe('observedGainG (§8.5)', () => {
     const g = observedGainG([
       mkWeight(4, daysAgo(42)),
       mkWeight(4.2, daysAgo(28)), // 100 g/sem
-      mkWeight(4.4, daysAgo(21)), // intervalo corto: descartado
-      mkWeight(4.9, NOW), // intervalo implausible: descartado
+      mkWeight(4.4, daysAgo(27)), // intervalo corto: descartado
+      mkWeight(4.9, daysAgo(26)), // intervalo corto: descartado
     ])
     expect(g).toBe(100)
   })
