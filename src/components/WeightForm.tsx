@@ -7,6 +7,7 @@ import { getDeviceId } from '../sync/device-id.ts'
 import { uuid } from '../lib/uuid.ts'
 import { notifyWrite } from '../sync/scheduler.ts'
 import { formatLogicalDateEs } from '../lib/format-date.ts'
+import { formatWeightKg } from '../lib/format-weight.ts'
 
 const parseDecimal = (text: string): number | null => {
   const value = Number.parseFloat(text.replace(',', '.'))
@@ -128,12 +129,12 @@ export const WeightForm = ({ baby }: { baby: Baby }) => {
       )}
       {savedKg !== null && (
         <p role='status' className='muted small'>
-          Guardado: ≈ {savedKg.toLocaleString('es-ES')} kg
+          Guardado: ≈ {formatWeightKg(savedKg)} kg
         </p>
       )}
       {!open && savedKg === null && lastWeight !== undefined && lastWeight !== null && (
         <p className='muted small'>
-          Último peso: ≈ {lastWeight.weightKg.toLocaleString('es-ES')} kg
+          Último peso: ≈ {formatWeightKg(lastWeight.weightKg)} kg
           {' · '}
           {formatLogicalDateEs(logicalDate(lastWeight.recordedAt))}
         </p>

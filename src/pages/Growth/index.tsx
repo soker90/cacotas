@@ -5,6 +5,15 @@ import { db } from '../../db/index.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
 import { uuid } from '../../lib/uuid.ts'
+import { formatWeightKg } from '../../lib/format-weight.ts'
+
+const localDate = (): string => {
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 const localDateTime = (): string => {
   const date = new Date()
@@ -29,14 +38,14 @@ export const Growth = ({ baby }: { baby: Baby }) => {
     [baby.id]
   )
   const [weightText, setWeightText] = useState('')
-  const [weightDate, setWeightDate] = useState(localDateTime)
+  const [weightDate, setWeightDate] = useState(localDate)
   const [heightText, setHeightText] = useState('')
   const [heightDate, setHeightDate] = useState(localDateTime)
   const [error, setError] = useState<string | null>(null)
 
   const saveWeight = async (): Promise<void> => {
     const value = Number(weightText.replace(',', '.'))
-    const recordedAt = new Date(weightDate).getTime()
+    const recordedAt = new Date(`${weightDate}T12:00:00`).getTime()
     if (!Number.isFinite(value) || value < 0.1 || value > 40 || !Number.isFinite(recordedAt)) {
       setError('Introduce un peso válido en kg y una fecha correcta.')
       return
@@ -51,7 +60,7 @@ export const Growth = ({ baby }: { baby: Baby }) => {
     })
     notifyWrite()
     setWeightText('')
-    setWeightDate(localDateTime())
+    setWeightDate(localDate())
     setError(null)
   }
 
@@ -109,10 +118,10 @@ export const Growth = ({ baby }: { baby: Baby }) => {
             value={weightText}
             onChange={(event) => setWeightText(event.target.value)}
           />
-          <label htmlFor='growth-weight-date'>Fecha</label>
+          <label htmlFor='growth-weight-date'>Fecha del pesaje</label>
           <input
             id='growth-weight-date'
-            type='datetime-local'
+            type='date'
             value={weightDate}
             onChange={(event) => setWeightDate(event.target.value)}
           />
@@ -126,7 +135,7 @@ export const Growth = ({ baby }: { baby: Baby }) => {
               {[...weights].reverse().map((record) => (
                 <li key={record.id}>
                   <span>{formatDate(record.recordedAt)}</span>
-                  <strong>{record.weightKg.toLocaleString('es-ES', { maximumFractionDigits: 3 })} kg</strong>
+                  <strong>{formatWeightKg(record.weightKg)} kg</strong>
                 </li>
               ))}
             </ol>
