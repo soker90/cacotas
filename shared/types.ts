@@ -61,6 +61,8 @@ export interface WeightRecord {
   recordedAt: number;
   deviceId: string;
   serverSeq: number;
+  revision?: number;
+  deleted?: boolean;
 }
 
 export interface HeightRecord {
@@ -70,6 +72,8 @@ export interface HeightRecord {
   recordedAt: number;
   deviceId: string;
   serverSeq: number;
+  revision?: number;
+  deleted?: boolean;
 }
 
 export interface DiaperSize {

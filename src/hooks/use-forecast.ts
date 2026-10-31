@@ -29,7 +29,7 @@ export const useForecast = (
       lastSizeChange(db, babyId),
       db.sizes.bulkGet([sizeId, sizeId + 1]),
       db.babies.get(babyId),
-      db.weights.where('babyId').equals(babyId).sortBy('recordedAt'),
+      db.weights.where('babyId').equals(babyId).filter((record) => record.deleted !== true).sortBy('recordedAt'),
       locationId === undefined ? Promise.resolve(undefined) : db.locations.get(locationId),
       activeSignals(db, babyId, sizeId),
     ])

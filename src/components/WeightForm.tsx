@@ -18,7 +18,7 @@ const parseDecimal = (text: string): number | null => {
 export const useWeightReminder = (babyId: string): boolean =>
   (useLiveQuery(async () => {
     const rows = await db.weights.where('babyId').equals(babyId).toArray()
-    const last = rows.reduce((max, w) => Math.max(max, w.recordedAt), 0)
+    const last = rows.reduce((max, w) => Math.max(max, w.deleted === true ? 0 : w.recordedAt), 0)
     return last === 0 || Date.now() - last > 30 * 86_400_000
   }, [babyId]) ?? false)
 
@@ -39,7 +39,7 @@ export const WeightForm = ({ baby }: { baby: Baby }) => {
       .where('babyId')
       .equals(baby.id)
       .sortBy('recordedAt')
-    return rows.at(-1) ?? null
+    return rows.filter((record) => record.deleted !== true).at(-1) ?? null
   }, [baby.id])
 
   const save = async (): Promise<void> => {
@@ -64,6 +64,8 @@ export const WeightForm = ({ baby }: { baby: Baby }) => {
       recordedAt: now,
       deviceId: getDeviceId(),
       serverSeq: 0,
+      revision: 1,
+      deleted: false,
     })
     notifyWrite()
     setError(null)

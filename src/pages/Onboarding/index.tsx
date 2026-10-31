@@ -143,6 +143,8 @@ export const Onboarding = () => {
               recordedAt: now,
               deviceId,
               serverSeq: 0,
+              revision: 1,
+              deleted: false,
             }
           : null
 

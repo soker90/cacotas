@@ -28,7 +28,7 @@ export const TransitionPrompt = ({ baby, sizeId }: { baby: Baby, sizeId: number 
     const [sizeChange, sizes, weights, self, signals, snoozed] = await Promise.all([
       lastSizeChange(db, baby.id),
       db.sizes.bulkGet([sizeId, sizeId + 1]),
-      db.weights.where('babyId').equals(baby.id).sortBy('recordedAt'),
+      db.weights.where('babyId').equals(baby.id).filter((record) => record.deleted !== true).sortBy('recordedAt'),
       db.babies.get(baby.id),
       activeSignals(db, baby.id, sizeId),
       snoozeActive(db, baby.id, now),
