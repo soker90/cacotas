@@ -203,12 +203,7 @@ export const importJSON = async (file: File): Promise<void> => {
 
   await db.transaction(
     'rw',
-    db.babies,
-    db.movements,
-    db.weights,
-    db.heightRecords,
-    db.sizes,
-    db.locations,
+    [db.babies, db.movements, db.weights, db.heightRecords, db.sizes, db.locations],
     async () => {
       await Promise.all([
         db.babies.clear(),
