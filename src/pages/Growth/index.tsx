@@ -15,12 +15,6 @@ const localDate = (): string => {
   return `${year}-${month}-${day}`
 }
 
-const localDateTime = (): string => {
-  const date = new Date()
-  const offset = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
-}
-
 const formatDate = (timestamp: number): string =>
   new Intl.DateTimeFormat('es-ES', {
     day: 'numeric',
@@ -40,7 +34,7 @@ export const Growth = ({ baby }: { baby: Baby }) => {
   const [weightText, setWeightText] = useState('')
   const [weightDate, setWeightDate] = useState(localDate)
   const [heightText, setHeightText] = useState('')
-  const [heightDate, setHeightDate] = useState(localDateTime)
+  const [heightDate, setHeightDate] = useState(localDate)
   const [error, setError] = useState<string | null>(null)
 
   const saveWeight = async (): Promise<void> => {
@@ -66,7 +60,7 @@ export const Growth = ({ baby }: { baby: Baby }) => {
 
   const saveHeight = async (): Promise<void> => {
     const value = Number(heightText.replace(',', '.'))
-    const recordedAt = new Date(heightDate).getTime()
+    const recordedAt = new Date(`${heightDate}T12:00:00`).getTime()
     if (!Number.isFinite(value) || value < 20 || value > 150 || !Number.isFinite(recordedAt)) {
       setError('Introduce una altura válida en cm y una fecha correcta.')
       return
@@ -81,7 +75,7 @@ export const Growth = ({ baby }: { baby: Baby }) => {
     })
     notifyWrite()
     setHeightText('')
-    setHeightDate(localDateTime())
+    setHeightDate(localDate())
     setError(null)
   }
 
@@ -163,10 +157,10 @@ export const Growth = ({ baby }: { baby: Baby }) => {
             value={heightText}
             onChange={(event) => setHeightText(event.target.value)}
           />
-          <label htmlFor='growth-height-date'>Fecha</label>
+          <label htmlFor='growth-height-date'>Fecha de medición</label>
           <input
             id='growth-height-date'
-            type='datetime-local'
+            type='date'
             value={heightDate}
             onChange={(event) => setHeightDate(event.target.value)}
           />

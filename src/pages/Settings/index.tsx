@@ -51,7 +51,6 @@ export const Settings = () => {
   const [babyBirthDate, setBabyBirthDate] = useState('')
   const [babyUnborn, setBabyUnborn] = useState(false)
   const [babySex, setBabySex] = useState<Sex | null>(null)
-  const [babyBirthWeight, setBabyBirthWeight] = useState('')
   const [babyPremature, setBabyPremature] = useState(false)
   const [babyWeeks, setBabyWeeks] = useState('')
 
@@ -64,7 +63,6 @@ export const Settings = () => {
     setBabyBirthDate(baby.birthDate ?? '')
     setBabyUnborn(baby.birthDate === undefined)
     setBabySex(baby.sex ?? null)
-    setBabyBirthWeight(baby.birthWeightKg === undefined ? '' : String(baby.birthWeightKg))
     setBabyPremature(baby.gestationalWeeks !== undefined && baby.gestationalWeeks < 37)
     setBabyWeeks(baby.gestationalWeeks === undefined ? '' : String(baby.gestationalWeeks))
   }, [baby])
@@ -197,10 +195,6 @@ export const Settings = () => {
             <button type='button' className={babySex === 'male' ? 'size selected' : 'size'} aria-pressed={babySex === 'male'} onClick={() => { setBabySex(babySex === 'male' ? null : 'male') }}>Niño</button>
             <button type='button' className={babySex === 'female' ? 'size selected' : 'size'} aria-pressed={babySex === 'female'} onClick={() => { setBabySex(babySex === 'female' ? null : 'female') }}>Niña</button>
           </div>
-          <div className='form-row'>
-            <label htmlFor='settings-baby-birth-weight'>Peso al nacer en kg (opcional)</label>
-            <input id='settings-baby-birth-weight' inputMode='decimal' value={babyBirthWeight} onChange={(e) => { setBabyBirthWeight(e.target.value) }} placeholder='3,3' />
-          </div>
           <label className='check-row'>
             <input type='checkbox' checked={babyPremature} onChange={(e) => { setBabyPremature(e.target.checked) }} />
             Nació antes de tiempo
@@ -217,8 +211,6 @@ export const Settings = () => {
             onClick={() => {
               if (babyName.trim() === '') { setError('El nombre del bebé no puede estar vacío'); return }
               if (!babyUnborn && babyBirthDate === '') { setError('Indica la fecha de nacimiento o marca que todavía no ha nacido'); return }
-              const weight = babyBirthWeight.trim() === '' ? undefined : Number.parseFloat(babyBirthWeight.replace(',', '.'))
-              if (babyBirthWeight.trim() !== '' && (!Number.isFinite(weight) || (weight ?? 0) <= 0)) { setError('El peso al nacer debe ser un número mayor que 0'); return }
               const weeks = babyPremature ? Number.parseInt(babyWeeks, 10) : undefined
               if (babyPremature && (!Number.isInteger(weeks) || (weeks ?? 0) < 20 || (weeks ?? 0) > 43)) { setError('Las semanas de gestación deben ser un número entre 20 y 43'); return }
               void db.babies.update(baby.id, {
@@ -228,7 +220,6 @@ export const Settings = () => {
                 ...(!babyUnborn
                   ? {
                       birthDate: babyBirthDate,
-                      ...(weight !== undefined ? { birthWeightKg: weight } : {}),
                       ...(weeks !== undefined ? { gestationalWeeks: weeks } : {}),
                     }
                   : {}),
@@ -237,7 +228,6 @@ export const Settings = () => {
                   const current = await db.babies.get(baby.id)
                   if (current === undefined) return
                   delete current.birthDate
-                  delete current.birthWeightKg
                   delete current.gestationalWeeks
                   await db.babies.put(current)
                 }
