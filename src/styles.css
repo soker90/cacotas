@@ -1502,11 +1502,25 @@ input[type='datetime-local'] {
   padding: 0;
 }
 .growth-history li {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  display: grid;
+  gap: 0.45rem;
   padding: 0.55rem 0;
   border-bottom: 1px solid var(--line);
+}
+.growth-history-value {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.growth-history-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.card .growth-history-actions .btn-neutral {
+  flex: 1;
+  width: auto;
+  padding: 0.45rem;
+  font-size: 0.85rem;
 }
 .growth-history li:last-child {
   border-bottom: 0;

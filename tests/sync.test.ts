@@ -28,7 +28,7 @@ if (typeof globalThis.localStorage === 'undefined') {
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createMovement } from '../shared/factory.ts'
-import type { Baby, HeightRecord, Movement } from '../shared/types.ts'
+import type { Baby, HeightRecord, Movement, WeightRecord } from '../shared/types.ts'
 import { stockBySize } from '../src/db/derive.ts'
 import { CacotasDB } from '../src/db/index.ts'
 import { runSync } from '../src/sync/engine.ts'
@@ -133,6 +133,102 @@ describe('sincronización (issue #4)', () => {
       heightCm: 68.4,
     })
     expect(backend.heightRecords.size).toBe(1)
+  })
+
+  it('sincroniza ediciones de peso y borrados de altura entre dispositivos', async () => {
+    const weight: WeightRecord = {
+      id: uid(),
+      babyId: 'baby-shared',
+      weightKg: 6.25,
+      recordedAt: Date.now(),
+      deviceId: 'device-a',
+      serverSeq: 0,
+      revision: 1,
+      deleted: false,
+    }
+    const height: HeightRecord = {
+      id: uid(),
+      babyId: 'baby-shared',
+      heightCm: 63.5,
+      recordedAt: Date.now(),
+      deviceId: 'device-a',
+      serverSeq: 0,
+      revision: 1,
+      deleted: false,
+    }
+    await dbA.weights.add(weight)
+    await dbA.heightRecords.add(height)
+    await runSync(dbA, backend, 'device-a')
+    await runSync(dbB, backend, 'device-b')
+
+    const syncedWeight = await dbA.weights.get(weight.id)
+    const syncedHeight = await dbB.heightRecords.get(height.id)
+    expect(syncedWeight).toBeDefined()
+    expect(syncedHeight).toBeDefined()
+    await dbA.weights.put({
+      ...syncedWeight!,
+      weightKg: 6.42,
+      revision: (syncedWeight!.revision ?? 1) + 1,
+      serverSeq: 0,
+    })
+    await dbB.heightRecords.put({
+      ...syncedHeight!,
+      deleted: true,
+      revision: (syncedHeight!.revision ?? 1) + 1,
+      serverSeq: 0,
+    })
+
+    await runSync(dbA, backend, 'device-a')
+    await runSync(dbB, backend, 'device-b')
+    await runSync(dbA, backend, 'device-a')
+
+    expect(await dbA.weights.get(weight.id)).toMatchObject({ weightKg: 6.42, revision: 2, deleted: false })
+    expect(await dbB.weights.get(weight.id)).toMatchObject({ weightKg: 6.42, revision: 2, deleted: false })
+    expect(await dbA.heightRecords.get(height.id)).toMatchObject({ revision: 2, deleted: true })
+    expect(await dbB.heightRecords.get(height.id)).toMatchObject({ revision: 2, deleted: true })
+  })
+
+  it('ignora una revisión antigua y devuelve la versión nueva del servidor', async () => {
+    const weight: WeightRecord = {
+      id: uid(),
+      babyId: 'baby-shared',
+      weightKg: 6.1,
+      recordedAt: Date.now(),
+      deviceId: 'device-a',
+      serverSeq: 0,
+      revision: 1,
+      deleted: false,
+    }
+    await dbA.weights.add(weight)
+    await runSync(dbA, backend, 'device-a')
+    await runSync(dbB, backend, 'device-b')
+
+    const local = await dbA.weights.get(weight.id)
+    expect(local).toBeDefined()
+    const staleEdit: WeightRecord = {
+      ...local!,
+      weightKg: 6.2,
+      revision: 2,
+      serverSeq: 0,
+    }
+    await dbA.weights.put(staleEdit)
+    await runSync(dbA, backend, 'device-a')
+
+    const newer = await dbB.weights.get(weight.id)
+    expect(newer).toBeDefined()
+    await dbB.weights.put({
+      ...newer!,
+      weightKg: 6.4,
+      revision: 3,
+      serverSeq: 0,
+    })
+    await runSync(dbB, backend, 'device-b')
+
+    await dbA.weights.put(staleEdit)
+    await runSync(dbA, backend, 'device-a')
+
+    expect(await dbA.weights.get(weight.id)).toMatchObject({ weightKg: 6.4, revision: 3 })
+    expect(backend.weights.get(weight.id)).toMatchObject({ weightKg: 6.4, revision: 3 })
   })
 
   it('resending the same movement does not duplicate (D-17)', async () => {

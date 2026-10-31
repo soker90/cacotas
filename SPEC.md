@@ -157,6 +157,19 @@ export interface WeightRecord {
   recordedAt: number;
   deviceId: string;
   serverSeq?: number;
+  revision?: number;              // revisión monotónica por registro
+  deleted?: boolean;              // tombstone sincronizado; no borrar la fila
+}
+
+export interface HeightRecord {
+  id: UUID;
+  babyId: UUID;
+  heightCm: number;
+  recordedAt: number;
+  deviceId: string;
+  serverSeq?: number;
+  revision?: number;
+  deleted?: boolean;
 }
 
 export interface DiaperSize {
@@ -298,7 +311,22 @@ CREATE TABLE weights (
   weight_kg  REAL NOT NULL,
   length_cm  REAL,                  -- se guarda, no se usa en el MVP (§8.8)
   recorded_at INTEGER NOT NULL,
-  device_id  TEXT NOT NULL
+  device_id  TEXT NOT NULL,
+  revision   INTEGER NOT NULL DEFAULT 1,
+  is_deleted INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE height_records (
+  seq        INTEGER PRIMARY KEY AUTOINCREMENT,
+  id         TEXT NOT NULL UNIQUE,
+  baby_id    TEXT NOT NULL,
+  household_id TEXT NOT NULL,
+  baby_seq   INTEGER NOT NULL,
+  height_cm  REAL NOT NULL,
+  recorded_at INTEGER NOT NULL,
+  device_id  TEXT NOT NULL,
+  revision   INTEGER NOT NULL DEFAULT 1,
+  is_deleted INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE babies (
@@ -1035,6 +1063,7 @@ interface SyncRequest {
   cursors: Record<UUID, number>; // último baby_seq conocido por bebé
   movements: Movement[];
   weights: WeightRecord[];
+  heightRecords: HeightRecord[];
   baby?: Baby;
 }
 
@@ -1044,6 +1073,7 @@ interface SyncResponse {
   hasMore: Record<UUID, boolean>;
   movements: Movement[];
   weights: WeightRecord[];
+  heightRecords: HeightRecord[];
   accepted: UUID[];
 }
 ```
@@ -1066,6 +1096,14 @@ interface SyncResponse {
 - `hasMore = (filas devueltas === 500)`
 - `baby` se resuelve por last-write-wins sobre `updated_at`
 - **Validar todo movimiento entrante con la factory** antes de insertarlo
+- Las ediciones y borrados de peso/altura envían el mismo `id`, `revision + 1` y `serverSeq = 0`.
+  Un borrado se representa con `deleted: true`; el registro queda como tombstone en Dexie y D1.
+- El servidor aplica solo revisiones superiores a la guardada y les asigna un nuevo `baby_seq`.
+  Una revisión repetida o antigua es idempotente; al recibir la respuesta, el cliente adopta la
+  versión del servidor con `bulkPut`. Si dos dispositivos editan la misma revisión offline, gana
+  la primera que llegue al servidor; la otra recibe y adopta esa versión.
+- `deleted` se excluye del histórico y de los cálculos, pero el tombstone se conserva para que
+  llegue a dispositivos que estuvieron offline.
 
 ### 9.3 Reglas del cliente
 
@@ -1503,6 +1541,9 @@ separado. Lo que aportaba va **dentro de la propia app** (issue #9 reconvertido)
 - Respuesta a medias → nada se marca → el reintento lo recupera
 - Paginación de 600 filas → se bajan todas, sin saltos
 - **Un `UNDO` que llega antes que su movimiento original → el stock acaba correcto**
+- Editar un peso y borrar una altura en un dispositivo → ambos cambios llegan al otro
+- Reenviar una revisión antigua → el registro conserva la revisión más reciente del servidor
+- Los tombstones no aparecen en el histórico ni participan en la previsión
 
 > El último test valida la premisa entera del ledger: **el orden de llegada no importa.** Si
 > pasa, la sincronización es correcta.

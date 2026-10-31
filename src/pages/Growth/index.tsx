@@ -1,19 +1,21 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import type { Baby } from '../../../shared/types.ts'
+import type { Baby, HeightRecord, WeightRecord } from '../../../shared/types.ts'
 import { db } from '../../db/index.ts'
 import { getDeviceId } from '../../sync/device-id.ts'
 import { notifyWrite } from '../../sync/scheduler.ts'
 import { uuid } from '../../lib/uuid.ts'
 import { formatWeightKg } from '../../lib/format-weight.ts'
 
-const localDate = (): string => {
-  const date = new Date()
+const dateInputValue = (timestamp: number): string => {
+  const date = new Date(timestamp)
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
+
+const localDate = (): string => dateInputValue(Date.now())
 
 const formatDate = (timestamp: number): string =>
   new Intl.DateTimeFormat('es-ES', {
@@ -24,18 +26,32 @@ const formatDate = (timestamp: number): string =>
 
 export const Growth = ({ baby }: { baby: Baby }) => {
   const weights = useLiveQuery(
-    () => db.weights.where('babyId').equals(baby.id).sortBy('recordedAt'),
+    () => db.weights.where('babyId').equals(baby.id).filter((record) => record.deleted !== true).sortBy('recordedAt'),
     [baby.id]
   )
   const heights = useLiveQuery(
-    () => db.heightRecords.where('babyId').equals(baby.id).sortBy('recordedAt'),
+    () => db.heightRecords.where('babyId').equals(baby.id).filter((record) => record.deleted !== true).sortBy('recordedAt'),
     [baby.id]
   )
   const [weightText, setWeightText] = useState('')
   const [weightDate, setWeightDate] = useState(localDate)
   const [heightText, setHeightText] = useState('')
   const [heightDate, setHeightDate] = useState(localDate)
+  const [editingWeightId, setEditingWeightId] = useState<string | null>(null)
+  const [editingHeightId, setEditingHeightId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const cancelWeightEdit = (): void => {
+    setEditingWeightId(null)
+    setWeightText('')
+    setWeightDate(localDate())
+  }
+
+  const cancelHeightEdit = (): void => {
+    setEditingHeightId(null)
+    setHeightText('')
+    setHeightDate(localDate())
+  }
 
   const saveWeight = async (): Promise<void> => {
     const value = Number(weightText.replace(',', '.'))
@@ -44,17 +60,57 @@ export const Growth = ({ baby }: { baby: Baby }) => {
       setError('Introduce un peso válido en kg y una fecha correcta.')
       return
     }
-    await db.weights.add({
-      id: uuid(),
-      babyId: baby.id,
-      weightKg: value,
-      recordedAt,
-      deviceId: getDeviceId(),
+    const editingRecord = editingWeightId === null
+      ? undefined
+      : weights?.find((record) => record.id === editingWeightId)
+    if (editingWeightId !== null && editingRecord === undefined) {
+      setError('Ese peso ya no está disponible para editarlo.')
+      return
+    }
+    if (editingRecord !== undefined) {
+      if (!window.confirm('¿Guardar los cambios de este peso? Se sincronizarán con el otro dispositivo.')) return
+      await db.weights.put({
+        ...editingRecord,
+        weightKg: value,
+        recordedAt,
+        revision: (editingRecord.revision ?? 1) + 1,
+        deleted: false,
+        serverSeq: 0,
+      })
+    } else {
+      await db.weights.add({
+        id: uuid(),
+        babyId: baby.id,
+        weightKg: value,
+        recordedAt,
+        deviceId: getDeviceId(),
+        serverSeq: 0,
+        revision: 1,
+        deleted: false,
+      })
+    }
+    notifyWrite()
+    cancelWeightEdit()
+    setError(null)
+  }
+
+  const startWeightEdit = (record: WeightRecord): void => {
+    setEditingWeightId(record.id)
+    setWeightText(String(record.weightKg))
+    setWeightDate(dateInputValue(record.recordedAt))
+    setError(null)
+  }
+
+  const deleteWeight = async (record: WeightRecord): Promise<void> => {
+    if (!window.confirm('¿Borrar este peso del histórico? El cambio se sincronizará con el otro dispositivo.')) return
+    await db.weights.put({
+      ...record,
+      revision: (record.revision ?? 1) + 1,
+      deleted: true,
       serverSeq: 0,
     })
     notifyWrite()
-    setWeightText('')
-    setWeightDate(localDate())
+    if (editingWeightId === record.id) cancelWeightEdit()
     setError(null)
   }
 
@@ -65,17 +121,57 @@ export const Growth = ({ baby }: { baby: Baby }) => {
       setError('Introduce una altura válida en cm y una fecha correcta.')
       return
     }
-    await db.heightRecords.add({
-      id: uuid(),
-      babyId: baby.id,
-      heightCm: value,
-      recordedAt,
-      deviceId: getDeviceId(),
+    const editingRecord = editingHeightId === null
+      ? undefined
+      : heights?.find((record) => record.id === editingHeightId)
+    if (editingHeightId !== null && editingRecord === undefined) {
+      setError('Esa altura ya no está disponible para editarla.')
+      return
+    }
+    if (editingRecord !== undefined) {
+      if (!window.confirm('¿Guardar los cambios de esta altura? Se sincronizarán con el otro dispositivo.')) return
+      await db.heightRecords.put({
+        ...editingRecord,
+        heightCm: value,
+        recordedAt,
+        revision: (editingRecord.revision ?? 1) + 1,
+        deleted: false,
+        serverSeq: 0,
+      })
+    } else {
+      await db.heightRecords.add({
+        id: uuid(),
+        babyId: baby.id,
+        heightCm: value,
+        recordedAt,
+        deviceId: getDeviceId(),
+        serverSeq: 0,
+        revision: 1,
+        deleted: false,
+      })
+    }
+    notifyWrite()
+    cancelHeightEdit()
+    setError(null)
+  }
+
+  const startHeightEdit = (record: HeightRecord): void => {
+    setEditingHeightId(record.id)
+    setHeightText(String(record.heightCm))
+    setHeightDate(dateInputValue(record.recordedAt))
+    setError(null)
+  }
+
+  const deleteHeight = async (record: HeightRecord): Promise<void> => {
+    if (!window.confirm('¿Borrar esta altura del histórico? El cambio se sincronizará con el otro dispositivo.')) return
+    await db.heightRecords.put({
+      ...record,
+      revision: (record.revision ?? 1) + 1,
+      deleted: true,
       serverSeq: 0,
     })
     notifyWrite()
-    setHeightText('')
-    setHeightDate(localDate())
+    if (editingHeightId === record.id) cancelHeightEdit()
     setError(null)
   }
 
@@ -119,7 +215,10 @@ export const Growth = ({ baby }: { baby: Baby }) => {
             value={weightDate}
             onChange={(event) => setWeightDate(event.target.value)}
           />
-          <button className='primary' type='submit'>Guardar peso</button>
+          <button className='primary' type='submit'>{editingWeightId === null ? 'Guardar peso' : 'Guardar cambios'}</button>
+          {editingWeightId !== null && (
+            <button className='btn-neutral' type='button' onClick={cancelWeightEdit}>Cancelar edición</button>
+          )}
         </form>
         <h3>Histórico de peso</h3>
         {weights.length === 0
@@ -128,8 +227,14 @@ export const Growth = ({ baby }: { baby: Baby }) => {
             <ol className='growth-history'>
               {[...weights].reverse().map((record) => (
                 <li key={record.id}>
-                  <span>{formatDate(record.recordedAt)}</span>
-                  <strong>{formatWeightKg(record.weightKg)} kg</strong>
+                  <div className='growth-history-value'>
+                    <span>{formatDate(record.recordedAt)}</span>
+                    <strong>{formatWeightKg(record.weightKg)} kg</strong>
+                  </div>
+                  <div className='growth-history-actions'>
+                    <button className='btn-neutral' type='button' onClick={() => { startWeightEdit(record) }}>Editar</button>
+                    <button className='btn-neutral' type='button' onClick={() => { void deleteWeight(record) }}>Borrar</button>
+                  </div>
                 </li>
               ))}
             </ol>
@@ -164,7 +269,10 @@ export const Growth = ({ baby }: { baby: Baby }) => {
             value={heightDate}
             onChange={(event) => setHeightDate(event.target.value)}
           />
-          <button className='primary' type='submit'>Guardar altura</button>
+          <button className='primary' type='submit'>{editingHeightId === null ? 'Guardar altura' : 'Guardar cambios'}</button>
+          {editingHeightId !== null && (
+            <button className='btn-neutral' type='button' onClick={cancelHeightEdit}>Cancelar edición</button>
+          )}
         </form>
         <h3>Histórico de altura</h3>
         {heights.length === 0
@@ -173,8 +281,14 @@ export const Growth = ({ baby }: { baby: Baby }) => {
             <ol className='growth-history'>
               {[...heights].reverse().map((record) => (
                 <li key={record.id}>
-                  <span>{formatDate(record.recordedAt)}</span>
-                  <strong>{record.heightCm.toLocaleString('es-ES', { maximumFractionDigits: 1 })} cm</strong>
+                  <div className='growth-history-value'>
+                    <span>{formatDate(record.recordedAt)}</span>
+                    <strong>{record.heightCm.toLocaleString('es-ES', { maximumFractionDigits: 1 })} cm</strong>
+                  </div>
+                  <div className='growth-history-actions'>
+                    <button className='btn-neutral' type='button' onClick={() => { startHeightEdit(record) }}>Editar</button>
+                    <button className='btn-neutral' type='button' onClick={() => { void deleteHeight(record) }}>Borrar</button>
+                  </div>
                 </li>
               ))}
             </ol>

@@ -63,6 +63,8 @@ interface WeightRow {
   length_cm: number | null
   recorded_at: number
   device_id: string
+  revision: number
+  is_deleted: number
 }
 
 interface HeightRow {
@@ -73,6 +75,8 @@ interface HeightRow {
   height_cm: number
   recorded_at: number
   device_id: string
+  revision: number
+  is_deleted: number
 }
 
 interface BabyRow {
@@ -383,6 +387,8 @@ const rowToWeight = (row: WeightRow) => ({
   recordedAt: row.recorded_at,
   deviceId: row.device_id,
   serverSeq: row.baby_seq,
+  revision: row.revision,
+  deleted: row.is_deleted === 1,
 })
 
 const rowToHeight = (row: HeightRow) => ({
@@ -392,6 +398,8 @@ const rowToHeight = (row: HeightRow) => ({
   recordedAt: row.recorded_at,
   deviceId: row.device_id,
   serverSeq: row.baby_seq,
+  revision: row.revision,
+  deleted: row.is_deleted === 1,
 })
 
 const rowToBaby = (row: BabyRow) => ({
@@ -517,19 +525,27 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
   for (const w of incomingWeights) {
     if (typeof w !== 'object' || w === null) return json({ error: 'invalid weight' }, 400)
     const r = w as Record<string, unknown>
-    if (typeof r.id !== 'string' || typeof r.babyId !== 'string' || typeof r.weightKg !== 'number' || typeof r.recordedAt !== 'number' || typeof r.deviceId !== 'string') return json({ error: 'invalid weight' }, 400)
+    const revision = Number.isInteger(r.revision) && (r.revision as number) > 0 ? r.revision as number : 1
+    if (typeof r.id !== 'string' || r.id === '' || typeof r.babyId !== 'string' || r.babyId === '' ||
+        typeof r.weightKg !== 'number' || !Number.isFinite(r.weightKg) || r.weightKg < 0.1 || r.weightKg > 40 ||
+        typeof r.recordedAt !== 'number' || !Number.isInteger(r.recordedAt) || r.recordedAt < 0 ||
+        typeof r.deviceId !== 'string' || r.deviceId === '' ||
+        (r.revision !== undefined && (!Number.isInteger(r.revision) || (r.revision as number) < 1)) ||
+        (r.deleted !== undefined && typeof r.deleted !== 'boolean')) return json({ error: 'invalid weight' }, 400)
+    const deleted = r.deleted === true
     const owned = await env.DB.prepare('SELECT id FROM babies WHERE id=?1 AND household_id=?2').bind(r.babyId, householdId).first()
     if (owned === null) return json({ error: 'forbidden baby' }, 403)
-    const existing = await env.DB.prepare('SELECT id, household_id FROM weights WHERE id=?1').bind(r.id).first<{ id: string; household_id: string }>()
+    const existing = await env.DB.prepare('SELECT id, household_id, baby_id, revision FROM weights WHERE id=?1').bind(r.id).first<{ id: string; household_id: string; baby_id: string; revision: number }>()
     if (existing !== null && existing.household_id !== householdId) return json({ error: 'forbidden weight' }, 403)
+    if (existing !== null && existing.baby_id !== r.babyId) return json({ error: 'invalid weight owner' }, 400)
     if (existing === null) {
       await env.DB.batch([
         env.DB.prepare(
           'INSERT INTO baby_sequences (baby_id, next_seq) VALUES (?1, 2) ON CONFLICT(baby_id) DO UPDATE SET next_seq = next_seq + 1'
         ).bind(r.babyId),
         env.DB.prepare(
-          `INSERT INTO weights (id, household_id, baby_id, baby_seq, weight_kg, length_cm, recorded_at, device_id)
-           VALUES (?1, ?2, ?3, (SELECT next_seq - 1 FROM baby_sequences WHERE baby_id=?3), ?4, ?5, ?6, ?7)`
+          `INSERT INTO weights (id, household_id, baby_id, baby_seq, weight_kg, length_cm, recorded_at, device_id, revision, is_deleted)
+           VALUES (?1, ?2, ?3, (SELECT next_seq - 1 FROM baby_sequences WHERE baby_id=?3), ?4, ?5, ?6, ?7, ?8, ?9)`
         ).bind(
           r.id,
           householdId,
@@ -537,7 +553,34 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
           r.weightKg,
           typeof r.lengthCm === 'number' ? r.lengthCm : null,
           r.recordedAt,
-          r.deviceId
+          r.deviceId,
+          revision,
+          deleted ? 1 : 0
+        ),
+      ])
+    } else if (revision > existing.revision) {
+      await env.DB.batch([
+        env.DB.prepare(
+          `UPDATE baby_sequences SET next_seq=next_seq+1
+           WHERE baby_id=?1 AND EXISTS (
+             SELECT 1 FROM weights WHERE id=?2 AND revision < ?3
+           )`
+        ).bind(r.babyId, r.id, revision),
+        env.DB.prepare(
+          `UPDATE weights SET baby_seq=(SELECT next_seq-1 FROM baby_sequences WHERE baby_id=?3),
+             weight_kg=?4, length_cm=?5, recorded_at=?6, device_id=?7,
+             revision=?8, is_deleted=?9
+           WHERE id=?1 AND household_id=?2 AND baby_id=?3 AND revision < ?8`
+        ).bind(
+          r.id,
+          householdId,
+          r.babyId,
+          r.weightKg,
+          typeof r.lengthCm === 'number' ? r.lengthCm : null,
+          r.recordedAt,
+          r.deviceId,
+          revision,
+          deleted ? 1 : 0
         ),
       ])
     }
@@ -548,18 +591,37 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
   for (const height of incomingHeightRecords) {
     if (typeof height !== 'object' || height === null) return json({ error: 'invalid height' }, 400)
     const r = height as Record<string, unknown>
+    const revision = Number.isInteger(r.revision) && (r.revision as number) > 0 ? r.revision as number : 1
     if (typeof r.id !== 'string' || r.id === '' || typeof r.babyId !== 'string' || r.babyId === '' ||
         typeof r.heightCm !== 'number' || !Number.isFinite(r.heightCm) || r.heightCm < 20 || r.heightCm > 150 ||
         typeof r.recordedAt !== 'number' || !Number.isInteger(r.recordedAt) || r.recordedAt < 0 ||
-        typeof r.deviceId !== 'string' || r.deviceId === '') return json({ error: 'invalid height' }, 400)
+        typeof r.deviceId !== 'string' || r.deviceId === '' ||
+        (r.revision !== undefined && (!Number.isInteger(r.revision) || (r.revision as number) < 1)) ||
+        (r.deleted !== undefined && typeof r.deleted !== 'boolean')) return json({ error: 'invalid height' }, 400)
+    const deleted = r.deleted === true
     const owned = await env.DB.prepare('SELECT id FROM babies WHERE id=?1 AND household_id=?2').bind(r.babyId, householdId).first()
     if (owned === null) return json({ error: 'forbidden baby' }, 403)
-    const existing = await env.DB.prepare('SELECT id, household_id FROM height_records WHERE id=?1').bind(r.id).first<{ id: string; household_id: string }>()
+    const existing = await env.DB.prepare('SELECT id, household_id, baby_id, revision FROM height_records WHERE id=?1').bind(r.id).first<{ id: string; household_id: string; baby_id: string; revision: number }>()
     if (existing !== null && existing.household_id !== householdId) return json({ error: 'forbidden height' }, 403)
+    if (existing !== null && existing.baby_id !== r.babyId) return json({ error: 'invalid height owner' }, 400)
     if (existing === null) {
       await env.DB.batch([
         env.DB.prepare('INSERT INTO baby_sequences (baby_id, next_seq) VALUES (?1, 2) ON CONFLICT(baby_id) DO UPDATE SET next_seq = next_seq + 1').bind(r.babyId),
-        env.DB.prepare('INSERT INTO height_records (id, household_id, baby_id, baby_seq, height_cm, recorded_at, device_id) VALUES (?1, ?2, ?3, (SELECT next_seq - 1 FROM baby_sequences WHERE baby_id=?3), ?4, ?5, ?6)').bind(r.id, householdId, r.babyId, r.heightCm, r.recordedAt, r.deviceId),
+        env.DB.prepare('INSERT INTO height_records (id, household_id, baby_id, baby_seq, height_cm, recorded_at, device_id, revision, is_deleted) VALUES (?1, ?2, ?3, (SELECT next_seq - 1 FROM baby_sequences WHERE baby_id=?3), ?4, ?5, ?6, ?7, ?8)').bind(r.id, householdId, r.babyId, r.heightCm, r.recordedAt, r.deviceId, revision, deleted ? 1 : 0),
+      ])
+    } else if (revision > existing.revision) {
+      await env.DB.batch([
+        env.DB.prepare(
+          `UPDATE baby_sequences SET next_seq=next_seq+1
+           WHERE baby_id=?1 AND EXISTS (
+             SELECT 1 FROM height_records WHERE id=?2 AND revision < ?3
+           )`
+        ).bind(r.babyId, r.id, revision),
+        env.DB.prepare(
+          `UPDATE height_records SET baby_seq=(SELECT next_seq-1 FROM baby_sequences WHERE baby_id=?3),
+             height_cm=?4, recorded_at=?5, device_id=?6, revision=?7, is_deleted=?8
+           WHERE id=?1 AND household_id=?2 AND baby_id=?3 AND revision < ?7`
+        ).bind(r.id, householdId, r.babyId, r.heightCm, r.recordedAt, r.deviceId, revision, deleted ? 1 : 0),
       ])
     }
     accepted.push(r.id)
@@ -588,13 +650,13 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
     const cursor = cursors[b.id] ?? 0
     const rows = await env.DB.prepare(
       `SELECT * FROM (
-         SELECT baby_seq, 'movement' AS row_kind, seq, id, household_id, baby_id, size_id, type, usage_source, quantity, delta, undoes_movement_id, note, occurred_at, recorded_at, device_id, location_id, NULL AS weight_kg, NULL AS length_cm, NULL AS height_cm
+         SELECT baby_seq, 'movement' AS row_kind, seq, id, household_id, baby_id, size_id, type, usage_source, quantity, delta, undoes_movement_id, note, occurred_at, recorded_at, device_id, location_id, NULL AS weight_kg, NULL AS length_cm, NULL AS height_cm, NULL AS revision, NULL AS is_deleted
          FROM movements WHERE household_id=?1 AND baby_id=?2 AND baby_seq>?3
          UNION ALL
-         SELECT baby_seq, 'weight' AS row_kind, seq, id, household_id, baby_id, NULL AS size_id, NULL AS type, NULL AS usage_source, NULL AS quantity, NULL AS delta, NULL AS undoes_movement_id, NULL AS note, NULL AS occurred_at, recorded_at, device_id, NULL AS location_id, weight_kg, length_cm, NULL AS height_cm
+         SELECT baby_seq, 'weight' AS row_kind, seq, id, household_id, baby_id, NULL AS size_id, NULL AS type, NULL AS usage_source, NULL AS quantity, NULL AS delta, NULL AS undoes_movement_id, NULL AS note, NULL AS occurred_at, recorded_at, device_id, NULL AS location_id, weight_kg, length_cm, NULL AS height_cm, revision, is_deleted
          FROM weights WHERE household_id=?1 AND baby_id=?2 AND baby_seq>?3
          UNION ALL
-         SELECT baby_seq, 'height' AS row_kind, seq, id, household_id, baby_id, NULL AS size_id, NULL AS type, NULL AS usage_source, NULL AS quantity, NULL AS delta, NULL AS undoes_movement_id, NULL AS note, NULL AS occurred_at, recorded_at, device_id, NULL AS location_id, NULL AS weight_kg, NULL AS length_cm, height_cm
+         SELECT baby_seq, 'height' AS row_kind, seq, id, household_id, baby_id, NULL AS size_id, NULL AS type, NULL AS usage_source, NULL AS quantity, NULL AS delta, NULL AS undoes_movement_id, NULL AS note, NULL AS occurred_at, recorded_at, device_id, NULL AS location_id, NULL AS weight_kg, NULL AS length_cm, height_cm, revision, is_deleted
          FROM height_records WHERE household_id=?1 AND baby_id=?2 AND baby_seq>?3
        ) ORDER BY baby_seq LIMIT ?4`
     ).bind(householdId, b.id, cursor, PAGE_SIZE).all<Record<string, unknown>>()

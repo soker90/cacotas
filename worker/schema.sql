@@ -87,7 +87,9 @@ CREATE TABLE weights (
   weight_kg REAL NOT NULL,
   length_cm REAL,
   recorded_at INTEGER NOT NULL,
-  device_id TEXT NOT NULL
+  device_id TEXT NOT NULL,
+  revision INTEGER NOT NULL DEFAULT 1,
+  is_deleted INTEGER NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX idx_weights_baby_seq ON weights(baby_id, baby_seq);
 CREATE INDEX idx_weights_household ON weights(household_id);
@@ -100,7 +102,9 @@ CREATE TABLE height_records (
   baby_seq INTEGER NOT NULL,
   height_cm REAL NOT NULL,
   recorded_at INTEGER NOT NULL,
-  device_id TEXT NOT NULL
+  device_id TEXT NOT NULL,
+  revision INTEGER NOT NULL DEFAULT 1,
+  is_deleted INTEGER NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX idx_height_records_baby_seq ON height_records(baby_id, baby_seq);
 CREATE INDEX idx_height_records_household ON height_records(household_id);

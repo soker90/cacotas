@@ -110,6 +110,8 @@ const parseWeight = (r: Record<string, unknown>): WeightRecord => {
     recordedAt: isNum(r.recordedAt) ? r.recordedAt : NaN,
     deviceId: isStr(r.deviceId) ? r.deviceId : '',
     serverSeq: isNum(r.serverSeq) ? r.serverSeq : 0,
+    revision: Number.isInteger(r.revision) && (r.revision as number) > 0 ? r.revision as number : 1,
+    deleted: r.deleted === true,
   }
 }
 
@@ -120,6 +122,8 @@ const parseHeight = (r: Record<string, unknown>): HeightRecord => ({
   recordedAt: isNum(r.recordedAt) ? r.recordedAt : NaN,
   deviceId: isStr(r.deviceId) ? r.deviceId : '',
   serverSeq: isNum(r.serverSeq) ? r.serverSeq : 0,
+  revision: Number.isInteger(r.revision) && (r.revision as number) > 0 ? r.revision as number : 1,
+  deleted: r.deleted === true,
 })
 
 const parseSize = (r: Record<string, unknown>): DiaperSize => {

@@ -22,11 +22,21 @@ export class FakeSyncBackend implements SyncBackend {
   }
 
   pushRemoteWeight (weight: WeightRecord): void {
-    this.weights.set(weight.id, { ...weight, serverSeq: this.nextSeq(weight.babyId) })
+    this.weights.set(weight.id, {
+      ...weight,
+      revision: weight.revision ?? 1,
+      deleted: weight.deleted ?? false,
+      serverSeq: this.nextSeq(weight.babyId),
+    })
   }
 
   pushRemoteHeight (height: HeightRecord): void {
-    this.heightRecords.set(height.id, { ...height, serverSeq: this.nextSeq(height.babyId) })
+    this.heightRecords.set(height.id, {
+      ...height,
+      revision: height.revision ?? 1,
+      deleted: height.deleted ?? false,
+      serverSeq: this.nextSeq(height.babyId),
+    })
   }
 
   setBaby (baby: Baby | undefined): void {
@@ -46,14 +56,28 @@ export class FakeSyncBackend implements SyncBackend {
       accepted.push(m.id)
     }
     for (const w of req.weights) {
-      if (!this.weights.has(w.id)) {
-        this.weights.set(w.id, { ...w, serverSeq: this.nextSeq(w.babyId) })
+      const current = this.weights.get(w.id)
+      const revision = w.revision ?? 1
+      if (current === undefined || revision > (current.revision ?? 1)) {
+        this.weights.set(w.id, {
+          ...w,
+          revision,
+          deleted: w.deleted ?? false,
+          serverSeq: this.nextSeq(w.babyId),
+        })
       }
       accepted.push(w.id)
     }
     for (const height of req.heightRecords ?? []) {
-      if (!this.heightRecords.has(height.id)) {
-        this.heightRecords.set(height.id, { ...height, serverSeq: this.nextSeq(height.babyId) })
+      const current = this.heightRecords.get(height.id)
+      const revision = height.revision ?? 1
+      if (current === undefined || revision > (current.revision ?? 1)) {
+        this.heightRecords.set(height.id, {
+          ...height,
+          revision,
+          deleted: height.deleted ?? false,
+          serverSeq: this.nextSeq(height.babyId),
+        })
       }
       accepted.push(height.id)
     }
