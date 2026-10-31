@@ -269,7 +269,7 @@ const FirstLaunch = ({ backend, inviteCode, hasHousehold }: { backend: HttpSyncB
     if (decision?.route !== 'HOME' || !decision.remote) return
     const { baby, movements, weights, heightRecords, locations, settings } = decision.remote
     if (settings !== undefined) applyHouseholdSettings(settings)
-    void db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
+    void db.transaction('rw', db.babies, db.movements, db.weights, db.heightRecords, db.locations, async () => {
       await db.babies.put(baby)
       await db.movements.bulkPut(movements)
       await db.weights.bulkPut(weights)
