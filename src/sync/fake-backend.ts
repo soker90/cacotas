@@ -47,6 +47,12 @@ export class FakeSyncBackend implements SyncBackend {
       }
       accepted.push(w.id)
     }
+    for (const height of req.heightRecords ?? []) {
+      if (!this.heightRecords.has(height.id)) {
+        this.heightRecords.set(height.id, { ...height, serverSeq: this.nextSeq(height.babyId) })
+      }
+      accepted.push(height.id)
+    }
 
     const freshMovements = [...this.movements.values()]
       .filter((m) => m.serverSeq > (req.cursors[m.babyId] ?? 0))
