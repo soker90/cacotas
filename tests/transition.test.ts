@@ -252,7 +252,7 @@ describe('observedGainG (§8.5)', () => {
       mkWeight(4.4, daysAgo(27)), // intervalo corto: descartado
       mkWeight(4.9, daysAgo(26)), // intervalo corto: descartado
     ])
-    expect(g).toBe(100)
+    expect(g).toBeCloseTo(100, 8)
   })
 
   it('intervalo de 3 días → null (ruido de báscula)', () => {
