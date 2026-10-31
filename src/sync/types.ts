@@ -19,7 +19,7 @@ export interface SyncRequest {
   /** Movements pending upload (serverSeq === 0). */
   movements: Movement[];
   weights: WeightRecord[];
-  heightRecords: HeightRecord[];
+  heightRecords?: HeightRecord[];
   locations?: Location[];
   baby?: Baby;
   settings?: HouseholdSettings;
@@ -33,7 +33,7 @@ export interface SyncResponse {
   hasMore: BabyHasMore;
   movements: Movement[];
   weights: WeightRecord[];
-  heightRecords: HeightRecord[];
+  heightRecords?: HeightRecord[];
   locations?: Location[];
   /** Kept during the transition until multi-baby download is implemented. */
   baby?: Baby;
