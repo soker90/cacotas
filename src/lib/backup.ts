@@ -186,7 +186,8 @@ export const importJSON = async (file: File): Promise<void> => {
   if (
     validMovements.some(
       (m) => m.quantity < 0 || m.sizeId < 0 || !Number.isFinite(m.delta)
-    )
+    ) ||
+    heightRecords.some((record) => !Number.isFinite(record.heightCm) || record.heightCm < 20 || record.heightCm > 150)
   ) {
     throw new Error('El archivo contiene movimientos corruptos')
   }
