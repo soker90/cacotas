@@ -1,6 +1,7 @@
 import type {
   Baby,
   DiaperSize,
+  HeightRecord,
   Location,
   Movement,
   MovementType,
@@ -17,6 +18,7 @@ export const exportJSON = async (): Promise<void> => {
     babies: await db.babies.toArray(),
     movements: await db.movements.toArray(),
     weights: await db.weights.toArray(),
+    heightRecords: await db.heightRecords.toArray(),
     sizes: await db.sizes.toArray(),
     locations: await db.locations.toArray(),
   }
@@ -111,6 +113,15 @@ const parseWeight = (r: Record<string, unknown>): WeightRecord => {
   }
 }
 
+const parseHeight = (r: Record<string, unknown>): HeightRecord => ({
+  id: isStr(r.id) ? r.id : '',
+  babyId: isStr(r.babyId) ? r.babyId : '',
+  heightCm: isNum(r.heightCm) ? r.heightCm : NaN,
+  recordedAt: isNum(r.recordedAt) ? r.recordedAt : NaN,
+  deviceId: isStr(r.deviceId) ? r.deviceId : '',
+  serverSeq: isNum(r.serverSeq) ? r.serverSeq : 0,
+})
+
 const parseSize = (r: Record<string, unknown>): DiaperSize => {
   return {
     id: isNum(r.id) ? r.id : -1,
@@ -147,6 +158,7 @@ export const importJSON = async (file: File): Promise<void> => {
   const babies = parseRows(parsed.babies, parseBaby)
   const movements = parseRows(parsed.movements, parseMovement)
   const weights = parseRows(parsed.weights, parseWeight)
+  const heightRecords = parsed.heightRecords === undefined ? [] : parseRows(parsed.heightRecords, parseHeight)
   const sizes = parseRows(parsed.sizes, parseSize)
   let locations: Location[] | null
   if (parsed.locations === undefined) {
@@ -165,6 +177,7 @@ export const importJSON = async (file: File): Promise<void> => {
     !babies ||
     !movements ||
     !weights ||
+    !heightRecords ||
     !sizes ||
     !locations ||
     movements.some((m) => m === null)
@@ -182,29 +195,28 @@ export const importJSON = async (file: File): Promise<void> => {
   if (
     validMovements.some(
       (m) => m.quantity < 0 || m.sizeId < 0 || !Number.isFinite(m.delta)
-    )
+    ) ||
+    heightRecords.some((record) => !Number.isFinite(record.heightCm) || record.heightCm < 20 || record.heightCm > 150)
   ) {
     throw new Error('El archivo contiene movimientos corruptos')
   }
 
   await db.transaction(
     'rw',
-    db.babies,
-    db.movements,
-    db.weights,
-    db.sizes,
-    db.locations,
+    [db.babies, db.movements, db.weights, db.heightRecords, db.sizes, db.locations],
     async () => {
       await Promise.all([
         db.babies.clear(),
         db.movements.clear(),
         db.weights.clear(),
+        db.heightRecords.clear(),
         db.sizes.clear(),
         db.locations.clear(),
       ])
       await db.babies.bulkPut(babies)
       await db.movements.bulkPut(validMovements)
       await db.weights.bulkPut(weights)
+      await db.heightRecords.bulkPut(heightRecords)
       await db.sizes.bulkPut(sizes)
       await db.locations.bulkPut(locations)
     }

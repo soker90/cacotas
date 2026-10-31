@@ -63,6 +63,15 @@ export interface WeightRecord {
   serverSeq: number;
 }
 
+export interface HeightRecord {
+  id: UUID;
+  babyId: UUID;
+  heightCm: number;
+  recordedAt: number;
+  deviceId: string;
+  serverSeq: number;
+}
+
 export interface DiaperSize {
   id: number;
   name: string;

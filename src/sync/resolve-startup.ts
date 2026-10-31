@@ -1,4 +1,4 @@
-import type { Baby, Location, Movement, WeightRecord } from '../../shared/types.ts'
+import type { Baby, HeightRecord, Location, Movement, WeightRecord } from '../../shared/types.ts'
 import type { HouseholdSettings } from '../../shared/types.ts'
 import type { SyncBackend } from './backend.ts'
 
@@ -15,6 +15,7 @@ export interface StartupDecision {
     baby: Baby
     movements: Movement[]
     weights: WeightRecord[]
+    heightRecords: HeightRecord[]
     locations: Location[]
     settings?: HouseholdSettings
   }
@@ -42,6 +43,7 @@ export const resolveStartup = async (
       cursors: {},
       movements: [],
       weights: [],
+      heightRecords: [],
       locations: [],
     })
     if (res.babies[0]) {
@@ -51,6 +53,7 @@ export const resolveStartup = async (
           baby: res.babies[0],
           movements: res.movements,
           weights: res.weights,
+          heightRecords: res.heightRecords ?? [],
           locations: res.locations ?? [],
           ...(res.settings !== undefined ? { settings: res.settings } : {}),
         },

@@ -45,6 +45,7 @@ export const runSync = async (
   while (hasMore) {
     const pendingMovements = await db.movements.where('serverSeq').equals(0).toArray()
     const pendingWeights = await db.weights.where('serverSeq').equals(0).toArray()
+    const pendingHeightRecords = await db.heightRecords.where('serverSeq').equals(0).toArray()
     const localBaby = (await db.babies.toArray()).at(0)
     const localLocations = (await db.locations.toArray()).map((location) => {
       // Keep the wire shape stable even if an older sync stored the worker's
@@ -91,6 +92,7 @@ export const runSync = async (
       cursors,
       movements: pendingMovements,
       weights: pendingWeights,
+      heightRecords: pendingHeightRecords,
       locations: localLocations,
       settings: getHouseholdSettings(deviceId),
       ...(localBaby !== undefined ? { baby: localBaby } : {}),
@@ -99,7 +101,8 @@ export const runSync = async (
     if (
       (localBaby !== undefined && res.babies.some((baby) => baby.id !== localBaby.id)) ||
       (localBaby !== undefined && res.movements.some((m) => m.babyId !== localBaby.id)) ||
-      (localBaby !== undefined && res.weights.some((w) => w.babyId !== localBaby.id))
+      (localBaby !== undefined && res.weights.some((w) => w.babyId !== localBaby.id)) ||
+      (localBaby !== undefined && (res.heightRecords ?? []).some((r) => r.babyId !== localBaby.id))
     ) {
       throw new BabyMismatchError()
     }
@@ -107,10 +110,11 @@ export const runSync = async (
     if (res.settings !== undefined) applyHouseholdSettings(res.settings)
 
     await db.transaction(
-      'rw', db.movements, db.weights, db.babies, db.locations,
+      'rw', db.movements, db.weights, db.heightRecords, db.babies, db.locations,
       async () => {
         await db.movements.bulkPut(res.movements)
         await db.weights.bulkPut(res.weights)
+        await db.heightRecords.bulkPut(res.heightRecords ?? [])
         for (const location of res.locations ?? []) {
           const mine = await db.locations.get(location.id)
           if (mine === undefined || location.updatedAt > mine.updatedAt) await db.locations.put(location)
@@ -127,7 +131,7 @@ export const runSync = async (
     )
 
     const receivedCursors: BabyCursors = { ...cursors }
-    for (const row of [...res.movements, ...res.weights]) {
+    for (const row of [...res.movements, ...res.weights, ...(res.heightRecords ?? [])]) {
       receivedCursors[row.babyId] = Math.max(receivedCursors[row.babyId] ?? 0, row.serverSeq)
     }
     for (const [babyId, cursor] of Object.entries(receivedCursors)) {

@@ -61,6 +61,25 @@ beforeEach(() => {
   db = makeDb()
 })
 
+describe('height records', () => {
+  it('stores height independently from weight records', async () => {
+    const recordedAt = Date.now()
+    await db.heightRecords.add({
+      id: 'height-1',
+      babyId: BABY,
+      heightCm: 61.5,
+      recordedAt,
+      deviceId: 'device-test',
+      serverSeq: 0,
+    })
+
+    expect(await db.heightRecords.where('babyId').equals(BABY).toArray()).toMatchObject([
+      { id: 'height-1', heightCm: 61.5, serverSeq: 0 },
+    ])
+    expect(await db.weights.count()).toBe(0)
+  })
+})
+
 describe('seedSizes', () => {
   it('seeds sizes 0-7 with the full Dodot data, once', async () => {
     await seedSizes(db)

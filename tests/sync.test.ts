@@ -28,7 +28,7 @@ if (typeof globalThis.localStorage === 'undefined') {
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createMovement } from '../shared/factory.ts'
-import type { Baby, Movement } from '../shared/types.ts'
+import type { Baby, HeightRecord, Movement } from '../shared/types.ts'
 import { stockBySize } from '../src/db/derive.ts'
 import { CacotasDB } from '../src/db/index.ts'
 import { runSync } from '../src/sync/engine.ts'
@@ -112,6 +112,27 @@ describe('sincronización (issue #4)', () => {
     // And a second round converges the remaining pending rows
     await runSync(dbA, backend, 'device-a')
     expect(await dbA.movements.count()).toBe(await dbB.movements.count())
+  })
+
+  it('sincroniza registros de altura entre dispositivos', async () => {
+    const height: HeightRecord = {
+      id: uid(),
+      babyId: 'baby-shared',
+      heightCm: 68.4,
+      recordedAt: Date.now(),
+      deviceId: 'device-a',
+      serverSeq: 0,
+    }
+    await dbA.heightRecords.add(height)
+
+    await runSync(dbA, backend, 'device-a')
+    await runSync(dbB, backend, 'device-b')
+
+    expect(await dbB.heightRecords.get(height.id)).toMatchObject({
+      babyId: 'baby-shared',
+      heightCm: 68.4,
+    })
+    expect(backend.heightRecords.size).toBe(1)
   })
 
   it('resending the same movement does not duplicate (D-17)', async () => {
