@@ -518,7 +518,7 @@ export const Settings = () => {
                 db.heightRecords
                   .filter((record) => record.serverSeq === 0)
                   .count(),
-               ]).then(async ([pendingMovements, pendingWeights, pendingHeights]) => {
+              ]).then(async ([pendingMovements, pendingWeights, pendingHeights]) => {
                 const pending = pendingMovements + pendingWeights + pendingHeights
                 if (pending > 0) {
                   setError(
