@@ -126,16 +126,46 @@ export const targetWeightKg = (
   return (next.minWeightKg + current.maxWeightKg) / 2
 }
 
-/** Real weekly gain between the last two weights, if reliable. */
+/**
+ * Real weekly gain from recent measurements, if reliable.
+ *
+ * With two measurements the original calculation is preserved. With more
+ * data, use up to the last four records (three intervals): reject implausible
+ * intervals, limit the influence of outliers around the median, then weight
+ * recent intervals more heavily. This smooths scale noise without allowing
+ * old growth rates to dominate the current estimate.
+ */
 export const observedGainG = (weights: WeightRecord[]): number | null => {
   if (weights.length < 2) return null
-  const a = weights.at(-2)!
-  const b = weights.at(-1)!
-  const weeks = weeksBetween(a.recordedAt, b.recordedAt)
-  if (weeks < 1) return null // short interval: scale noise
-  const g = ((b.weightKg - a.weightKg) * 1000) / weeks
-  if (g <= 0 || g > 400) return null // implausible: measurement error
-  return g
+
+  const recent = weights.slice(-4)
+  const gains = recent.slice(1).flatMap((record, index) => {
+    const previous = recent[index]!
+    const weeks = weeksBetween(previous.recordedAt, record.recordedAt)
+    if (weeks < 1) return []
+    const gain = ((record.weightKg - previous.weightKg) * 1000) / weeks
+    return gain > 0 && gain <= 400 ? [{ gain, recency: index + 1 }] : []
+  })
+
+  if (gains.length === 0) return null
+  if (weights.length === 2) return gains[0]!.gain
+
+  const sorted = gains.map(({ gain }) => gain).sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  const median = sorted.length % 2 === 0
+    ? (sorted[middle - 1]! + sorted[middle]!) / 2
+    : sorted[middle]!
+  const tolerance = Math.max(50, median * 0.5)
+
+  let weightedGain = 0
+  let totalWeight = 0
+  for (const { gain, recency } of gains) {
+    const bounded = Math.min(median + tolerance, Math.max(median - tolerance, gain))
+    weightedGain += bounded * recency
+    totalWeight += recency
+  }
+
+  return weightedGain / totalWeight
 }
 
 /**

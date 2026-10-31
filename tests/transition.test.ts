@@ -235,6 +235,26 @@ describe('observedGainG (§8.5)', () => {
     expect(g).toBe(250)
   })
 
+  it('combina hasta tres intervalos y da más peso a los recientes', () => {
+    const g = observedGainG([
+      mkWeight(4, daysAgo(42)),
+      mkWeight(4.2, daysAgo(28)), // 100 g/sem
+      mkWeight(4.5, daysAgo(14)), // 150 g/sem
+      mkWeight(4.9, NOW), // 200 g/sem
+    ])
+    expect(g).toBeCloseTo(166.67, 1)
+  })
+
+  it('limita la influencia de un intervalo anómalo con más histórico', () => {
+    const g = observedGainG([
+      mkWeight(4, daysAgo(42)),
+      mkWeight(4.2, daysAgo(28)), // 100 g/sem
+      mkWeight(4.4, daysAgo(21)), // intervalo corto: descartado
+      mkWeight(4.9, NOW), // intervalo implausible: descartado
+    ])
+    expect(g).toBe(100)
+  })
+
   it('intervalo de 3 días → null (ruido de báscula)', () => {
     expect(observedGainG([mkWeight(4, daysAgo(3)), mkWeight(4.2, NOW)])).toBeNull()
   })
