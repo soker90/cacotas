@@ -130,7 +130,7 @@ export const Growth = ({ baby }: { baby: Baby }) => {
                 </li>
               ))}
             </ol>
-            )}
+              )}
       </section>
 
       <section className='card growth-section'>
@@ -175,7 +175,7 @@ export const Growth = ({ baby }: { baby: Baby }) => {
                 </li>
               ))}
             </ol>
-          )}
+            )}
       </section>
       {error && <p role='alert' className='error'>{error}</p>}
     </main>
