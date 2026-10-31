@@ -515,8 +515,11 @@ export const Settings = () => {
                 db.weights
                   .filter((weight) => weight.serverSeq === 0)
                   .count(),
-              ]).then(async ([pendingMovements, pendingWeights]) => {
-                const pending = pendingMovements + pendingWeights
+                db.heightRecords
+                  .filter((record) => record.serverSeq === 0)
+                  .count(),
+               ]).then(async ([pendingMovements, pendingWeights, pendingHeights]) => {
+                const pending = pendingMovements + pendingWeights + pendingHeights
                 if (pending > 0) {
                   setError(
                     'Hay cambios pendientes. Sincronízalos o exporta una copia antes de abandonar el hogar.'
@@ -532,11 +535,13 @@ export const Settings = () => {
                   db.babies,
                   db.movements,
                   db.weights,
+                  db.heightRecords,
                   db.locations,
                   async () => {
                     await db.babies.clear()
                     await db.movements.clear()
                     await db.weights.clear()
+                    await db.heightRecords.clear()
                     await db.locations.clear()
                   }
                 )
