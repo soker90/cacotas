@@ -25,6 +25,10 @@ export class FakeSyncBackend implements SyncBackend {
     this.weights.set(weight.id, { ...weight, serverSeq: this.nextSeq(weight.babyId) })
   }
 
+  pushRemoteHeight (height: HeightRecord): void {
+    this.heightRecords.set(height.id, { ...height, serverSeq: this.nextSeq(height.babyId) })
+  }
+
   setBaby (baby: Baby | undefined): void {
     this.baby = baby
   }
