@@ -130,7 +130,7 @@ export const Growth = ({ baby }: { baby: Baby }) => {
                 </li>
               ))}
             </ol>
-          )}
+            )}
       </section>
 
       <section className='card growth-section'>
