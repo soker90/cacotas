@@ -95,6 +95,24 @@ describe('resolveStartup (§9.7)', () => {
     expect(d.remote?.weights[0]?.id).toBe('w-remote')
   })
 
+  it('downloads height history during startup reconciliation', async () => {
+    const backend = new FakeSyncBackend()
+    backend.setBaby(remoteBaby())
+    backend.pushRemoteHeight({
+      id: 'h-remote',
+      babyId: 'baby-remote',
+      heightCm: 55.5,
+      recordedAt: Date.now(),
+      deviceId: 'other-device',
+      serverSeq: 0,
+    })
+
+    const d = await resolveStartup(null, backend, 'device-a')
+
+    expect(d.remote?.heightRecords).toHaveLength(1)
+    expect(d.remote?.heightRecords[0]?.heightCm).toBe(55.5)
+  })
+
   it('does not trust a stale local baby when the server has no baby', async () => {
     const d = await resolveStartup(localBaby, new FakeSyncBackend(), 'device-a')
     expect(d.route).toBe('ONBOARDING')
