@@ -149,7 +149,7 @@ const AppRoutes = () => {
       const { baby, movements, weights, heightRecords, locations, settings } = decision.remote
       if (settings !== undefined) applyHouseholdSettings(settings)
       const currentLocalBaby = localBaby
-      await db.transaction('rw', db.babies, db.movements, db.weights, db.locations, async () => {
+      await db.transaction('rw', db.babies, db.movements, db.weights, db.heightRecords, db.locations, async () => {
         const localMovements = currentLocalBaby === null
           ? []
           : await db.movements.where('babyId').equals(currentLocalBaby.id).toArray()
