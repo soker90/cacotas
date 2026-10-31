@@ -65,6 +65,16 @@ interface WeightRow {
   device_id: string
 }
 
+interface HeightRow {
+  seq: number
+  baby_seq: number
+  id: string
+  baby_id: string
+  height_cm: number
+  recorded_at: number
+  device_id: string
+}
+
 interface BabyRow {
   id: string
   name: string
@@ -375,6 +385,15 @@ const rowToWeight = (row: WeightRow) => ({
   serverSeq: row.baby_seq,
 })
 
+const rowToHeight = (row: HeightRow) => ({
+  id: row.id,
+  babyId: row.baby_id,
+  heightCm: row.height_cm,
+  recordedAt: row.recorded_at,
+  deviceId: row.device_id,
+  serverSeq: row.baby_seq,
+})
+
 const rowToBaby = (row: BabyRow) => ({
   id: row.id,
   name: row.name,
@@ -525,6 +544,27 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
     accepted.push(r.id)
   }
 
+  const incomingHeightRecords = Array.isArray(req.heightRecords) ? req.heightRecords : []
+  for (const height of incomingHeightRecords) {
+    if (typeof height !== 'object' || height === null) return json({ error: 'invalid height' }, 400)
+    const r = height as Record<string, unknown>
+    if (typeof r.id !== 'string' || r.id === '' || typeof r.babyId !== 'string' ||
+        typeof r.heightCm !== 'number' || !Number.isFinite(r.heightCm) || r.heightCm < 20 || r.heightCm > 150 ||
+        typeof r.recordedAt !== 'number' || !Number.isInteger(r.recordedAt) ||
+        typeof r.deviceId !== 'string' || r.deviceId === '') return json({ error: 'invalid height' }, 400)
+    const owned = await env.DB.prepare('SELECT id FROM babies WHERE id=?1 AND household_id=?2').bind(r.babyId, householdId).first()
+    if (owned === null) return json({ error: 'forbidden baby' }, 403)
+    const existing = await env.DB.prepare('SELECT id, household_id FROM height_records WHERE id=?1').bind(r.id).first<{ id: string; household_id: string }>()
+    if (existing !== null && existing.household_id !== householdId) return json({ error: 'forbidden height' }, 403)
+    if (existing === null) {
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO baby_sequences (baby_id, next_seq) VALUES (?1, 2) ON CONFLICT(baby_id) DO UPDATE SET next_seq = next_seq + 1').bind(r.babyId),
+        env.DB.prepare('INSERT INTO height_records (id, household_id, baby_id, baby_seq, height_cm, recorded_at, device_id) VALUES (?1, ?2, ?3, (SELECT next_seq - 1 FROM baby_sequences WHERE baby_id=?3), ?4, ?5, ?6)').bind(r.id, householdId, r.babyId, r.heightCm, r.recordedAt, r.deviceId),
+      ])
+    }
+    accepted.push(r.id)
+  }
+
   if (typeof req.baby === 'object' && req.baby !== null) {
     const b = req.baby as Record<string, unknown>
     if (typeof b.id !== 'string' || typeof b.name !== 'string' || typeof b.zoneId !== 'string' || typeof b.createdAt !== 'number' || typeof b.updatedAt !== 'number') return json({ error: 'invalid baby' }, 400)
@@ -541,25 +581,31 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
   const babies = (babyRows.results ?? []).map(rowToBaby)
   const movements: ReturnType<typeof rowToMovement>[] = []
   const weights: ReturnType<typeof rowToWeight>[] = []
+  const heightRecords: ReturnType<typeof rowToHeight>[] = []
   const hasMore: Record<string, boolean> = {}
   const nextCursors: Record<string, number> = { ...cursors }
   for (const b of babies) {
     const cursor = cursors[b.id] ?? 0
     const rows = await env.DB.prepare(
       `SELECT * FROM (
-         SELECT baby_seq, 'movement' AS row_kind, seq, id, household_id, baby_id, size_id, type, usage_source, quantity, delta, undoes_movement_id, note, occurred_at, recorded_at, device_id, location_id, NULL AS weight_kg, NULL AS length_cm
+         SELECT baby_seq, 'movement' AS row_kind, seq, id, household_id, baby_id, size_id, type, usage_source, quantity, delta, undoes_movement_id, note, occurred_at, recorded_at, device_id, location_id, NULL AS weight_kg, NULL AS length_cm, NULL AS height_cm
          FROM movements WHERE household_id=?1 AND baby_id=?2 AND baby_seq>?3
          UNION ALL
-         SELECT baby_seq, 'weight' AS row_kind, seq, id, household_id, baby_id, NULL AS size_id, NULL AS type, NULL AS usage_source, NULL AS quantity, NULL AS delta, NULL AS undoes_movement_id, NULL AS note, NULL AS occurred_at, recorded_at, device_id, NULL AS location_id, weight_kg, length_cm
+         SELECT baby_seq, 'weight' AS row_kind, seq, id, household_id, baby_id, NULL AS size_id, NULL AS type, NULL AS usage_source, NULL AS quantity, NULL AS delta, NULL AS undoes_movement_id, NULL AS note, NULL AS occurred_at, recorded_at, device_id, NULL AS location_id, weight_kg, length_cm, NULL AS height_cm
          FROM weights WHERE household_id=?1 AND baby_id=?2 AND baby_seq>?3
+         UNION ALL
+         SELECT baby_seq, 'height' AS row_kind, seq, id, household_id, baby_id, NULL AS size_id, NULL AS type, NULL AS usage_source, NULL AS quantity, NULL AS delta, NULL AS undoes_movement_id, NULL AS note, NULL AS occurred_at, recorded_at, device_id, NULL AS location_id, NULL AS weight_kg, NULL AS length_cm, height_cm
+         FROM height_records WHERE household_id=?1 AND baby_id=?2 AND baby_seq>?3
        ) ORDER BY baby_seq LIMIT ?4`
     ).bind(householdId, b.id, cursor, PAGE_SIZE).all<Record<string, unknown>>()
     const page = rows.results ?? []
     for (const row of page) {
       if (row.row_kind === 'movement') {
         movements.push(rowToMovement(row as unknown as MovementRow))
-      } else {
+      } else if (row.row_kind === 'weight') {
         weights.push(rowToWeight(row as unknown as WeightRow))
+      } else {
+        heightRecords.push(rowToHeight(row as unknown as HeightRow))
       }
     }
     const maxSeq = Math.max(cursor, ...page.map((row) => Number(row.baby_seq)))
@@ -579,7 +625,7 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
         updatedAt: settingsRow.updated_at,
         deviceId: settingsRow.device_id,
       }
-  return json({ babies, cursors: nextCursors, hasMore, movements, weights, locations, accepted, ...(responseSettings !== undefined ? { settings: responseSettings } : {}) })
+  return json({ babies, cursors: nextCursors, hasMore, movements, weights, heightRecords, locations, accepted, ...(responseSettings !== undefined ? { settings: responseSettings } : {}) })
 }
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase()
@@ -891,6 +937,7 @@ const deleteHouseholdData = (env: Env, householdId: string) => [
   env.DB.prepare('DELETE FROM baby_sequences WHERE baby_id IN (SELECT id FROM babies WHERE household_id=?1)').bind(householdId),
   env.DB.prepare('DELETE FROM movements WHERE household_id=?1').bind(householdId),
   env.DB.prepare('DELETE FROM weights WHERE household_id=?1').bind(householdId),
+  env.DB.prepare('DELETE FROM height_records WHERE household_id=?1').bind(householdId),
   env.DB.prepare('DELETE FROM locations WHERE household_id=?1').bind(householdId),
   env.DB.prepare('DELETE FROM babies WHERE household_id=?1').bind(householdId),
   env.DB.prepare(
