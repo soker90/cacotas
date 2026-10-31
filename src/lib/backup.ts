@@ -1,6 +1,7 @@
 import type {
   Baby,
   DiaperSize,
+  HeightRecord,
   Location,
   Movement,
   MovementType,
@@ -17,6 +18,7 @@ export const exportJSON = async (): Promise<void> => {
     babies: await db.babies.toArray(),
     movements: await db.movements.toArray(),
     weights: await db.weights.toArray(),
+    heightRecords: await db.heightRecords.toArray(),
     sizes: await db.sizes.toArray(),
     locations: await db.locations.toArray(),
   }
@@ -147,6 +149,7 @@ export const importJSON = async (file: File): Promise<void> => {
   const babies = parseRows(parsed.babies, parseBaby)
   const movements = parseRows(parsed.movements, parseMovement)
   const weights = parseRows(parsed.weights, parseWeight)
+  const heightRecords = parsed.heightRecords === undefined ? [] : parseRows(parsed.heightRecords, parseHeight)
   const sizes = parseRows(parsed.sizes, parseSize)
   let locations: Location[] | null
   if (parsed.locations === undefined) {
@@ -165,6 +168,7 @@ export const importJSON = async (file: File): Promise<void> => {
     !babies ||
     !movements ||
     !weights ||
+    !heightRecords ||
     !sizes ||
     !locations ||
     movements.some((m) => m === null)
@@ -192,6 +196,7 @@ export const importJSON = async (file: File): Promise<void> => {
     db.babies,
     db.movements,
     db.weights,
+    db.heightRecords,
     db.sizes,
     db.locations,
     async () => {
@@ -199,12 +204,14 @@ export const importJSON = async (file: File): Promise<void> => {
         db.babies.clear(),
         db.movements.clear(),
         db.weights.clear(),
+        db.heightRecords.clear(),
         db.sizes.clear(),
         db.locations.clear(),
       ])
       await db.babies.bulkPut(babies)
       await db.movements.bulkPut(validMovements)
       await db.weights.bulkPut(weights)
+      await db.heightRecords.bulkPut(heightRecords)
       await db.sizes.bulkPut(sizes)
       await db.locations.bulkPut(locations)
     }
