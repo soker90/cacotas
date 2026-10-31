@@ -548,9 +548,9 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
   for (const height of incomingHeightRecords) {
     if (typeof height !== 'object' || height === null) return json({ error: 'invalid height' }, 400)
     const r = height as Record<string, unknown>
-    if (typeof r.id !== 'string' || r.id === '' || typeof r.babyId !== 'string' ||
+    if (typeof r.id !== 'string' || r.id === '' || typeof r.babyId !== 'string' || r.babyId === '' ||
         typeof r.heightCm !== 'number' || !Number.isFinite(r.heightCm) || r.heightCm < 20 || r.heightCm > 150 ||
-        typeof r.recordedAt !== 'number' || !Number.isInteger(r.recordedAt) ||
+        typeof r.recordedAt !== 'number' || !Number.isInteger(r.recordedAt) || r.recordedAt < 0 ||
         typeof r.deviceId !== 'string' || r.deviceId === '') return json({ error: 'invalid height' }, 400)
     const owned = await env.DB.prepare('SELECT id FROM babies WHERE id=?1 AND household_id=?2').bind(r.babyId, householdId).first()
     if (owned === null) return json({ error: 'forbidden baby' }, 403)
