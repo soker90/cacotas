@@ -3,6 +3,7 @@ import { DODOT_SIZES } from '../../shared/transition.ts'
 import type {
   Baby,
   DiaperSize,
+  HeightRecord,
   Location,
   Movement,
   UUID,
@@ -15,6 +16,7 @@ const STORES = {
     '[babyId+occurredAt], [babyId+type], [babyId+sizeId], [babyId+locationId]',
   babies: 'id',
   weights: 'id, babyId, recordedAt, serverSeq',
+  heightRecords: 'id, babyId, recordedAt, serverSeq',
   sizes: 'id',
   locations: 'id, updatedAt',
 }
@@ -23,6 +25,7 @@ export class CacotasDB extends Dexie {
   movements!: Table<Movement, UUID>
   babies!: Table<Baby, UUID>
   weights!: Table<WeightRecord, UUID>
+  heightRecords!: Table<HeightRecord, UUID>
   sizes!: Table<DiaperSize, number>
   locations!: Table<Location, UUID>
 
@@ -59,6 +62,7 @@ export class CacotasDB extends Dexie {
       })
     this.version(3)
       .stores(STORES)
+
       .upgrade(async (tx) => {
         const babies = await tx.table<Baby, UUID>('babies').toArray()
         const movements = tx.table<Movement, UUID>('movements')
@@ -85,6 +89,7 @@ export class CacotasDB extends Dexie {
           }
         }
       })
+    this.version(4).stores(STORES)
   }
 }
 
