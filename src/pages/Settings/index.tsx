@@ -583,11 +583,13 @@ export const Settings = () => {
                     db.babies,
                     db.movements,
                     db.weights,
+                    db.heightRecords,
                     db.locations,
                     async () => {
                       await db.babies.clear()
                       await db.movements.clear()
                       await db.weights.clear()
+                      await db.heightRecords.clear()
                       await db.locations.clear()
                     }
                   )
