@@ -6,6 +6,7 @@ import { activeSignals, liveUsage, lastSizeChange, stockBySize } from '../db/der
 import { db } from '../db/index.ts'
 import { getCoverageDays, getWarningDays } from '../lib/settings.ts'
 import { migrateTransitionLocalState } from '../lib/transition-signals.ts'
+import { sizeUsageStartedAt } from '../../shared/time.ts'
 
 /**
  * Live forecast for the given size (SPEC.md §7 + §8). undefined = loading;
@@ -47,7 +48,7 @@ export const useForecast = (
             frequentDermatitis: signalSet.has('frequentDermatitis'),
             pullsDiaper: signalSet.has('pullsDiaper'),
           },
-          sizeStartedAt: sizeChange?.occurredAt ?? null,
+          sizeStartedAt: sizeUsageStartedAt(sizeChange?.occurredAt ?? null, baby.birthDate),
           currentSize,
           nextSize,
           weights,
