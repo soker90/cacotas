@@ -15,3 +15,16 @@ export const logicalDate = (
 /** Calendar days between two logical dates. */
 export const daysBetween = (a: string, b: string): number =>
   Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000)
+
+/**
+ * A size selected during pregnancy is only considered in use from the
+ * baby's birth date. Keep the original movement untouched in the ledger.
+ */
+export const sizeUsageStartedAt = (
+  sizeStartedAt: number | null,
+  birthDate: string | undefined
+): number | null => {
+  if (sizeStartedAt === null || birthDate === undefined) return sizeStartedAt
+  const birthAt = Date.parse(`${birthDate}T12:00:00Z`)
+  return Number.isFinite(birthAt) ? Math.max(sizeStartedAt, birthAt) : sizeStartedAt
+}

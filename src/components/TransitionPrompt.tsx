@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { estimateTransition, estimateWeightKg } from '../../shared/transition.ts'
-import { daysBetween, logicalDate } from '../../shared/time.ts'
+import { daysBetween, logicalDate, sizeUsageStartedAt } from '../../shared/time.ts'
 import type { Baby } from '../../shared/types.ts'
 import { createMovement } from '../../shared/factory.ts'
 import { activeSignals, lastSizeChange, snoozeActive } from '../db/derive.ts'
@@ -45,9 +45,10 @@ export const TransitionPrompt = ({ baby, sizeId }: { baby: Baby, sizeId: number 
       pullsDiaper: signals.has('pullsDiaper'),
     }
 
+    const sizeStartedAt = sizeUsageStartedAt(sizeChange.occurredAt, self.birthDate)
     const transition = estimateTransition({
       signals: transitionSignals,
-      sizeStartedAt: sizeChange.occurredAt,
+      sizeStartedAt,
       currentSize: sizes[0],
       nextSize: sizes[1] ?? null,
       weights,
@@ -58,7 +59,7 @@ export const TransitionPrompt = ({ baby, sizeId }: { baby: Baby, sizeId: number 
 
     const weeksInSize = Math.floor(
       daysBetween(
-        logicalDate(sizeChange.occurredAt),
+        logicalDate(sizeStartedAt ?? sizeChange.occurredAt),
         logicalDate(now)
       ) / 7
     )
