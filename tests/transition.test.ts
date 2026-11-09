@@ -13,6 +13,7 @@ import {
   weightDaysRange,
 } from '../shared/transition.ts'
 import { computeForecast } from '../shared/forecast.ts'
+import { sizeUsageStartedAt } from '../shared/time.ts'
 import type { Baby, DiaperSize, TransitionSignals, WeightRecord } from '../shared/types.ts'
 
 // January: no DST in Europe/Madrid — UTC noon is a safe mid-day instant.
@@ -587,5 +588,25 @@ describe('transición + forecast (§7.5, §8.6)', () => {
       coverageDays: 21,
     })
     expect(f.status).toBe('BUY_BOTH_SIZES')
+  })
+})
+
+
+describe('sizeUsageStartedAt', () => {
+  it('no cuenta el tiempo anterior al nacimiento si la talla se eligió durante el embarazo', () => {
+    const selectedDuringPregnancy = Date.parse('2026-10-01T12:00:00Z')
+    const birthAt = Date.parse('2026-10-20T12:00:00Z')
+    expect(sizeUsageStartedAt(selectedDuringPregnancy, '2026-10-20')).toBe(birthAt)
+  })
+
+  it('mantiene la fecha real si la talla empezó después del nacimiento', () => {
+    const sizeStartedAt = Date.parse('2026-10-25T12:00:00Z')
+    expect(sizeUsageStartedAt(sizeStartedAt, '2026-10-20')).toBe(sizeStartedAt)
+  })
+
+  it('conserva el comportamiento si no hay fecha de nacimiento o de talla', () => {
+    const sizeStartedAt = Date.parse('2026-10-25T12:00:00Z')
+    expect(sizeUsageStartedAt(sizeStartedAt, undefined)).toBe(sizeStartedAt)
+    expect(sizeUsageStartedAt(null, '2026-10-20')).toBeNull()
   })
 })
