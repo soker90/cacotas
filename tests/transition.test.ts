@@ -591,7 +591,6 @@ describe('transición + forecast (§7.5, §8.6)', () => {
   })
 })
 
-
 describe('sizeUsageStartedAt', () => {
   it('no cuenta el tiempo anterior al nacimiento si la talla se eligió durante el embarazo', () => {
     const selectedDuringPregnancy = Date.parse('2026-10-01T12:00:00Z')
