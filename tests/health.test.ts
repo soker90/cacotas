@@ -23,6 +23,50 @@ describe('health scheduling', () => {
     expect(getUpcomingDoseTimes(base, base.startsAt, base.startsAt + 25 * HOUR))
       .toEqual([base.startsAt + 8 * HOUR, base.startsAt + 16 * HOUR, base.startsAt + 24 * HOUR])
   })
+  it('anchors the next interval to the last actually administered dose, including drift', () => {
+    const dayOneAtThree = base.startsAt + 7 * HOUR
+    const dayTwoAtTwo = dayOneAtThree + 23 * HOUR
+    const administered = {
+      id: plannedDoseId(base.id, dayOneAtThree),
+      treatmentId: base.id,
+      babyId: base.babyId,
+      scheduledAt: dayOneAtThree,
+      status: 'administered' as const,
+      administeredAt: dayOneAtThree,
+      recordedAt: dayOneAtThree,
+      deviceId: 'phone-a',
+      serverSeq: 0,
+      revision: 1,
+    }
+    const firstNext = getUpcomingDoseTimes(base, dayOneAtThree, dayOneAtThree + 48 * HOUR, 'Europe/Madrid', [administered])
+    expect(firstNext[0]).toBe(dayOneAtThree + 24 * HOUR)
+
+    const secondAdministered = {
+      ...administered,
+      id: plannedDoseId(base.id, dayOneAtThree + 24 * HOUR),
+      scheduledAt: dayOneAtThree + 24 * HOUR,
+      administeredAt: dayTwoAtTwo,
+      recordedAt: dayTwoAtTwo,
+      revision: 2,
+    }
+    const nextDay = getUpcomingDoseTimes(base, dayTwoAtTwo, dayTwoAtTwo + 48 * HOUR, 'Europe/Madrid', [administered, secondAdministered])
+    expect(nextDay[0]).toBe(dayTwoAtTwo + 24 * HOUR)
+  })
+  it('does not let an omitted dose reset the interval anchor', () => {
+    const administeredAt = base.startsAt + 3 * HOUR
+    const administered = {
+      id: plannedDoseId(base.id, administeredAt), treatmentId: base.id, babyId: base.babyId,
+      scheduledAt: administeredAt, status: 'administered' as const, administeredAt,
+      recordedAt: administeredAt, deviceId: 'phone-a', serverSeq: 0, revision: 1,
+    }
+    const omittedAt = administeredAt + 24 * HOUR
+    const omitted = {
+      ...administered, id: plannedDoseId(base.id, omittedAt), scheduledAt: omittedAt,
+      status: 'omitted' as const, administeredAt: undefined, recordedAt: omittedAt, revision: 2,
+    }
+    const next = getUpcomingDoseTimes(base, omittedAt, omittedAt + 48 * HOUR, 'Europe/Madrid', [administered, omitted])
+    expect(next[0]).toBe(administeredAt + 48 * HOUR)
+  })
   it('does not schedule before start or after end', () => {
     expect(getUpcomingDoseTimes({ ...base, endsAt: base.startsAt + 9 * HOUR }, base.startsAt, base.startsAt + 24 * HOUR))
       .toEqual([base.startsAt + 8 * HOUR])

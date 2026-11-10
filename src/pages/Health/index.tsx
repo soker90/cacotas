@@ -40,7 +40,9 @@ export const Health = ({ baby }: { baby: Baby }) => {
     return treatments.flatMap((treatment) => getUpcomingDoseTimes(
       treatment,
       now - 24 * 60 * 60 * 1000,
-      now + 7 * 24 * 60 * 60 * 1000
+      now + 7 * 24 * 60 * 60 * 1000,
+      'Europe/Madrid',
+      doses.filter((dose) => dose.treatmentId === treatment.id)
     ).map((scheduledAt) => ({
       treatment,
       scheduledAt,

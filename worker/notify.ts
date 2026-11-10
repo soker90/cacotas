@@ -1,4 +1,4 @@
-import { getUpcomingDoseTimes, isAppointmentReminderDue, isDoseReminderDue, plannedDoseId, type MedicalAppointment, type Treatment } from '../shared/health.ts'
+import { getUpcomingDoseTimes, isAppointmentReminderDue, isDoseReminderDue, plannedDoseId, type DoseRecord, type MedicalAppointment, type Treatment } from '../shared/health.ts'
 import { computeForecast } from '../shared/forecast.ts'
 import { DODOT_SIZES } from '../shared/transition.ts'
 import {
@@ -257,10 +257,17 @@ export const runHealthNotifications = async (env: Env): Promise<HealthNotifyResu
     const treatmentRows = (await env.DB.prepare(
       'SELECT record_json FROM treatments WHERE household_id=?1 AND baby_id=?2'
     ).bind(baby.household_id, baby.id).all<{ record_json: string }>()).results ?? []
+    const doseRows = (await env.DB.prepare(
+      'SELECT record_json FROM dose_records WHERE household_id=?1 AND baby_id=?2'
+    ).bind(baby.household_id, baby.id).all<{ record_json: string }>()).results ?? []
+    const doseRecords = doseRows.map((row) => JSON.parse(row.record_json) as DoseRecord)
     for (const row of treatmentRows) {
       const treatment = JSON.parse(row.record_json) as Treatment
       if (treatment.status !== 'active') continue
-      const candidates = getUpcomingDoseTimes(treatment, now - 1, now + 60 * 60 * 1000)
+      const treatmentDoses = doseRecords.filter((dose) => dose.treatmentId === treatment.id)
+      const candidates = getUpcomingDoseTimes(
+        treatment, now - 1, now + 60 * 60 * 1000, 'Europe/Madrid', treatmentDoses
+      )
         .filter((scheduledAt) => isDoseReminderDue(scheduledAt, now))
       for (const scheduledAt of candidates) {
         const doseId = plannedDoseId(treatment.id, scheduledAt)

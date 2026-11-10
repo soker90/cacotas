@@ -143,7 +143,8 @@ const addCalendarDays = (date: Date, days: number): Date =>
 
 /** Generate scheduled instants in (after, through], preserving the treatment's original anchor. */
 export const getUpcomingDoseTimes = (
-  treatment: Treatment, after: number, through: number, timeZone = 'Europe/Madrid'
+  treatment: Treatment, after: number, through: number, timeZone = 'Europe/Madrid',
+  doseRecords: readonly DoseRecord[] = []
 ): number[] => {
   if (treatment.status !== 'active' || through <= after) return []
   const end = Math.min(through, treatment.endsAt ?? Number.POSITIVE_INFINITY)
@@ -152,10 +153,22 @@ export const getUpcomingDoseTimes = (
     const hours = treatment.schedule.everyHours
     if (!Number.isInteger(hours) || hours < 1 || hours > 24) return []
     const step = hours * HOUR
-    const firstIndex = Math.max(0, Math.floor((after - treatment.startsAt) / step) + 1)
-    const lastIndex = Math.floor((end - treatment.startsAt) / step)
+    const lastAdministered = doseRecords
+      .filter((dose) => dose.treatmentId === treatment.id && dose.status === 'administered')
+      .reduce<number | null>((latest, dose) => {
+        const administeredAt = dose.administeredAt ?? dose.scheduledAt
+        return latest === null || administeredAt > latest ? administeredAt : latest
+      }, null)
+    const anchor = lastAdministered ?? treatment.startsAt
+    // Once a dose has actually been administered, every following interval is
+    // measured from that real administration time. An omitted dose never moves
+    // the anchor. Before the first administration, startsAt remains the initial slot.
+    const firstIndex = lastAdministered === null
+      ? Math.max(0, Math.floor((after - anchor) / step) + 1)
+      : Math.max(1, Math.floor((after - anchor) / step) + 1)
+    const lastIndex = Math.floor((end - anchor) / step)
     const result: number[] = []
-    for (let i = firstIndex; i <= lastIndex; i++) result.push(treatment.startsAt + i * step)
+    for (let i = firstIndex; i <= lastIndex; i++) result.push(anchor + i * step)
     return result
   }
   const times = [...new Set(treatment.schedule.times)]
