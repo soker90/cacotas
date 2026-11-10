@@ -248,7 +248,7 @@ export const Health = ({ baby }: { baby: Baby }) => {
           : treatments.filter((treatment) => treatment.status === 'active').map((treatment) => {
             const nextDose = doseRows.find((row) => row.treatment.id === treatment.id)
             return (
-                <article className='list-row' key={treatment.id}>
+              <article className='list-row' key={treatment.id}>
                   <div>
                     <strong>{treatment.name}</strong>
                     <p className='muted small'>
