@@ -59,13 +59,13 @@ describe('health scheduling', () => {
       scheduledAt: administeredAt, status: 'administered' as const, administeredAt,
       recordedAt: administeredAt, deviceId: 'phone-a', serverSeq: 0, revision: 1,
     }
-    const omittedAt = administeredAt + 24 * HOUR
+    const omittedAt = administeredAt + 8 * HOUR
     const omitted = {
       ...administered, id: plannedDoseId(base.id, omittedAt), scheduledAt: omittedAt,
       status: 'omitted' as const, administeredAt: undefined, recordedAt: omittedAt, revision: 2,
     }
     const next = getUpcomingDoseTimes(base, omittedAt, omittedAt + 48 * HOUR, 'Europe/Madrid', [administered, omitted])
-    expect(next[0]).toBe(administeredAt + 48 * HOUR)
+    expect(next[0]).toBe(administeredAt + 16 * HOUR)
   })
   it('does not schedule before start or after end', () => {
     expect(getUpcomingDoseTimes({ ...base, endsAt: base.startsAt + 9 * HOUR }, base.startsAt, base.startsAt + 24 * HOUR))
