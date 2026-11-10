@@ -19,6 +19,7 @@ const urlBase64ToUint8Array = (base64: string): Uint8Array<ArrayBuffer> => {
 export type PushSupport =
   | 'unsupported'
   | 'denied'
+  | 'permission-required'
   | 'subscribed'
   | 'unsubscribed'
 
@@ -31,6 +32,7 @@ export const pushState = async (): Promise<PushSupport> => {
     return 'unsupported'
   }
   if (Notification.permission === 'denied') return 'denied'
+  if (Notification.permission === 'default') return 'permission-required'
   const reg = await navigator.serviceWorker.getRegistration()
   if (!reg) return 'unsubscribed'
   const existing = await reg.pushManager.getSubscription()
@@ -57,7 +59,7 @@ export const subscribeToPush = async (
 ): Promise<PushSupport> => {
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') {
-    return Notification.permission === 'denied' ? 'denied' : 'unsubscribed'
+    return permission === 'denied' ? 'denied' : 'permission-required'
   }
 
   const reg = await navigator.serviceWorker.getRegistration()

@@ -1,3 +1,4 @@
+import type { DoseRecord, MedicalAppointment, Treatment } from '../../shared/health.ts'
 import type { Baby, HeightRecord, Location, Movement, UUID, WeightRecord } from '../../shared/types.ts'
 import type { SyncBackend } from './backend.ts'
 import type { SyncRequest, SyncResponse } from './types.ts'
@@ -7,6 +8,9 @@ export class FakeSyncBackend implements SyncBackend {
   readonly movements = new Map<UUID, Movement>()
   readonly weights = new Map<UUID, WeightRecord>()
   readonly heightRecords = new Map<UUID, HeightRecord>()
+  readonly treatments = new Map<UUID, Treatment>()
+  readonly doseRecords = new Map<UUID, DoseRecord>()
+  readonly appointments = new Map<UUID, MedicalAppointment>()
   baby: Baby | undefined
   locations = new Map<UUID, Location>()
   private readonly nextSeqByBaby = new Map<UUID, number>()
@@ -82,6 +86,28 @@ export class FakeSyncBackend implements SyncBackend {
       accepted.push(height.id)
     }
 
+    for (const treatment of req.treatments ?? []) {
+      const current = this.treatments.get(treatment.id)
+      if (current === undefined || treatment.updatedAt > current.updatedAt) {
+        this.treatments.set(treatment.id, { ...treatment, serverSeq: 1 })
+      }
+      accepted.push(treatment.id)
+    }
+    for (const dose of req.doseRecords ?? []) {
+      const current = this.doseRecords.get(dose.id)
+      if (current === undefined || dose.revision > current.revision) {
+        this.doseRecords.set(dose.id, { ...dose, serverSeq: 1 })
+      }
+      accepted.push(dose.id)
+    }
+    for (const appointment of req.appointments ?? []) {
+      const current = this.appointments.get(appointment.id)
+      if (current === undefined || appointment.updatedAt > current.updatedAt) {
+        this.appointments.set(appointment.id, { ...appointment, serverSeq: 1 })
+      }
+      accepted.push(appointment.id)
+    }
+
     const freshMovements = [...this.movements.values()]
       .filter((m) => m.serverSeq > (req.cursors[m.babyId] ?? 0))
       .sort((a, b) => a.serverSeq - b.serverSeq)
@@ -117,6 +143,9 @@ export class FakeSyncBackend implements SyncBackend {
       movements: movementPage,
       weights: weightPage,
       heightRecords: heightPage,
+      treatments: [...this.treatments.values()],
+      doseRecords: [...this.doseRecords.values()],
+      appointments: [...this.appointments.values()],
       locations: [...this.locations.values()],
       ...(this.baby !== undefined ? { baby: this.baby } : {}),
       accepted,

@@ -1,3 +1,4 @@
+import { getUpcomingDoseTimes, isAppointmentReminderDue, isDoseReminderDue, plannedDoseId, type DoseRecord, type MedicalAppointment, type Treatment } from '../shared/health.ts'
 import { computeForecast } from '../shared/forecast.ts'
 import { DODOT_SIZES } from '../shared/transition.ts'
 import {
@@ -188,3 +189,140 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
   return result
 }
 export { madridNow }
+
+export interface HealthNotifyResult {
+  checkedAt: number
+  sent: number
+  skipped: number
+}
+
+type HealthPushOutcome = 'sent' | 'duplicate' | 'expired' | 'failed'
+
+export const sendHealthPushOnce = async (
+  env: Env,
+  notificationKey: string,
+  householdId: string,
+  device: Parameters<typeof sendPush>[0] & { deviceId: string },
+  payload: string,
+  now: number
+): Promise<HealthPushOutcome> => {
+  const claim = await env.DB.prepare(
+    'INSERT OR IGNORE INTO health_notification_log (notification_key, household_id, device_id, sent_at) VALUES (?1,?2,?3,?4) RETURNING notification_key'
+  ).bind(notificationKey, householdId, device.deviceId, now).first<{ notification_key: string }>()
+  if (claim === null) return 'duplicate'
+  try {
+    const status = await sendPush(
+      device,
+      payload,
+      { privateKeyB64url: env.VAPID_PRIVATE_KEY, publicKeyB64url: env.VAPID_PUBLIC_KEY, subject: env.VAPID_SUBJECT }
+    )
+    if (status === 404 || status === 410) {
+      await env.DB.prepare('DELETE FROM push_subscriptions WHERE device_id=?1').bind(device.deviceId).run()
+      await env.DB.prepare('DELETE FROM health_notification_log WHERE notification_key=?1 AND device_id=?2')
+        .bind(notificationKey, device.deviceId).run()
+      return 'expired'
+    }
+    if (status < 200 || status >= 300) {
+      await env.DB.prepare('DELETE FROM health_notification_log WHERE notification_key=?1 AND device_id=?2')
+        .bind(notificationKey, device.deviceId).run()
+      return 'failed'
+    }
+    return 'sent'
+  } catch {
+    await env.DB.prepare('DELETE FROM health_notification_log WHERE notification_key=?1 AND device_id=?2')
+      .bind(notificationKey, device.deviceId).run()
+    return 'failed'
+  }
+}
+
+/** Send medication and appointment reminders from the hourly cron. */
+export const runHealthNotifications = async (env: Env): Promise<HealthNotifyResult> => {
+  const now = Date.now()
+  const result: HealthNotifyResult = { checkedAt: now, sent: 0, skipped: 0 }
+  const babies = (await env.DB.prepare(
+    'SELECT id, household_id, name FROM babies ORDER BY created_at,id'
+  ).all<{ id: string; household_id: string; name: string }>()).results ?? []
+
+  for (const baby of babies) {
+    const subscriptions = (await env.DB.prepare(
+      'SELECT ps.device_id, ps.endpoint, ps.keys_json FROM push_subscriptions ps JOIN users u ON u.id=ps.user_id WHERE u.household_id=?1'
+    ).bind(baby.household_id).all<{ device_id: string; endpoint: string; keys_json: string }>()).results ?? []
+    if (subscriptions.length === 0 || env.VAPID_PRIVATE_KEY === '') continue
+    const devices = subscriptions.map((row) => ({
+      deviceId: row.device_id,
+      endpoint: row.endpoint,
+      keys: JSON.parse(row.keys_json) as { p256dh: string; auth: string },
+    }))
+
+    const treatmentRows = (await env.DB.prepare(
+      'SELECT record_json FROM treatments WHERE household_id=?1 AND baby_id=?2'
+    ).bind(baby.household_id, baby.id).all<{ record_json: string }>()).results ?? []
+    const doseRows = (await env.DB.prepare(
+      'SELECT record_json FROM dose_records WHERE household_id=?1 AND baby_id=?2'
+    ).bind(baby.household_id, baby.id).all<{ record_json: string }>()).results ?? []
+    const doseRecords = doseRows.map((row) => JSON.parse(row.record_json) as DoseRecord)
+    for (const row of treatmentRows) {
+      const treatment = JSON.parse(row.record_json) as Treatment
+      if (treatment.status !== 'active') continue
+      const treatmentDoses = doseRecords.filter((dose) => dose.treatmentId === treatment.id)
+      const candidates = getUpcomingDoseTimes(
+        treatment, now - 1, now + 60 * 60 * 1000, 'Europe/Madrid', treatmentDoses
+      )
+        .filter((scheduledAt) => isDoseReminderDue(scheduledAt, now))
+      for (const scheduledAt of candidates) {
+        const doseId = plannedDoseId(treatment.id, scheduledAt)
+        const recorded = await env.DB.prepare('SELECT id FROM dose_records WHERE id=?1 AND household_id=?2')
+          .bind(doseId, baby.household_id).first()
+        if (recorded !== null) {
+          result.skipped++
+          continue
+        }
+        const notificationKey = `medication:${doseId}`
+        for (const device of devices) {
+          const outcome = await sendHealthPushOnce(
+            env,
+            notificationKey,
+            baby.household_id,
+            device,
+            JSON.stringify({
+              title: 'Recordatorio de medicación',
+              body: `${baby.name}: toca ${treatment.name}.`,
+              tag: notificationKey,
+              data: { kind: 'MEDICATION', babyId: baby.id, treatmentId: treatment.id, scheduledAt },
+            }),
+            now
+          )
+          if (outcome === 'sent') result.sent++
+          else if (outcome === 'failed' || outcome === 'expired') result.skipped++
+        }
+      }
+    }
+
+    const appointmentRows = (await env.DB.prepare(
+      'SELECT record_json FROM medical_appointments WHERE household_id=?1 AND baby_id=?2'
+    ).bind(baby.household_id, baby.id).all<{ record_json: string }>()).results ?? []
+    for (const row of appointmentRows) {
+      const appointment = JSON.parse(row.record_json) as MedicalAppointment
+      if (!isAppointmentReminderDue(appointment, now)) continue
+      const notificationKey = `appointment:${appointment.id}:${appointment.startsAt}`
+      for (const device of devices) {
+        const outcome = await sendHealthPushOnce(
+          env,
+          notificationKey,
+          baby.household_id,
+          device,
+          JSON.stringify({
+            title: 'Recordatorio de cita médica',
+            body: `${baby.name}: ${appointment.title} mañana.`,
+            tag: notificationKey,
+            data: { kind: 'APPOINTMENT', babyId: baby.id, appointmentId: appointment.id },
+          }),
+          now
+        )
+        if (outcome === 'sent') result.sent++
+        else if (outcome === 'failed' || outcome === 'expired') result.skipped++
+      }
+    }
+  }
+  return result
+}

@@ -610,11 +610,17 @@ export const Settings = () => {
             navegador.
           </p>
         )}
-        {(pushSupport === 'subscribed' || pushSupport === 'unsubscribed') && (
+        {pushSupport === 'permission-required' && (
+          <p className='muted small'>
+            El navegador todavía no ha concedido permiso. Al activar los avisos
+            podrás aceptar o rechazar las notificaciones de este dispositivo.
+          </p>
+        )}
+        {(pushSupport === 'subscribed' || pushSupport === 'unsubscribed' || pushSupport === 'permission-required') && (
           <>
             <p className='muted small'>
-              Aviso diario a las 20:00 si queda poco stock. Con acción «me
-              encargo yo» para silenciarlo un día.
+              Recordatorios de medicación hasta una hora antes y de citas el día
+              anterior. También avisos diarios a las 20:00 si queda poco stock.
             </p>
             {pushSupport === 'subscribed'
               ? (

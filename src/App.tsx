@@ -21,6 +21,7 @@ import { History } from './pages/History/index.tsx'
 import { Settings } from './pages/Settings/index.tsx'
 import { Stats } from './pages/Stats/index.tsx'
 import { Growth } from './pages/Growth/index.tsx'
+import { Health } from './pages/Health/index.tsx'
 import { UpdatePrompt } from './pwa/UpdatePrompt.tsx'
 import { HttpSyncBackend } from './sync/http-backend.ts'
 import { startSyncLoop } from './sync/scheduler.ts'
@@ -131,12 +132,15 @@ const AppRoutes = () => {
         return
       }
       if (decision.route === 'ONBOARDING' && decision.remote === undefined) {
-        await db.transaction('rw', db.babies, db.movements, db.weights, db.heightRecords, db.locations, async () => {
+        await db.transaction('rw', [db.babies, db.movements, db.weights, db.heightRecords, db.locations, db.treatments, db.doseRecords, db.appointments], async () => {
           await db.babies.clear()
           await db.movements.clear()
           await db.weights.clear()
           await db.heightRecords.clear()
           await db.locations.clear()
+          await db.treatments.clear()
+          await db.doseRecords.clear()
+          await db.appointments.clear()
         })
         if (!cancelled) setStartupReady(true)
         return
@@ -146,10 +150,10 @@ const AppRoutes = () => {
         return
       }
 
-      const { baby, movements, weights, heightRecords, locations, settings } = decision.remote
+      const { baby, movements, weights, heightRecords, locations, settings, treatments, doseRecords, appointments } = decision.remote
       if (settings !== undefined) applyHouseholdSettings(settings)
       const currentLocalBaby = localBaby
-      await db.transaction('rw', db.babies, db.movements, db.weights, db.heightRecords, db.locations, async () => {
+      await db.transaction('rw', [db.babies, db.movements, db.weights, db.heightRecords, db.locations, db.treatments, db.doseRecords, db.appointments], async () => {
         const localMovements = currentLocalBaby === null
           ? []
           : await db.movements.where('babyId').equals(currentLocalBaby.id).toArray()
@@ -162,6 +166,9 @@ const AppRoutes = () => {
           await db.heightRecords.clear()
           await db.babies.clear()
           await db.locations.clear()
+          await db.treatments.clear()
+          await db.doseRecords.clear()
+          await db.appointments.clear()
         } else {
           await db.movements.bulkDelete(localMovements.filter((row) => row.serverSeq > 0).map((row) => row.id))
           await db.weights.bulkDelete(localWeights.filter((row) => row.serverSeq > 0).map((row) => row.id))
@@ -173,6 +180,9 @@ const AppRoutes = () => {
         await db.weights.bulkPut(weights)
         await db.heightRecords.bulkPut(heightRecords)
         await db.locations.bulkPut(locations)
+        await db.treatments.bulkPut(treatments)
+        await db.doseRecords.bulkPut(doseRecords)
+        await db.appointments.bulkPut(appointments)
       })
       if (!cancelled) setStartupReady(true)
     }).catch(() => {
@@ -229,6 +239,7 @@ const AppRoutes = () => {
           <Route path='/history' element={<History baby={localBaby} />} />
           <Route path='/stats' element={<Stats />} />
           <Route path='/growth' element={<Growth baby={localBaby} />} />
+          <Route path='/health' element={<Health baby={localBaby} />} />
           <Route path='/settings' element={<Settings />} />
           <Route path='*' element={<Navigate to='/' replace />} />
         </Route>
@@ -267,14 +278,17 @@ const FirstLaunch = ({ backend, inviteCode, hasHousehold }: { backend: HttpSyncB
 
   useEffect(() => {
     if (decision?.route !== 'HOME' || !decision.remote) return
-    const { baby, movements, weights, heightRecords, locations, settings } = decision.remote
+    const { baby, movements, weights, heightRecords, locations, settings, treatments, doseRecords, appointments } = decision.remote
     if (settings !== undefined) applyHouseholdSettings(settings)
-    void db.transaction('rw', db.babies, db.movements, db.weights, db.heightRecords, db.locations, async () => {
+    void db.transaction('rw', [db.babies, db.movements, db.weights, db.heightRecords, db.locations, db.treatments, db.doseRecords, db.appointments], async () => {
       await db.babies.put(baby)
       await db.movements.bulkPut(movements)
       await db.weights.bulkPut(weights)
       await db.heightRecords.bulkPut(heightRecords)
       await db.locations.bulkPut(locations)
+      await db.treatments.bulkPut(treatments)
+      await db.doseRecords.bulkPut(doseRecords)
+      await db.appointments.bulkPut(appointments)
     }).then(() => {
       window.location.reload()
     })

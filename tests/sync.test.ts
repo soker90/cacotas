@@ -1,3 +1,4 @@
+import type { DoseRecord, MedicalAppointment, Treatment } from '../shared/health.ts'
 import 'fake-indexeddb/auto'
 
 // Minimal localStorage stub: the sync engine persists its cursor there and
@@ -93,6 +94,55 @@ describe('sincronización (issue #4)', () => {
     localStorage.clear()
     await seedBaby(dbA)
     await seedBaby(dbB)
+  })
+
+  it('sincroniza tratamientos, tomas y citas entre dispositivos', async () => {
+    const now = Date.now()
+    const treatment: Treatment = {
+      id: uid(),
+      babyId: 'baby-shared',
+      name: 'Tratamiento de prueba',
+      schedule: { kind: 'daily', times: ['08:00', '20:00'] },
+      startsAt: now,
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+      deviceId: 'device-a',
+      serverSeq: 0,
+    }
+    const dose: DoseRecord = {
+      id: `dose:${treatment.id}:${now}`,
+      treatmentId: treatment.id,
+      babyId: 'baby-shared',
+      scheduledAt: now,
+      status: 'administered',
+      administeredAt: now,
+      recordedAt: now,
+      deviceId: 'device-a',
+      serverSeq: 0,
+      revision: 1,
+    }
+    const appointment: MedicalAppointment = {
+      id: uid(),
+      babyId: 'baby-shared',
+      title: 'Pediatra',
+      startsAt: now + 24 * 60 * 60 * 1000,
+      status: 'scheduled',
+      createdAt: now,
+      updatedAt: now,
+      deviceId: 'device-a',
+      serverSeq: 0,
+    }
+    await dbA.treatments.add(treatment)
+    await dbA.doseRecords.add(dose)
+    await dbA.appointments.add(appointment)
+
+    await runSync(dbA, backend, 'device-a')
+    await runSync(dbB, backend, 'device-b')
+
+    expect(await dbB.treatments.get(treatment.id)).toMatchObject({ name: treatment.name, serverSeq: 1 })
+    expect(await dbB.doseRecords.get(dose.id)).toMatchObject({ status: 'administered', revision: 1 })
+    expect(await dbB.appointments.get(appointment.id)).toMatchObject({ title: 'Pediatra', status: 'scheduled' })
   })
 
   it('two devices register offline → both sync → same stock on both', async () => {
