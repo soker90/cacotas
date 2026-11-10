@@ -58,9 +58,7 @@ export const Health = ({ baby }: { baby: Baby }) => {
   const [intervalHours, setIntervalHours] = useState('8')
   const [appointmentTitle, setAppointmentTitle] = useState('')
   const [appointmentAt, setAppointmentAt] = useState(() => localDateTimeValue(currentTimestamp() + 24 * 60 * 60 * 1000))
-  const [appointmentPlace, setAppointmentPlace] = useState('')
   const [appointmentNotes, setAppointmentNotes] = useState('')
-  const [appointmentDuration, setAppointmentDuration] = useState('')
   const [editingTreatmentId, setEditingTreatmentId] = useState<string | null>(null)
   const [editingAppointmentId, setEditingAppointmentId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -107,26 +105,17 @@ export const Health = ({ baby }: { baby: Baby }) => {
       return
     }
     const now = currentTimestamp()
-    const duration = appointmentDuration.trim() === '' ? undefined : Number(appointmentDuration)
-    if (duration !== undefined && (!Number.isInteger(duration) || duration < 1)) {
-      setError('La duración debe ser un número entero mayor que cero.')
-      return
-    }
     const existing = editingAppointmentId === null
       ? undefined
       : appointments.find((item) => item.id === editingAppointmentId)
     const existingFields: Partial<MedicalAppointment> = existing === undefined ? {} : { ...existing }
-    if (appointmentPlace.trim() === '') delete existingFields.place
     if (appointmentNotes.trim() === '') delete existingFields.notes
-    if (duration === undefined) delete existingFields.durationMinutes
     await db.appointments.put({
       ...existingFields,
       id: existing?.id ?? uuid(),
       babyId: baby.id,
       title: appointmentTitle.trim(),
-      ...(appointmentPlace.trim() !== '' ? { place: appointmentPlace.trim() } : {}),
       ...(appointmentNotes.trim() !== '' ? { notes: appointmentNotes.trim() } : {}),
-      ...(duration !== undefined ? { durationMinutes: duration } : {}),
       startsAt,
       status: existing?.status ?? 'scheduled',
       createdAt: existing?.createdAt ?? now,
@@ -136,9 +125,7 @@ export const Health = ({ baby }: { baby: Baby }) => {
     })
     notifyWrite()
     setAppointmentTitle('')
-    setAppointmentPlace('')
     setAppointmentNotes('')
-    setAppointmentDuration('')
     setEditingAppointmentId(null)
     setError(null)
   }
@@ -384,17 +371,11 @@ export const Health = ({ baby }: { baby: Baby }) => {
           <label>Fecha y hora
             <input type='datetime-local' value={appointmentAt} onChange={(event) => setAppointmentAt(event.target.value)} required />
           </label>
-          <label>Centro o lugar (opcional)
-            <input value={appointmentPlace} onChange={(event) => setAppointmentPlace(event.target.value)} />
-          </label>
-          <label>Duración en minutos (opcional)
-            <input type='number' min='1' step='1' value={appointmentDuration} onChange={(event) => setAppointmentDuration(event.target.value)} />
-          </label>
           <label>Notas o preparación (opcional)
             <input value={appointmentNotes} onChange={(event) => setAppointmentNotes(event.target.value)} />
           </label>
           <button type='submit'>{editingAppointmentId === null ? 'Añadir cita' : 'Guardar cambios'}</button>
-          {editingAppointmentId !== null && <button type='button' className='secondary' onClick={() => { setEditingAppointmentId(null); setAppointmentTitle(''); setAppointmentPlace(''); setAppointmentNotes(''); setAppointmentDuration('') }}>Cancelar edición</button>}
+          {editingAppointmentId !== null && <button type='button' className='secondary' onClick={() => { setEditingAppointmentId(null); setAppointmentTitle(''); setAppointmentNotes('') }}>Cancelar edición</button>}
         </form>
         {[...appointments].sort((a, b) => a.startsAt - b.startsAt).map((appointment) => (
           <article className='list-row' key={appointment.id}>
@@ -402,10 +383,10 @@ export const Health = ({ baby }: { baby: Baby }) => {
               <strong>{appointment.title}</strong>
               <p className='muted small'>
                 {formatDateTime(appointment.startsAt)}
-                {appointment.place ? ` · ${appointment.place}` : ''}
                 {' · '}
                 {appointment.status === 'scheduled' ? 'Próxima' : appointment.status === 'completed' ? 'Realizada' : 'Cancelada'}
               </p>
+              {appointment.notes && <p className='muted small'>{appointment.notes}</p>}
             </div>
             <div className='actions'>
               {appointment.status !== 'cancelled' && (
@@ -416,9 +397,7 @@ export const Health = ({ baby }: { baby: Baby }) => {
                     setEditingAppointmentId(appointment.id)
                     setAppointmentTitle(appointment.title)
                     setAppointmentAt(localDateTimeValue(appointment.startsAt))
-                    setAppointmentPlace(appointment.place ?? '')
                     setAppointmentNotes(appointment.notes ?? '')
-                    setAppointmentDuration(appointment.durationMinutes === undefined ? '' : String(appointment.durationMinutes))
                   }}
                 >
                   Editar
