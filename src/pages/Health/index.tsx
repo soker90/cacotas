@@ -53,10 +53,10 @@ export const Health = ({ baby }: { baby: Baby }) => {
   }, [baby.id, treatments, doses]) ?? []
 
   const [name, setName] = useState('')
-   const [scheduleKind, setScheduleKind] = useState<'daily' | 'interval'>('daily')
+  const [scheduleKind, setScheduleKind] = useState<'daily' | 'interval'>('daily')
   const [dailyTimes, setDailyTimes] = useState('08:00')
   const [intervalHours, setIntervalHours] = useState('8')
-   const [appointmentTitle, setAppointmentTitle] = useState('')
+  const [appointmentTitle, setAppointmentTitle] = useState('')
   const [appointmentAt, setAppointmentAt] = useState(() => localDateTimeValue(currentTimestamp() + 24 * 60 * 60 * 1000))
   const [appointmentPlace, setAppointmentPlace] = useState('')
   const [appointmentNotes, setAppointmentNotes] = useState('')
@@ -66,7 +66,7 @@ export const Health = ({ baby }: { baby: Baby }) => {
   const [error, setError] = useState<string | null>(null)
 
   const saveTreatment = async (): Promise<void> => {
-        const times = [...new Set(dailyTimes.split(',').map((time) => time.trim()))]
+    const times = [...new Set(dailyTimes.split(',').map((time) => time.trim()))]
     const validDailyTimes = times.length > 0 && times.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time))
     const validInterval = Number.isInteger(Number(intervalHours)) && Number(intervalHours) >= 1 && Number(intervalHours) <= 24
     if (name.trim() === '' || (scheduleKind === 'daily' && !validDailyTimes) || (scheduleKind === 'interval' && !validInterval)) {
@@ -83,7 +83,7 @@ export const Health = ({ baby }: { baby: Baby }) => {
       id: existing?.id ?? uuid(),
       babyId: baby.id,
       name: name.trim(),
-       schedule: scheduleKind === 'daily'
+      schedule: scheduleKind === 'daily'
         ? { kind: 'daily', times }
         : { kind: 'interval', everyHours: Number(intervalHours) },
       startsAt: existing?.startsAt ?? now,
@@ -228,7 +228,7 @@ export const Health = ({ baby }: { baby: Baby }) => {
           <label>Nombre del medicamento
             <input value={name} onChange={(event) => setName(event.target.value)} required />
           </label>
-           <label>Tipo de pauta
+          <label>Periodicidad
             <select value={scheduleKind} onChange={(event) => setScheduleKind(event.target.value as 'daily' | 'interval')}>
               <option value='daily'>Una o varias horas al día</option>
               <option value='interval'>Cada N horas</option>
@@ -247,77 +247,67 @@ export const Health = ({ baby }: { baby: Baby }) => {
                 <input type='number' min='1' max='24' step='1' value={intervalHours} onChange={(event) => setIntervalHours(event.target.value)} required />
               </label>
               )}
-           <button type='submit'>{editingTreatmentId === null ? 'Añadir medicamento' : 'Guardar cambios'}</button>
+          <button type='submit'>{editingTreatmentId === null ? 'Añadir medicamento' : 'Guardar cambios'}</button>
           {editingTreatmentId !== null && <button type='button' className='secondary' onClick={() => { setEditingTreatmentId(null); setName('') }}>Cancelar edición</button>}
         </form>
-        {treatments.length === 0
-          ? <p className='muted'>Todavía no hay tratamientos.</p>
-          : treatments.map((treatment) => (
-            <article className='list-row' key={treatment.id}>
-              <div>
-                <strong>{treatment.name}</strong>
-                <p className='muted small'>
-                  {treatment.status === 'active' ? 'Activo' : treatment.status === 'paused' ? 'En pausa' : 'Finalizado'}
-                </p>
-              </div>
-              {treatment.status !== 'finished' && (
-                <div className='actions'>
-                  <button
-                    type='button'
-                    className='secondary'
-                    onClick={() => {
-                      setEditingTreatmentId(treatment.id)
-                      setName(treatment.name)
-                       setScheduleKind(treatment.schedule.kind)
-                      setDailyTimes(treatment.schedule.kind === 'daily' ? treatment.schedule.times.join(', ') : '08:00')
-                      setIntervalHours(treatment.schedule.kind === 'interval' ? String(treatment.schedule.everyHours) : '8')
-                     }}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type='button'
-                    className='secondary'
-                    onClick={() => {
-                      changeTreatmentStatus(treatment, treatment.status === 'paused' ? 'active' : 'paused').catch(handleError)
-                    }}
-                  >
-                    {treatment.status === 'paused' ? 'Reanudar' : 'Pausar'}
-                  </button>
-                  <button
-                    type='button'
-                    className='secondary'
-                    onClick={() => {
-                      changeTreatmentStatus(treatment, 'finished').catch(handleError)
-                    }}
-                  >
-                    Finalizar
-                  </button>
-                </div>
-              )}
-            </article>
-          ))}
+
       </section>
       <section className='card'>
         <h2>Medicamentos activos</h2>
         {treatments.filter((treatment) => treatment.status === 'active').length === 0
           ? <p className='muted'>No hay medicamentos activos.</p>
-          : doseRows.map(({ treatment, scheduledAt }) => (
-            <article className='list-row' key={treatment.id}>
-              <div>
-                <strong>{treatment.name}</strong>
-                <p className='muted small'>Próxima toma: {formatDateTime(scheduledAt)}</p>
-              </div>
-              <button
-                type='button'
-                onClick={() => {
-                  markDose(treatment, scheduledAt, 'administered').catch(handleError)
-                }}
-              >
-                Tomado
-              </button>
-            </article>
-          ))}
+          : treatments.filter((treatment) => treatment.status === 'active').map((treatment) => {
+              const nextDose = doseRows.find((row) => row.treatment.id === treatment.id)
+              return (
+                <article className='list-row' key={treatment.id}>
+                  <div>
+                    <strong>{treatment.name}</strong>
+                    <p className='muted small'>
+                      {nextDose === undefined ? 'Sin próximas tomas previstas' : `Próxima toma: ${formatDateTime(nextDose.scheduledAt)}`}
+                    </p>
+                  </div>
+                  <div className='actions'>
+                    {nextDose !== undefined && (
+                      <button
+                        type='button'
+                        onClick={() => {
+                          markDose(treatment, nextDose.scheduledAt, 'administered').catch(handleError)
+                         }}
+                      >
+                        Tomado
+                      </button>
+                    )}
+                    <button
+                      type='button'
+                      className='secondary'
+                      onClick={() => {
+                        setEditingTreatmentId(treatment.id)
+                        setName(treatment.name)
+                            setScheduleKind(treatment.schedule.kind)
+                          setDailyTimes(treatment.schedule.kind === 'daily' ? treatment.schedule.times.join(', ') : '08:00')
+                          setIntervalHours(treatment.schedule.kind === 'interval' ? String(treatment.schedule.everyHours) : '8')
+                      }}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type='button'
+                      className='secondary'
+                      onClick={() => changeTreatmentStatus(treatment, 'paused').catch(handleError)}
+                    >
+                      Pausar
+                    </button>
+                    <button
+                      type='button'
+                      className='secondary'
+                      onClick={() => changeTreatmentStatus(treatment, 'finished').catch(handleError)}
+                    >
+                      Finalizar
+                    </button>
+                  </div>
+                </article>
+              )
+            })}
         <p className='muted small'>Los avisos push, cuando estén disponibles, pueden llegar hasta una hora antes. No son alarmas médicas de precisión.</p>
       </section>
       <section className='card'>
