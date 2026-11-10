@@ -3,6 +3,7 @@ import { BabyMismatchError } from './errors.ts'
 import type { SyncBackend } from './backend.ts'
 import type { BabyCursors } from './types.ts'
 import { applyHouseholdSettings, getHouseholdSettings } from '../lib/settings.ts'
+import { mergeDoseRecords } from '../../shared/health.ts'
 
 const CURSOR_KEY = 'cacotas.syncCursors'
 const LAST_SYNC_KEY = 'cacotas.lastSyncAt'
@@ -46,6 +47,9 @@ export const runSync = async (
     const pendingMovements = await db.movements.where('serverSeq').equals(0).toArray()
     const pendingWeights = await db.weights.where('serverSeq').equals(0).toArray()
     const pendingHeightRecords = await db.heightRecords.where('serverSeq').equals(0).toArray()
+    const pendingTreatments = await db.treatments.where('serverSeq').equals(0).toArray()
+    const pendingDoseRecords = await db.doseRecords.where('serverSeq').equals(0).toArray()
+    const pendingAppointments = await db.appointments.where('serverSeq').equals(0).toArray()
     const localBaby = (await db.babies.toArray()).at(0)
     const localLocations = (await db.locations.toArray()).map((location) => {
       // Keep the wire shape stable even if an older sync stored the worker's
@@ -93,6 +97,9 @@ export const runSync = async (
       movements: pendingMovements,
       weights: pendingWeights,
       heightRecords: pendingHeightRecords,
+      treatments: pendingTreatments,
+      doseRecords: pendingDoseRecords,
+      appointments: pendingAppointments,
       locations: localLocations,
       settings: getHouseholdSettings(deviceId),
       ...(localBaby !== undefined ? { baby: localBaby } : {}),
@@ -102,7 +109,10 @@ export const runSync = async (
       (localBaby !== undefined && res.babies.some((baby) => baby.id !== localBaby.id)) ||
       (localBaby !== undefined && res.movements.some((m) => m.babyId !== localBaby.id)) ||
       (localBaby !== undefined && res.weights.some((w) => w.babyId !== localBaby.id)) ||
-      (localBaby !== undefined && (res.heightRecords ?? []).some((r) => r.babyId !== localBaby.id))
+      (localBaby !== undefined && (res.heightRecords ?? []).some((r) => r.babyId !== localBaby.id)) ||
+      (localBaby !== undefined && (res.treatments ?? []).some((r) => r.babyId !== localBaby.id)) ||
+      (localBaby !== undefined && (res.doseRecords ?? []).some((r) => r.babyId !== localBaby.id)) ||
+      (localBaby !== undefined && (res.appointments ?? []).some((r) => r.babyId !== localBaby.id))
     ) {
       throw new BabyMismatchError()
     }
@@ -110,11 +120,28 @@ export const runSync = async (
     if (res.settings !== undefined) applyHouseholdSettings(res.settings)
 
     await db.transaction(
-      'rw', db.movements, db.weights, db.heightRecords, db.babies, db.locations,
+      'rw',
+      [db.movements, db.weights, db.heightRecords, db.babies, db.locations, db.treatments, db.doseRecords, db.appointments],
       async () => {
         await db.movements.bulkPut(res.movements)
         await db.weights.bulkPut(res.weights)
         await db.heightRecords.bulkPut(res.heightRecords ?? [])
+        for (const row of res.treatments ?? []) {
+          const mine = await db.treatments.get(row.id)
+          if (mine === undefined || row.updatedAt > mine.updatedAt || (row.serverSeq > 0 && mine.serverSeq === 0)) await db.treatments.put(row)
+        }
+        for (const row of res.doseRecords ?? []) {
+          const mine = await db.doseRecords.get(row.id)
+          if (mine === undefined) {
+            await db.doseRecords.put(row)
+          } else {
+            await db.doseRecords.put(mergeDoseRecords(mine, row))
+          }
+        }
+        for (const row of res.appointments ?? []) {
+          const mine = await db.appointments.get(row.id)
+          if (mine === undefined || row.updatedAt > mine.updatedAt || (row.serverSeq > 0 && mine.serverSeq === 0)) await db.appointments.put(row)
+        }
         for (const location of res.locations ?? []) {
           const mine = await db.locations.get(location.id)
           if (mine === undefined || location.updatedAt > mine.updatedAt) await db.locations.put(location)

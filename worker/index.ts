@@ -1,5 +1,6 @@
 import { createMovement } from '../shared/factory.ts'
-import { madridNow, runNotifications } from './notify.ts'
+import { mergeDoseRecords, type DoseRecord } from '../shared/health.ts'
+import { madridNow, runHealthNotifications, runNotifications } from './notify.ts'
 import type { MovementType } from '../shared/types.ts'
 import type { HouseholdSettings } from '../shared/types.ts'
 
@@ -639,6 +640,96 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
     }
   }
 
+  const syncHealthRecords = async (
+    field: 'treatments' | 'doseRecords' | 'appointments',
+    table: 'treatments' | 'dose_records' | 'medical_appointments'
+  ): Promise<Response | null> => {
+    const incoming = Array.isArray(req[field]) ? req[field] as unknown[] : []
+    for (const value of incoming) {
+      if (typeof value !== 'object' || value === null) return json({ error: `invalid ${field}` }, 400)
+      const record = value as Record<string, unknown>
+      if (typeof record.id !== 'string' || record.id === '' ||
+          typeof record.babyId !== 'string' || record.babyId === '' ||
+          typeof record.deviceId !== 'string' || record.deviceId === '') {
+        return json({ error: `invalid ${field}` }, 400)
+      }
+      const owned = await env.DB.prepare('SELECT id FROM babies WHERE id=?1 AND household_id=?2')
+        .bind(record.babyId, householdId).first()
+      if (owned === null) return json({ error: 'forbidden baby' }, 403)
+
+      if (field === 'treatments') {
+        const schedule = record.schedule as Record<string, unknown> | null
+        const validSchedule = schedule !== null && typeof schedule === 'object' &&
+          (schedule.kind === 'daily'
+            ? Array.isArray(schedule.times) && schedule.times.length > 0 &&
+              schedule.times.every((time) => typeof time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(time))
+            : schedule.kind === 'interval' && Number.isInteger(schedule.everyHours) &&
+              (schedule.everyHours as number) >= 1 && (schedule.everyHours as number) <= 24)
+        if (typeof record.name !== 'string' || record.name.trim() === '' ||
+            !Number.isInteger(record.startsAt) || (record.startsAt as number) < 0 ||
+            !Number.isInteger(record.updatedAt) || !Number.isInteger(record.createdAt) ||
+            (record.endsAt !== undefined && (!Number.isInteger(record.endsAt) || (record.endsAt as number) < (record.startsAt as number))) ||
+            !['active', 'paused', 'finished'].includes(String(record.status)) || !validSchedule) {
+          return json({ error: 'invalid treatment' }, 400)
+        }
+      } else if (field === 'doseRecords') {
+        if (typeof record.treatmentId !== 'string' || !Number.isInteger(record.scheduledAt) ||
+            !Number.isInteger(record.recordedAt) || !Number.isInteger(record.revision) ||
+            (record.revision as number) < 1 ||
+            !['administered', 'omitted'].includes(String(record.status))) {
+          return json({ error: 'invalid dose record' }, 400)
+        }
+      } else if (typeof record.title !== 'string' || record.title.trim() === '' ||
+          !Number.isInteger(record.startsAt) || !Number.isInteger(record.updatedAt) ||
+          !Number.isInteger(record.createdAt) ||
+          !['scheduled', 'completed', 'cancelled'].includes(String(record.status))) {
+        return json({ error: 'invalid appointment' }, 400)
+      }
+
+      const existing = await env.DB.prepare(`SELECT id, household_id, baby_id, updated_at, revision, record_json FROM ${table} WHERE id=?1`)
+        .bind(record.id)
+        .first<{ id: string; household_id: string; baby_id: string; updated_at: number | null; revision: number | null; record_json: string }>()
+      if (existing !== null && existing.household_id !== householdId) return json({ error: 'forbidden health record' }, 403)
+      if (existing !== null && existing.baby_id !== record.babyId) return json({ error: 'invalid health record owner' }, 400)
+
+      let payloadRecord: Record<string, unknown> = { ...record, serverSeq: 1 }
+      if (field === 'doseRecords' && existing !== null) {
+        const merged = mergeDoseRecords(
+          JSON.parse(existing.record_json) as DoseRecord,
+          payloadRecord as unknown as DoseRecord
+        )
+        payloadRecord = { ...merged }
+      }
+      const updatedAt = typeof payloadRecord.updatedAt === 'number'
+        ? payloadRecord.updatedAt
+        : typeof payloadRecord.recordedAt === 'number' ? payloadRecord.recordedAt : 0
+      const revision = typeof payloadRecord.revision === 'number' ? payloadRecord.revision : 1
+      const shouldUpdate = existing === null ||
+        (field === 'doseRecords'
+          ? JSON.stringify(payloadRecord) !== existing.record_json
+          : updatedAt > (existing.updated_at ?? 0))
+      if (!shouldUpdate) continue
+      const payload = JSON.stringify(payloadRecord)
+      if (existing === null) {
+        await env.DB.prepare(`INSERT INTO ${table} (id, household_id, baby_id, updated_at, revision, record_json) VALUES (?1,?2,?3,?4,?5,?6)`)
+          .bind(record.id, householdId, record.babyId, updatedAt, revision, payload).run()
+      } else {
+        await env.DB.prepare(`UPDATE ${table} SET updated_at=?4, revision=?5, record_json=?6 WHERE id=?1 AND household_id=?2 AND baby_id=?3`)
+          .bind(record.id, householdId, record.babyId, updatedAt, revision, payload).run()
+      }
+    }
+    return null
+  }
+
+  for (const [field, table] of [
+    ['treatments', 'treatments'],
+    ['doseRecords', 'dose_records'],
+    ['appointments', 'medical_appointments'],
+  ] as const) {
+    const error = await syncHealthRecords(field, table)
+    if (error !== null) return error
+  }
+
   const babyRows = await env.DB.prepare('SELECT * FROM babies WHERE household_id=?1 ORDER BY created_at,id').bind(householdId).all<BabyRow>()
   const babies = (babyRows.results ?? []).map(rowToBaby)
   const movements: ReturnType<typeof rowToMovement>[] = []
@@ -687,7 +778,15 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
         updatedAt: settingsRow.updated_at,
         deviceId: settingsRow.device_id,
       }
-  return json({ babies, cursors: nextCursors, hasMore, movements, weights, heightRecords, locations, accepted, ...(responseSettings !== undefined ? { settings: responseSettings } : {}) })
+  const readHealth = async (table: 'treatments' | 'dose_records' | 'medical_appointments'): Promise<Record<string, unknown>[]> => {
+    const rows = await env.DB.prepare(`SELECT record_json FROM ${table} WHERE household_id=?1 ORDER BY seq`)
+      .bind(householdId).all<{ record_json: string }>()
+    return (rows.results ?? []).map((row) => JSON.parse(row.record_json) as Record<string, unknown>)
+  }
+  const treatments = await readHealth('treatments')
+  const doseRecords = await readHealth('dose_records')
+  const appointments = await readHealth('medical_appointments')
+  return json({ babies, cursors: nextCursors, hasMore, movements, weights, heightRecords, locations, treatments, doseRecords, appointments, accepted, ...(responseSettings !== undefined ? { settings: responseSettings } : {}) })
 }
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase()
@@ -1255,6 +1354,8 @@ export default {
     env: Env,
     ctx: ExecutionContext
   ): Promise<void> {
+    const healthResult = await runHealthNotifications(env)
+    console.log('health notifications:', JSON.stringify(healthResult))
     const { hour } = madridNow()
     if (hour !== 20) return
     const result = await runNotifications(env)

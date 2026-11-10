@@ -1,3 +1,4 @@
+import type { DoseRecord, MedicalAppointment, Treatment } from '../../shared/health.ts'
 import type { Baby, HeightRecord, Location, Movement, WeightRecord } from '../../shared/types.ts'
 import type { HouseholdSettings } from '../../shared/types.ts'
 import type { SyncBackend } from './backend.ts'
@@ -18,6 +19,9 @@ export interface StartupDecision {
     heightRecords: HeightRecord[]
     locations: Location[]
     settings?: HouseholdSettings
+    treatments: Treatment[]
+    doseRecords: DoseRecord[]
+    appointments: MedicalAppointment[]
   }
   /** Failure detail for JOIN_RETRY — shown discreetly to aid diagnosis. */
   reason?: string
@@ -45,6 +49,9 @@ export const resolveStartup = async (
       weights: [],
       heightRecords: [],
       locations: [],
+      treatments: [],
+      doseRecords: [],
+      appointments: [],
     })
     if (res.babies[0]) {
       return {
@@ -55,6 +62,9 @@ export const resolveStartup = async (
           weights: res.weights,
           heightRecords: res.heightRecords ?? [],
           locations: res.locations ?? [],
+          treatments: res.treatments ?? [],
+          doseRecords: res.doseRecords ?? [],
+          appointments: res.appointments ?? [],
           ...(res.settings !== undefined ? { settings: res.settings } : {}),
         },
       }

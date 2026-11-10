@@ -6,6 +6,7 @@ const NAV = [
   { to: '/history', label: 'Historial', icon: '📜', end: false },
   { to: '/stats', label: 'Datos', icon: '📊', end: false },
   { to: '/growth', label: 'Crecimiento', icon: '📈', end: false },
+  { to: '/health', label: 'Salud', icon: '🩺', end: false },
   { to: '/settings', label: 'Ajustes', icon: '⚙️', end: false },
 ]
 
