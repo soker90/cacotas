@@ -55,14 +55,26 @@ describe('health scheduling', () => {
   it('does not let an omitted dose reset the interval anchor', () => {
     const administeredAt = base.startsAt + 3 * HOUR
     const administered = {
-      id: plannedDoseId(base.id, administeredAt), treatmentId: base.id, babyId: base.babyId,
-      scheduledAt: administeredAt, status: 'administered' as const, administeredAt,
-      recordedAt: administeredAt, deviceId: 'phone-a', serverSeq: 0, revision: 1,
+      id: plannedDoseId(base.id, administeredAt),
+      treatmentId: base.id,
+      babyId: base.babyId,
+      scheduledAt: administeredAt,
+      status: 'administered' as const,
+      administeredAt,
+      recordedAt: administeredAt,
+      deviceId: 'phone-a',
+      serverSeq: 0,
+      revision: 1,
     }
     const omittedAt = administeredAt + 8 * HOUR
     const omitted = {
-      ...administered, id: plannedDoseId(base.id, omittedAt), scheduledAt: omittedAt,
-      status: 'omitted' as const, administeredAt: undefined, recordedAt: omittedAt, revision: 2,
+      ...administered,
+      id: plannedDoseId(base.id, omittedAt),
+      scheduledAt: omittedAt,
+      status: 'omitted' as const,
+      administeredAt: undefined,
+      recordedAt: omittedAt,
+      revision: 2,
     }
     const next = getUpcomingDoseTimes(base, omittedAt, omittedAt + 48 * HOUR, 'Europe/Madrid', [administered, omitted])
     expect(next[0]).toBe(administeredAt + 16 * HOUR)
