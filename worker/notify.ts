@@ -198,7 +198,7 @@ export interface HealthNotifyResult {
 
 type HealthPushOutcome = 'sent' | 'duplicate' | 'expired' | 'failed'
 
-const sendHealthPushOnce = async (
+export const sendHealthPushOnce = async (
   env: Env,
   notificationKey: string,
   householdId: string,
