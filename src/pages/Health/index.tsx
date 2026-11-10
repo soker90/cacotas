@@ -36,30 +36,27 @@ export const Health = ({ baby }: { baby: Baby }) => {
   ) ?? []
   const doseRows = useLiveQuery(() => {
     const now = currentTimestamp()
-    const recorded = new Map(doses.map((dose) => [dose.id, dose]))
-    return treatments.flatMap((treatment) => getUpcomingDoseTimes(
-      treatment,
-      now - 24 * 60 * 60 * 1000,
-      now + 7 * 24 * 60 * 60 * 1000,
-      'Europe/Madrid',
-      doses.filter((dose) => dose.treatmentId === treatment.id)
-    ).map((scheduledAt) => ({
-      treatment,
-      scheduledAt,
-      record: recorded.get(plannedDoseId(treatment.id, scheduledAt)),
-    }))).sort((a, b) => a.scheduledAt - b.scheduledAt)
+    return treatments.flatMap((treatment) => {
+      if (treatment.status !== 'active') return []
+      const treatmentDoses = doses.filter((dose) => dose.treatmentId === treatment.id)
+      const nextDose = getUpcomingDoseTimes(
+        treatment,
+        now - 24 * 60 * 60 * 1000,
+        now + 7 * 24 * 60 * 60 * 1000,
+        'Europe/Madrid',
+        treatmentDoses
+      ).find((scheduledAt) =>
+        !treatmentDoses.some((dose) => dose.id === plannedDoseId(treatment.id, scheduledAt))
+      )
+      return nextDose === undefined ? [] : [{ treatment, scheduledAt: nextDose }]
+    }).sort((a, b) => a.scheduledAt - b.scheduledAt)
   }, [baby.id, treatments, doses]) ?? []
 
   const [name, setName] = useState('')
-  const [activeIngredient, setActiveIngredient] = useState('')
-  const [instructions, setInstructions] = useState('')
-  const [treatmentNotes, setTreatmentNotes] = useState('')
-  const [scheduleKind, setScheduleKind] = useState<'daily' | 'interval'>('daily')
+   const [scheduleKind, setScheduleKind] = useState<'daily' | 'interval'>('daily')
   const [dailyTimes, setDailyTimes] = useState('08:00')
   const [intervalHours, setIntervalHours] = useState('8')
-  const [startAt, setStartAt] = useState(() => localDateTimeValue(currentTimestamp()))
-  const [endAt, setEndAt] = useState('')
-  const [appointmentTitle, setAppointmentTitle] = useState('')
+   const [appointmentTitle, setAppointmentTitle] = useState('')
   const [appointmentAt, setAppointmentAt] = useState(() => localDateTimeValue(currentTimestamp() + 24 * 60 * 60 * 1000))
   const [appointmentPlace, setAppointmentPlace] = useState('')
   const [appointmentNotes, setAppointmentNotes] = useState('')
@@ -69,13 +66,11 @@ export const Health = ({ baby }: { baby: Baby }) => {
   const [error, setError] = useState<string | null>(null)
 
   const saveTreatment = async (): Promise<void> => {
-    const startsAt = new Date(startAt).getTime()
-    const endsAt = endAt === '' ? undefined : new Date(endAt).getTime()
-    const times = [...new Set(dailyTimes.split(',').map((time) => time.trim()))]
+        const times = [...new Set(dailyTimes.split(',').map((time) => time.trim()))]
     const validDailyTimes = times.length > 0 && times.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time))
     const validInterval = Number.isInteger(Number(intervalHours)) && Number(intervalHours) >= 1 && Number(intervalHours) <= 24
-    if (name.trim() === '' || !Number.isFinite(startsAt) || (endsAt !== undefined && (!Number.isFinite(endsAt) || endsAt < startsAt)) || (scheduleKind === 'daily' && !validDailyTimes) || (scheduleKind === 'interval' && !validInterval)) {
-      setError('Revisa el nombre y las fechas del tratamiento.')
+    if (name.trim() === '' || (scheduleKind === 'daily' && !validDailyTimes) || (scheduleKind === 'interval' && !validInterval)) {
+      setError('Revisa el nombre y la periodicidad del medicamento.')
       return
     }
     const now = currentTimestamp()
@@ -83,23 +78,15 @@ export const Health = ({ baby }: { baby: Baby }) => {
       ? undefined
       : treatments.find((item) => item.id === editingTreatmentId)
     const existingFields: Partial<Treatment> = existing === undefined ? {} : { ...existing }
-    if (activeIngredient.trim() === '') delete existingFields.activeIngredient
-    if (instructions.trim() === '') delete existingFields.instructions
-    if (treatmentNotes.trim() === '') delete existingFields.notes
-    if (endsAt === undefined) delete existingFields.endsAt
     const treatment: Treatment = {
       ...existingFields,
       id: existing?.id ?? uuid(),
       babyId: baby.id,
       name: name.trim(),
-      ...(activeIngredient.trim() !== '' ? { activeIngredient: activeIngredient.trim() } : {}),
-      ...(instructions.trim() !== '' ? { instructions: instructions.trim() } : {}),
-      ...(treatmentNotes.trim() !== '' ? { notes: treatmentNotes.trim() } : {}),
-      schedule: scheduleKind === 'daily'
+       schedule: scheduleKind === 'daily'
         ? { kind: 'daily', times }
         : { kind: 'interval', everyHours: Number(intervalHours) },
-      startsAt,
-      ...(endsAt !== undefined ? { endsAt } : {}),
+      startsAt: existing?.startsAt ?? now,
       status: existing?.status ?? 'active',
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
@@ -109,10 +96,7 @@ export const Health = ({ baby }: { baby: Baby }) => {
     await db.treatments.put(treatment)
     notifyWrite()
     setName('')
-    setActiveIngredient('')
-    setInstructions('')
-    setTreatmentNotes('')
-    setEditingTreatmentId(null)
+     setEditingTreatmentId(null)
     setError(null)
   }
 
@@ -244,16 +228,7 @@ export const Health = ({ baby }: { baby: Baby }) => {
           <label>Nombre del medicamento
             <input value={name} onChange={(event) => setName(event.target.value)} required />
           </label>
-          <label>Principio activo (opcional)
-            <input value={activeIngredient} onChange={(event) => setActiveIngredient(event.target.value)} />
-          </label>
-          <label>Instrucciones (opcional)
-            <input value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder='Cantidad o indicaciones introducidas por el adulto' />
-          </label>
-          <label>Notas (opcional)
-            <input value={treatmentNotes} onChange={(event) => setTreatmentNotes(event.target.value)} />
-          </label>
-          <label>Tipo de pauta
+           <label>Tipo de pauta
             <select value={scheduleKind} onChange={(event) => setScheduleKind(event.target.value as 'daily' | 'interval')}>
               <option value='daily'>Una o varias horas al día</option>
               <option value='interval'>Cada N horas</option>
@@ -262,7 +237,7 @@ export const Health = ({ baby }: { baby: Baby }) => {
           {scheduleKind === 'daily'
             ? (
               <label>
-                Horas (separadas por comas, por ejemplo 08:00, 20:00)
+                Horas de cada toma (separadas por comas, por ejemplo 08:00, 20:00)
                 <input value={dailyTimes} onChange={(event) => setDailyTimes(event.target.value)} required />
               </label>
               )
@@ -272,14 +247,8 @@ export const Health = ({ baby }: { baby: Baby }) => {
                 <input type='number' min='1' max='24' step='1' value={intervalHours} onChange={(event) => setIntervalHours(event.target.value)} required />
               </label>
               )}
-          <label>Inicio
-            <input type='datetime-local' value={startAt} onChange={(event) => setStartAt(event.target.value)} required />
-          </label>
-          <label>Fin (opcional)
-            <input type='datetime-local' value={endAt} onChange={(event) => setEndAt(event.target.value)} />
-          </label>
-          <button type='submit'>{editingTreatmentId === null ? 'Añadir tratamiento' : 'Guardar cambios'}</button>
-          {editingTreatmentId !== null && <button type='button' className='secondary' onClick={() => { setEditingTreatmentId(null); setName(''); setActiveIngredient(''); setInstructions(''); setTreatmentNotes('') }}>Cancelar edición</button>}
+           <button type='submit'>{editingTreatmentId === null ? 'Añadir medicamento' : 'Guardar cambios'}</button>
+          {editingTreatmentId !== null && <button type='button' className='secondary' onClick={() => { setEditingTreatmentId(null); setName('') }}>Cancelar edición</button>}
         </form>
         {treatments.length === 0
           ? <p className='muted'>Todavía no hay tratamientos.</p>
@@ -299,15 +268,10 @@ export const Health = ({ baby }: { baby: Baby }) => {
                     onClick={() => {
                       setEditingTreatmentId(treatment.id)
                       setName(treatment.name)
-                      setActiveIngredient(treatment.activeIngredient ?? '')
-                      setInstructions(treatment.instructions ?? '')
-                      setTreatmentNotes(treatment.notes ?? '')
-                      setScheduleKind(treatment.schedule.kind)
+                       setScheduleKind(treatment.schedule.kind)
                       setDailyTimes(treatment.schedule.kind === 'daily' ? treatment.schedule.times.join(', ') : '08:00')
                       setIntervalHours(treatment.schedule.kind === 'interval' ? String(treatment.schedule.everyHours) : '8')
-                      setStartAt(localDateTimeValue(treatment.startsAt))
-                      setEndAt(treatment.endsAt === undefined ? '' : localDateTimeValue(treatment.endsAt))
-                    }}
+                     }}
                   >
                     Editar
                   </button>
@@ -335,36 +299,23 @@ export const Health = ({ baby }: { baby: Baby }) => {
           ))}
       </section>
       <section className='card'>
-        <h2>Próximas tomas</h2>
-        {doseRows.length === 0
-          ? <p className='muted'>No hay tomas previstas en los próximos días.</p>
-          : doseRows.map(({ treatment, scheduledAt, record }) => (
-            <article className='list-row' key={plannedDoseId(treatment.id, scheduledAt)}>
+        <h2>Medicamentos activos</h2>
+        {treatments.filter((treatment) => treatment.status === 'active').length === 0
+          ? <p className='muted'>No hay medicamentos activos.</p>
+          : doseRows.map(({ treatment, scheduledAt }) => (
+            <article className='list-row' key={treatment.id}>
               <div>
                 <strong>{treatment.name}</strong>
-                <p className='muted small'>
-                  {formatDateTime(scheduledAt)} · {record === undefined ? 'Pendiente' : record.status === 'administered' ? 'Administrada' : 'Omitida'}
-                </p>
+                <p className='muted small'>Próxima toma: {formatDateTime(scheduledAt)}</p>
               </div>
-              <div className='actions'>
-                <button
-                  type='button'
-                  onClick={() => {
-                    markDose(treatment, scheduledAt, 'administered').catch(handleError)
-                  }}
-                >
-                  {record === undefined ? 'Administrada' : 'Corregir a administrada'}
-                </button>
-                <button
-                  type='button'
-                  className='secondary'
-                  onClick={() => {
-                    markDose(treatment, scheduledAt, 'omitted').catch(handleError)
-                  }}
-                >
-                  {record === undefined ? 'Omitir' : 'Corregir a omitida'}
-                </button>
-              </div>
+              <button
+                type='button'
+                onClick={() => {
+                  markDose(treatment, scheduledAt, 'administered').catch(handleError)
+                }}
+              >
+                Tomado
+              </button>
             </article>
           ))}
         <p className='muted small'>Los avisos push, cuando estén disponibles, pueden llegar hasta una hora antes. No son alarmas médicas de precisión.</p>
