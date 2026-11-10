@@ -249,52 +249,52 @@ export const Health = ({ baby }: { baby: Baby }) => {
             const nextDose = doseRows.find((row) => row.treatment.id === treatment.id)
             return (
               <article className='list-row' key={treatment.id}>
-                  <div>
-                    <strong>{treatment.name}</strong>
-                    <p className='muted small'>
-                      {nextDose === undefined ? 'Sin próximas tomas previstas' : `Próxima toma: ${formatDateTime(nextDose.scheduledAt)}`}
-                    </p>
-                  </div>
-                  <div className='actions'>
-                    {nextDose !== undefined && (
-                      <button
-                        type='button'
-                        onClick={() => {
-                          markDose(treatment, nextDose.scheduledAt, 'administered').catch(handleError)
-                        }}
-                      >
-                        Tomado
-                      </button>
-                    )}
+                <div>
+                  <strong>{treatment.name}</strong>
+                  <p className='muted small'>
+                    {nextDose === undefined ? 'Sin próximas tomas previstas' : `Próxima toma: ${formatDateTime(nextDose.scheduledAt)}`}
+                  </p>
+                </div>
+                <div className='actions'>
+                  {nextDose !== undefined && (
                     <button
                       type='button'
-                      className='secondary'
                       onClick={() => {
-                        setEditingTreatmentId(treatment.id)
-                        setName(treatment.name)
-                        setScheduleKind(treatment.schedule.kind)
-                        setDailyTimes(treatment.schedule.kind === 'daily' ? treatment.schedule.times.join(', ') : '08:00')
-                        setIntervalHours(treatment.schedule.kind === 'interval' ? String(treatment.schedule.everyHours) : '8')
+                        markDose(treatment, nextDose.scheduledAt, 'administered').catch(handleError)
                       }}
                     >
-                      Editar
+                      Tomado
                     </button>
-                    <button
-                      type='button'
-                      className='secondary'
-                      onClick={() => changeTreatmentStatus(treatment, 'paused').catch(handleError)}
-                    >
-                      Pausar
-                    </button>
-                    <button
-                      type='button'
-                      className='secondary'
-                      onClick={() => changeTreatmentStatus(treatment, 'finished').catch(handleError)}
-                    >
-                      Finalizar
-                    </button>
-                  </div>
-                </article>
+                  )}
+                  <button
+                    type='button'
+                    className='secondary'
+                    onClick={() => {
+                      setEditingTreatmentId(treatment.id)
+                      setName(treatment.name)
+                      setScheduleKind(treatment.schedule.kind)
+                      setDailyTimes(treatment.schedule.kind === 'daily' ? treatment.schedule.times.join(', ') : '08:00')
+                      setIntervalHours(treatment.schedule.kind === 'interval' ? String(treatment.schedule.everyHours) : '8')
+                    }}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type='button'
+                    className='secondary'
+                    onClick={() => changeTreatmentStatus(treatment, 'paused').catch(handleError)}
+                  >
+                    Pausar
+                  </button>
+                  <button
+                    type='button'
+                    className='secondary'
+                    onClick={() => changeTreatmentStatus(treatment, 'finished').catch(handleError)}
+                  >
+                    Finalizar
+                  </button>
+                </div>
+              </article>
             )
           })}
         {treatments.some((treatment) => treatment.status === 'paused') && (
