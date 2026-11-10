@@ -109,6 +109,8 @@ export const Health = ({ baby }: { baby: Baby }) => {
       ? undefined
       : appointments.find((item) => item.id === editingAppointmentId)
     const existingFields: Partial<MedicalAppointment> = existing === undefined ? {} : { ...existing }
+    delete existingFields.place
+    delete existingFields.durationMinutes
     if (appointmentNotes.trim() === '') delete existingFields.notes
     await db.appointments.put({
       ...existingFields,
@@ -365,7 +367,7 @@ export const Health = ({ baby }: { baby: Baby }) => {
             saveAppointment().catch(handleError)
           }}
         >
-          <label>Motivo o especialista
+          <label>Nombre de la cita
             <input value={appointmentTitle} onChange={(event) => setAppointmentTitle(event.target.value)} required />
           </label>
           <label>Fecha y hora
