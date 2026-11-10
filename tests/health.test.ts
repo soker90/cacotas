@@ -69,12 +69,14 @@ describe('health scheduling', () => {
     }
     const omittedAt = administeredAt + 8 * HOUR
     const omitted = {
-      ...administered,
       id: plannedDoseId(base.id, omittedAt),
+      treatmentId: base.id,
+      babyId: base.babyId,
       scheduledAt: omittedAt,
       status: 'omitted' as const,
-      administeredAt: undefined,
       recordedAt: omittedAt,
+      deviceId: 'phone-a',
+      serverSeq: 0,
       revision: 2,
     }
     const next = getUpcomingDoseTimes(base, omittedAt, omittedAt + 48 * HOUR, 'Europe/Madrid', [administered, omitted])
