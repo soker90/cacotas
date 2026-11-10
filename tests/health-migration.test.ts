@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return -- node:sqlite is available at runtime on Node 24, but its API types are not included in the lint project. */
+// @ts-expect-error Node 24 built-in used only by the Node-based migration test.
 import { readFileSync } from 'node:fs'
+// @ts-expect-error Node 24 built-in used only by the Node-based migration test.
 import { DatabaseSync } from 'node:sqlite'
 import { describe, expect, it } from 'vitest'
 
