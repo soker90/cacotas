@@ -96,7 +96,7 @@ export const Health = ({ baby }: { baby: Baby }) => {
     await db.treatments.put(treatment)
     notifyWrite()
     setName('')
-     setEditingTreatmentId(null)
+    setEditingTreatmentId(null)
     setError(null)
   }
 
@@ -283,9 +283,9 @@ export const Health = ({ baby }: { baby: Baby }) => {
                       onClick={() => {
                         setEditingTreatmentId(treatment.id)
                         setName(treatment.name)
-                            setScheduleKind(treatment.schedule.kind)
-                          setDailyTimes(treatment.schedule.kind === 'daily' ? treatment.schedule.times.join(', ') : '08:00')
-                          setIntervalHours(treatment.schedule.kind === 'interval' ? String(treatment.schedule.everyHours) : '8')
+                        setScheduleKind(treatment.schedule.kind)
+                        setDailyTimes(treatment.schedule.kind === 'daily' ? treatment.schedule.times.join(', ') : '08:00')
+                        setIntervalHours(treatment.schedule.kind === 'interval' ? String(treatment.schedule.everyHours) : '8')
                       }}
                     >
                       Editar
@@ -308,6 +308,23 @@ export const Health = ({ baby }: { baby: Baby }) => {
                 </article>
               )
             })}
+        {treatments.some((treatment) => treatment.status === 'paused') && (
+          <>
+            <h3>Medicamentos en pausa</h3>
+            {treatments.filter((treatment) => treatment.status === 'paused').map((treatment) => (
+              <article className='list-row' key={treatment.id}>
+                <strong>{treatment.name}</strong>
+                <button
+                  type='button'
+                  className='secondary'
+                  onClick={() => changeTreatmentStatus(treatment, 'active').catch(handleError)}
+                >
+                  Reanudar
+                </button>
+              </article>
+            ))}
+          </>
+        )}
         <p className='muted small'>Los avisos push, cuando estén disponibles, pueden llegar hasta una hora antes. No son alarmas médicas de precisión.</p>
       </section>
       <section className='card'>
