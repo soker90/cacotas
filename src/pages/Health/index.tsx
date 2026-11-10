@@ -246,8 +246,8 @@ export const Health = ({ baby }: { baby: Baby }) => {
         {treatments.filter((treatment) => treatment.status === 'active').length === 0
           ? <p className='muted'>No hay medicamentos activos.</p>
           : treatments.filter((treatment) => treatment.status === 'active').map((treatment) => {
-              const nextDose = doseRows.find((row) => row.treatment.id === treatment.id)
-              return (
+            const nextDose = doseRows.find((row) => row.treatment.id === treatment.id)
+            return (
                 <article className='list-row' key={treatment.id}>
                   <div>
                     <strong>{treatment.name}</strong>
@@ -261,7 +261,7 @@ export const Health = ({ baby }: { baby: Baby }) => {
                         type='button'
                         onClick={() => {
                           markDose(treatment, nextDose.scheduledAt, 'administered').catch(handleError)
-                         }}
+                        }}
                       >
                         Tomado
                       </button>
@@ -295,8 +295,8 @@ export const Health = ({ baby }: { baby: Baby }) => {
                     </button>
                   </div>
                 </article>
-              )
-            })}
+            )
+          })}
         {treatments.some((treatment) => treatment.status === 'paused') && (
           <>
             <h3>Medicamentos en pausa</h3>
