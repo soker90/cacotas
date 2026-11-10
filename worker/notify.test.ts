@@ -18,14 +18,14 @@ const makeDb = () => {
           args = values
           return statement
         },
-        first: async <T>() => {
+        first: <T>() => {
           if (!sql.startsWith('INSERT OR IGNORE INTO health_notification_log')) return null
           const key = `${String(args[0])}:${String(args[2])}`
           if (claims.has(key)) return null
           claims.add(key)
           return { notification_key: args[0] } as T
         },
-        run: async () => {
+        run: () => {
           if (sql.startsWith('DELETE FROM health_notification_log')) {
             claims.delete(`${String(args[0])}:${String(args[1])}`)
           }
@@ -73,6 +73,12 @@ describe('health push delivery', () => {
     expect(second).toBe('duplicate')
     expect(sendPush).toHaveBeenCalledTimes(1)
     expect(claims.size).toBe(1)
+
+    const otherDevice = { ...device, deviceId: 'phone-b' }
+    const otherDeviceResult = await sendHealthPushOnce(env, 'medication:dose-1', 'house-1', otherDevice, '{}', 3000)
+    expect(otherDeviceResult).toBe('sent')
+    expect(sendPush).toHaveBeenCalledTimes(2)
+    expect(claims.size).toBe(2)
   })
 
   it('releases the claim after a transient failure so the cron can retry', async () => {
