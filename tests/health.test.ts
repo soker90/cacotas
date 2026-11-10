@@ -24,7 +24,8 @@ describe('health scheduling', () => {
       .toEqual([base.startsAt + 8 * HOUR, base.startsAt + 16 * HOUR, base.startsAt + 24 * HOUR])
   })
   it('anchors the next interval to the last actually administered dose, including drift', () => {
-    const dayOneAtThree = base.startsAt + 7 * HOUR
+    const dailyInterval = { ...base, schedule: { kind: 'interval' as const, everyHours: 24 } }
+    const dayOneAtThree = dailyInterval.startsAt + 7 * HOUR
     const dayTwoAtTwo = dayOneAtThree + 23 * HOUR
     const administered = {
       id: plannedDoseId(base.id, dayOneAtThree),
@@ -38,7 +39,7 @@ describe('health scheduling', () => {
       serverSeq: 0,
       revision: 1,
     }
-    const firstNext = getUpcomingDoseTimes(base, dayOneAtThree, dayOneAtThree + 48 * HOUR, 'Europe/Madrid', [administered])
+    const firstNext = getUpcomingDoseTimes(dailyInterval, dayOneAtThree, dayOneAtThree + 48 * HOUR, 'Europe/Madrid', [administered])
     expect(firstNext[0]).toBe(dayOneAtThree + 24 * HOUR)
 
     const secondAdministered = {
@@ -49,7 +50,7 @@ describe('health scheduling', () => {
       recordedAt: dayTwoAtTwo,
       revision: 2,
     }
-    const nextDay = getUpcomingDoseTimes(base, dayTwoAtTwo, dayTwoAtTwo + 48 * HOUR, 'Europe/Madrid', [administered, secondAdministered])
+    const nextDay = getUpcomingDoseTimes(dailyInterval, dayTwoAtTwo, dayTwoAtTwo + 48 * HOUR, 'Europe/Madrid', [administered, secondAdministered])
     expect(nextDay[0]).toBe(dayTwoAtTwo + 24 * HOUR)
   })
   it('does not let an omitted dose reset the interval anchor', () => {
