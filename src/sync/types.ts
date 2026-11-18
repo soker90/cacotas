@@ -1,4 +1,3 @@
-import type { DoseRecord, MedicalAppointment, Treatment } from '../../shared/health.ts'
 import type {
   Baby,
   HeightRecord,
@@ -24,9 +23,6 @@ export interface SyncRequest {
   locations?: Location[];
   baby?: Baby;
   settings?: HouseholdSettings;
-  treatments?: Treatment[];
-  doseRecords?: DoseRecord[];
-  appointments?: MedicalAppointment[];
 }
 
 export interface SyncResponse {
