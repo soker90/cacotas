@@ -40,7 +40,4 @@ export interface SyncResponse {
   /** Ids the server confirms having — including duplicates. */
   accepted: UUID[];
   settings?: HouseholdSettings;
-  treatments?: Treatment[];
-  doseRecords?: DoseRecord[];
-  appointments?: MedicalAppointment[];
 }
