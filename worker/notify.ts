@@ -188,4 +188,3 @@ export const runNotifications = async (env: Env): Promise<NotifyResult> => {
   return result
 }
 export { madridNow }
-
