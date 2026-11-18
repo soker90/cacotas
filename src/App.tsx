@@ -162,9 +162,6 @@ const AppRoutes = () => {
           await db.heightRecords.clear()
           await db.babies.clear()
           await db.locations.clear()
-          await db.treatments.clear()
-          await db.doseRecords.clear()
-          await db.appointments.clear()
         } else {
           await db.movements.bulkDelete(localMovements.filter((row) => row.serverSeq > 0).map((row) => row.id))
           await db.weights.bulkDelete(localWeights.filter((row) => row.serverSeq > 0).map((row) => row.id))
@@ -270,9 +267,9 @@ const FirstLaunch = ({ backend, inviteCode, hasHousehold }: { backend: HttpSyncB
 
   useEffect(() => {
     if (decision?.route !== 'HOME' || !decision.remote) return
-    const { baby, movements, weights, heightRecords, locations, settings, treatments, doseRecords, appointments } = decision.remote
+    const { baby, movements, weights, heightRecords, locations, settings } = decision.remote
     if (settings !== undefined) applyHouseholdSettings(settings)
-    void db.transaction('rw', [db.babies, db.movements, db.weights, db.heightRecords, db.locations, db.treatments, db.doseRecords, db.appointments], async () => {
+    void db.transaction('rw', [db.babies, db.movements, db.weights, db.heightRecords, db.locations], async () => {
       await db.babies.put(baby)
       await db.movements.bulkPut(movements)
       await db.weights.bulkPut(weights)
