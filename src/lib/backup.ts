@@ -1,4 +1,3 @@
-import type { DoseRecord, MedicalAppointment, Treatment } from '../../shared/health.ts'
 import type {
   Baby,
   DiaperSize,
@@ -22,9 +21,6 @@ export const exportJSON = async (): Promise<void> => {
     heightRecords: await db.heightRecords.toArray(),
     sizes: await db.sizes.toArray(),
     locations: await db.locations.toArray(),
-    treatments: await db.treatments.toArray(),
-    doseRecords: await db.doseRecords.toArray(),
-    appointments: await db.appointments.toArray(),
   }
 
   const blob = new Blob([JSON.stringify(backup, null, 2)], {
@@ -168,9 +164,6 @@ export const importJSON = async (file: File): Promise<void> => {
   const weights = parseRows(parsed.weights, parseWeight)
   const heightRecords = parsed.heightRecords === undefined ? [] : parseRows(parsed.heightRecords, parseHeight)
   const sizes = parseRows(parsed.sizes, parseSize)
-  const treatments = parsed.treatments === undefined ? [] : parseRows(parsed.treatments, (r) => r as unknown as Treatment)
-  const doseRecords = parsed.doseRecords === undefined ? [] : parseRows(parsed.doseRecords, (r) => r as unknown as DoseRecord)
-  const appointments = parsed.appointments === undefined ? [] : parseRows(parsed.appointments, (r) => r as unknown as MedicalAppointment)
   let locations: Location[] | null
   if (parsed.locations === undefined) {
     locations = babies?.map((baby) => ({
@@ -191,9 +184,6 @@ export const importJSON = async (file: File): Promise<void> => {
     !heightRecords ||
     !sizes ||
     !locations ||
-    !treatments ||
-    !doseRecords ||
-    !appointments ||
     movements.some((m) => m === null)
   ) {
     throw new Error('El archivo no tiene el formato esperado')
@@ -217,7 +207,7 @@ export const importJSON = async (file: File): Promise<void> => {
 
   await db.transaction(
     'rw',
-    [db.babies, db.movements, db.weights, db.heightRecords, db.sizes, db.locations, db.treatments, db.doseRecords, db.appointments],
+    [db.babies, db.movements, db.weights, db.heightRecords, db.sizes, db.locations],
     async () => {
       await Promise.all([
         db.babies.clear(),
@@ -226,9 +216,6 @@ export const importJSON = async (file: File): Promise<void> => {
         db.heightRecords.clear(),
         db.sizes.clear(),
         db.locations.clear(),
-        db.treatments.clear(),
-        db.doseRecords.clear(),
-        db.appointments.clear(),
       ])
       await db.babies.bulkPut(babies)
       await db.movements.bulkPut(validMovements)
@@ -236,9 +223,6 @@ export const importJSON = async (file: File): Promise<void> => {
       await db.heightRecords.bulkPut(heightRecords)
       await db.sizes.bulkPut(sizes)
       await db.locations.bulkPut(locations)
-      await db.treatments.bulkPut(treatments)
-      await db.doseRecords.bulkPut(doseRecords)
-      await db.appointments.bulkPut(appointments)
     }
   )
 }
