@@ -91,7 +91,7 @@ export class CacotasDB extends Dexie {
       })
     this.version(4).stores(STORES)
     this.version(5).stores(STORES)
-    // Remove the retired medication and appointment stores from existing installs.
+    // Drop obsolete stores so existing installs discard their local health records.
     this.version(6).stores({ ...STORES, treatments: null, doseRecords: null, appointments: null })
   }
 }
