@@ -21,7 +21,6 @@ import { History } from './pages/History/index.tsx'
 import { Settings } from './pages/Settings/index.tsx'
 import { Stats } from './pages/Stats/index.tsx'
 import { Growth } from './pages/Growth/index.tsx'
-import { Health } from './pages/Health/index.tsx'
 import { UpdatePrompt } from './pwa/UpdatePrompt.tsx'
 import { HttpSyncBackend } from './sync/http-backend.ts'
 import { startSyncLoop } from './sync/scheduler.ts'
@@ -239,7 +238,6 @@ const AppRoutes = () => {
           <Route path='/history' element={<History baby={localBaby} />} />
           <Route path='/stats' element={<Stats />} />
           <Route path='/growth' element={<Growth baby={localBaby} />} />
-          <Route path='/health' element={<Health baby={localBaby} />} />
           <Route path='/settings' element={<Settings />} />
           <Route path='*' element={<Navigate to='/' replace />} />
         </Route>
