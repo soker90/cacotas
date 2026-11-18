@@ -687,6 +687,7 @@ const handleSync = async (request: Request, env: Env): Promise<Response> => {
         updatedAt: settingsRow.updated_at,
         deviceId: settingsRow.device_id,
       }
+  return json({ babies, cursors: nextCursors, hasMore, movements, weights, heightRecords, locations, accepted, ...(responseSettings !== undefined ? { settings: responseSettings } : {}) })
 
 }
 
