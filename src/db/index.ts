@@ -9,7 +9,6 @@ import type {
   UUID,
   WeightRecord,
 } from '../../shared/types.ts'
-import type { DoseRecord, MedicalAppointment, Treatment } from '../../shared/health.ts'
 
 const STORES = {
   movements:
@@ -20,9 +19,6 @@ const STORES = {
   heightRecords: 'id, babyId, recordedAt, serverSeq',
   sizes: 'id',
   locations: 'id, updatedAt',
-  treatments: 'id, babyId, status, updatedAt, serverSeq',
-  doseRecords: 'id, babyId, treatmentId, scheduledAt, serverSeq',
-  appointments: 'id, babyId, startsAt, status, updatedAt, serverSeq',
 }
 
 export class CacotasDB extends Dexie {
@@ -32,9 +28,6 @@ export class CacotasDB extends Dexie {
   heightRecords!: Table<HeightRecord, UUID>
   sizes!: Table<DiaperSize, number>
   locations!: Table<Location, UUID>
-  treatments!: Table<Treatment, UUID>
-  doseRecords!: Table<DoseRecord, UUID>
-  appointments!: Table<MedicalAppointment, UUID>
 
   constructor (name = 'cacotas') {
     super(name)
@@ -98,6 +91,8 @@ export class CacotasDB extends Dexie {
       })
     this.version(4).stores(STORES)
     this.version(5).stores(STORES)
+    // Drop obsolete stores so existing installs discard their local health records.
+    this.version(6).stores({ ...STORES, treatments: null, doseRecords: null, appointments: null })
   }
 }
 
